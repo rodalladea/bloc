@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true,"historyCacheSize":0,"includeIndicatorStyles":false}'>
+  <title>bloc · Identity, openly built</title>
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/htmx.min.js" defer></script>
+</head>
+<body>
+  <main>
+    <p class="wordmark">bloc<span aria-hidden="true">.</span></p>
+    <p class="eyebrow">Open-source identity &amp; access management</p>
+    <h1>One place for identity.<br>Built in the open.</h1>
+    <p class="intro">A Rust and HTMX foundation for connecting people, applications, and identity providers.</p>
+    <aside><strong>Early development</strong> · This is a project scaffold. Authentication, token issuance, and provider integrations are not available yet.</aside>
+    <section aria-labelledby="roadmap-title">
+      <h2 id="roadmap-title">Where we’re heading</h2>
+      <div class="cards">
+        <article><p class="eyebrow">Planned</p><h3>OpenID Connect &amp; OAuth</h3><p>Let applications sign users in and request scoped access through bloc.</p></article>
+        <article><p class="eyebrow">Planned</p><h3>Identity providers</h3><p>Configure external providers and offer users a choice of sign-in methods.</p></article>
+        <article><p class="eyebrow">Planned</p><h3>SAML federation</h3><p>Connect enterprise applications and existing identity systems.</p></article>
+      </div>
+    </section>
+    <section aria-labelledby="status-title"><h2 id="status-title">Development server</h2>
+      <div id="server-status" aria-live="polite"><p>Check whether this instance is responding.</p></div>
+      <a class="button" href="/healthz" hx-get="/fragments/status" hx-target="#server-status">Check server status</a>
+    </section>
+    <footer>Apache-2.0 · Rust + HTMX</footer>
+  </main>
+</body>
+</html>

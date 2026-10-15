@@ -1,0 +1,19 @@
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #18332c; background: #f6f7f2; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 1100px; margin: auto; padding: 3rem 1.5rem; }
+.wordmark { font-size: 2rem; font-weight: 850; letter-spacing: -.1em; margin: 0 0 4rem; }
+.wordmark span { color: #457b38; }
+.eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: .75rem; font-weight: 700; }
+h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); letter-spacing: -.055em; line-height: 1.08; margin: 1rem 0; }
+.intro { font-size: 1.2rem; max-width: 42rem; line-height: 1.6; }
+aside { background: #e8eddf; padding: 1rem 1.25rem; border-left: 3px solid #457b38; margin: 2rem 0 3rem; line-height: 1.6; }
+section { margin: 2.5rem 0; }
+h2 { font-size: 1.25rem; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+article { border: 1px solid #cdd6c9; border-radius: .6rem; padding: 1.5rem; }
+article p { line-height: 1.6; }
+.button { display: inline-block; background: #18332c; color: white; text-decoration: none; padding: .85rem 1.2rem; border-radius: .3rem; }
+a:focus-visible { outline: 3px solid #457b38; outline-offset: 4px; }
+footer { margin-top: 4rem; border-top: 1px solid #cdd6c9; padding-top: 1rem; font-size: .85rem; }
+@media (max-width: 700px) { .cards { grid-template-columns: 1fr; } .wordmark { margin-bottom: 2.5rem; } }

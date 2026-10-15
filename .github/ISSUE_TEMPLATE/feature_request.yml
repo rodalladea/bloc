@@ -1,0 +1,31 @@
+name: Feature request
+description: Propose a focused improvement.
+title: 'feat: '
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior and alternatives
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: Behavior examples
+      description: Describe concrete success, rejection, and boundary cases as Given / When / Then. These are proposals until agreed.
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and open questions
+      description: Explain roadmap fit, what is out of scope, and decisions that need discussion. Link existing behavior records or ADRs.
+  - type: textarea
+    id: security
+    attributes:
+      label: Security and compatibility considerations
+      description: Describe trust boundaries or migration needs, without disclosing vulnerabilities.

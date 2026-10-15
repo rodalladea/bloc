@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/rodalladea/bloc/security/advisories/new
+    about: Do not disclose vulnerabilities in public issues. Email rodalladea@catap.io if private reporting is unavailable.
+  - name: Report a code-of-conduct concern privately
+    url: mailto:rodalladea@catap.io
+    about: Contact Rodrigo Dalla Dea privately about community conduct.

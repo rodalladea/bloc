@@ -1,0 +1,27 @@
+name: Bug report
+description: Report a reproducible defect (not a security vulnerability).
+title: 'bug: '
+body:
+  - type: markdown
+    attributes:
+      value: 'For vulnerabilities, follow SECURITY.md. Never include credentials or personal data.'
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Use synthetic data and a minimal example.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Revision, operating system, Rust version, and relevant configuration without secrets.
+    validations:
+      required: true
