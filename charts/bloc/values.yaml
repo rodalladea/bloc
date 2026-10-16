@@ -1,0 +1,21 @@
+replicaCount: 1
+image:
+  repository: ghcr.io/rodalladea/bloc
+  # Required for source-chart tests; release packaging injects the verified digest.
+  digest: ""
+logLevel: info
+resources:
+  requests:
+    cpu: 100m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+nodeSelector: {}
+tolerations: []
+affinity: {}
+ingress:
+  enabled: false
+  className: ""
+  hostname: ""
+  annotations: {}
+  tlsSecretName: ""

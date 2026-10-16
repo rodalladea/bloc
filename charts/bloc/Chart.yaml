@@ -1,0 +1,9 @@
+apiVersion: v2
+name: bloc
+description: Dependency-free bloc HTTP scaffold; identity is not implemented.
+type: application
+version: 0.0.1
+appVersion: "0.0.1"
+home: https://github.com/rodalladea/bloc
+sources:
+  - https://github.com/rodalladea/bloc

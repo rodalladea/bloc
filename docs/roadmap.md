@@ -6,7 +6,9 @@ implemented. Open an issue to refine each milestone before implementation using 
 before treating a milestone as an implementation task.
 
 1. **Foundation (current):** Rust/HTMX scaffold, local development, CI, contributor
-   policies, architecture and security requirements.
+   policies, architecture and security requirements. Initial container/Helm
+   distribution is tracked by [issue #2](https://github.com/rodalladea/bloc/issues/2);
+   public availability depends on its release verification and GHCR bootstrap.
 2. **Identity core:** storage ADR and migrations, tenant isolation, user lifecycle,
    password hashing, verified recovery, sessions, audit events, admin permissions.
 3. **OIDC/OAuth issuer:** client registration and exact redirect validation,

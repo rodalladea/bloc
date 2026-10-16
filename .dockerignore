@@ -1,0 +1,10 @@
+*
+!Dockerfile
+!Cargo.toml
+!Cargo.lock
+!rust-toolchain.toml
+!src/**
+!templates/**
+!assets/**
+!LICENSE
+!THIRD_PARTY_NOTICES.md

@@ -49,6 +49,19 @@ cargo doc --locked --no-deps
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, commits, pull requests, and review.
 Use the [BDD workflow](docs/development-workflow.md) to define feature behavior
 with examples and connect decisions to tests.
+
+## Distribution
+
+Container packaging and the Helm chart target Linux amd64 and arm64, with the
+first unified release version `0.0.1`. See the [installation runbook](docs/install.md)
+for configuration, optional ingress, upgrades, recovery, and uninstall, and the
+[release procedure](docs/releases.md) for publication gates and retry rules.
+Public package availability requires a completed GitHub release; the presence of
+packaging source does not mean a release has been published. The source chart
+requires an explicit image digest; release packaging supplies the verified digest.
+
+The initial cluster exercise baseline is Helm 4.3.1 and Kubernetes 1.36.5.
+Distribution still contains only the scaffold, with no identity features.
 See [AGENTS.md](AGENTS.md) for the AI agent instruction index.
 
 ## Project guide

@@ -1,4 +1,7 @@
 /target/
+/.design/
+/.tasks/
+/.checks/
 .env
 .env.*
 !.env.example
@@ -9,3 +12,11 @@
 .vscode/
 .agents/.skill-lock.json
 .agents/.skill-lock.json.backup
+
+# Local distribution verification output
+/checks-output/
+/evidence/
+/candidate/
+/platforms/
+/platform/
+__pycache__/

@@ -27,19 +27,100 @@ settings; verify them on GitHub when administering the repository:
 
 ## Release procedure
 
-There is no automated publishing and `publish = false` prevents accidental registry
-publication. A maintainer explicitly authorizes each release.
+Distribution targets `ghcr.io/rodalladea/bloc` and
+`oci://ghcr.io/rodalladea/charts/bloc`. The first version is `0.0.1`. Git/image tags
+use `v0.0.1`; Cargo, the bloc lockfile entry, chart version and appVersion use
+`0.0.1`. `publish = false` still prevents crates.io publication. Chart-only changes
+consume a new unified version. No floating image aliases are published.
 
-1. Review security issues, supported features, migration/rollback notes, and known
-   limitations. Confirm private reporting works before any authentication release.
-2. Run all CI checks and dependency audit. Review dependency licenses and notices.
-3. Update Cargo.toml/Cargo.lock together and move Unreleased notes to a versioned,
-   dated changelog section. Use Semantic Versioning; document pre-1.0 breaking changes.
-4. Merge the release PR, tag the reviewed revision `vX.Y.Z`, and publish release
-   notes describing actual capabilities and verification.
-5. If distributing binaries later, add reproducible build instructions, checksums,
-   provenance, and a supported-platform matrix before promising these artifacts.
+The distribution workflow runs on PRs, `main`, and `v*` tags. Only a maintainer's
+complete numeric `vX.Y.Z` tag on a commit belonging to reviewed `main` can enter
+publication. Prerelease, partial, leading-zero and disagreeing versions fail
+admission. Publishing never deploys to an operator's cluster.
 
-CI actions use major-version tags for now. Pin them to reviewed full commit SHAs
-before enabling publishing or workflows that handle secrets; keep pins updated
-through dependency review. Never execute untrusted PR code with privileged tokens.
+Before the first public release, confirm both GHCR package permissions and public
+visibility. The public source repository does not make its packages public.
+A first upload can create a private package: the anonymous gate then fails and
+leaves the release incomplete. Correct visibility and rerun with original evidence.
+This repository change does not itself publish a release or confirm package access.
+
+1. Review the proposed [ADR 0003](adr/0003-initial-distribution.md), behavior
+   evidence, security issues, licenses, and limitations. Authentication remains
+   unimplemented; the first release is explicitly a scaffold.
+2. Set all version fields together and move appropriate Unreleased changelog notes
+   into a dated release section. Review the PR and its distribution checks.
+3. Merge the reviewed source. The maintainer explicitly creates and pushes its
+   numeric version tag. Never create a fake public release to test upgrades.
+4. The tagged revision reruns Rust formatting, lint, tests, documentation and
+   dependency audit. Native amd64 and arm64 jobs build attested OCI artifacts and
+   exercise the exact bytes locally. The combined image is checked for both
+   platforms, provenance and SBOM, then the chart is tested against Helm 4.3.1 /
+   Kubernetes 1.36.5, including a failing upgrade and recovery.
+5. Only after these gates pass does Actions retain the candidate bundle. The
+   publisher inspects existing identities, uploads only missing verified artifacts,
+   verifies all content anonymously, and pulls with Docker on each platform and
+   Helm using empty credential configuration. The GitHub completion record comes
+   last, with revision, version, platforms, tested tool versions, digests, limitations
+   and explicit-version installation/recovery instructions.
+
+See [installation](install.md) for the operator procedures. Local A/B fixtures
+rehearse lifecycle changes before a predecessor exists. Repeat with the actual
+published predecessor at the first feature release. Retain historical packages
+for rollback; retention is not a promise of security support for old releases.
+
+## Partial publication and retries
+
+There is no transaction spanning GHCR and GitHub. An upload may survive a later
+failure. The workflow reports the incomplete stage and preserves available bytes
+and evidence; do not delete or replace those packages to make a rerun pass.
+
+Same-ref workflow concurrency encloses inspection, validation and publication,
+with cancellation disabled. Candidate artifacts are named
+`candidate-vX.Y.Z-<revision>` and retained for 90 days (subject to repository limits).
+Recovery accepts artifacts only from this repository's tag/push distribution
+workflow at the same source revision. Archive integrity, embedded source/version,
+image/chart digests, required checks and the validation baseline are checked again.
+
+- Missing artifacts with no existing version may be built and validated.
+- A partial release with original evidence reuses matching bytes and publishes
+  only missing artifacts. It does not rebuild an uploaded version.
+- A digest/source conflict, missing original evidence for an existing version,
+  or inaccessible registry stops the attempt. Use a new version when original
+  identities cannot be established; never overwrite a version.
+- A matching completed release is verification-only: image digest, chart digest,
+  and release record remain unchanged.
+
+Rerun the original tag workflow through Actions. No manual `workflow_dispatch`
+publication entry point or automatic tag creation is provided. Save the candidate
+bundle and run logs before their retention expires if a recovery may take longer.
+Do not alter the `evidence.json` checklist to bypass a failed validation.
+
+## Automation boundaries and checks
+
+Actions are pinned to full commit SHAs. Preparation has only contents/actions/
+packages reads. Build and cluster validation have no publication writes. Only the
+publisher receives `contents: write` and `packages: write`; its short-lived
+`github.token` supplies registry credentials. It receives no kubeconfig and runs
+no deployment commands. Never run untrusted PR code with publication permissions.
+
+Run the README Rust checks and `cargo audit`. Distribution proofs live in
+`tests/distribution/`; the workflow invokes
+`scripts/distribution/validate.sh` after the two native platform jobs.
+Source checks and the dependency audit run alongside distribution exercises.
+Candidate evidence is written only after both paths succeed. Cluster lifecycle
+checks (including C18) and the disconnected-recovery check (C19) run concurrently
+in separate disposable namespaces; both retain their full five-minute timeouts.
+The launcher waits for both suites and fails if either fails. Logs are retained
+in `evidence/source-validation.log`, `evidence/cluster-lifecycle.log`, and
+`evidence/cluster-recovery.log`, in addition to the combined cluster log.
+`tests/distribution/setup-cluster.sh` creates only disposable kind resources and
+uses a separately owned ingress controller fixture. It requires Docker, the
+pinned Helm/kind clients, kubectl, Python 3.11+, curl and OpenSSL. It does not use a
+production Kubernetes context. Detailed local results and gaps belong in the
+BDD evidence tables, not in a claim that all hosted workflow paths have run.
+
+The OCI adapter follows the [OCI distribution specification](https://github.com/opencontainers/distribution-spec/blob/main/spec.md).
+Action metadata was checked against the official tagged commits; Helm/kind tool
+archives use release-published SHA256 checksums. Review pins and dependency
+updates before changing them. The registry itself can be modified by administrators;
+immutability is enforced by this workflow, not asserted as a registry guarantee.

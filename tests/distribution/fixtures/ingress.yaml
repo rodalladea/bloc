@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bloc-ingress-fixture
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: traefik
+  namespace: bloc-ingress-fixture
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: bloc-test-traefik
+rules:
+  - apiGroups: [""]
+    resources: [services, secrets, nodes]
+    verbs: [get, list, watch]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [get, list, watch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses, ingressclasses]
+    verbs: [get, list, watch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses/status]
+    verbs: [update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: bloc-test-traefik
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: bloc-test-traefik
+subjects:
+  - kind: ServiceAccount
+    name: traefik
+    namespace: bloc-ingress-fixture
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: bloc-test-traefik
+spec:
+  controller: traefik.io/ingress-controller
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traefik
+  namespace: bloc-ingress-fixture
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bloc-test-traefik
+  template:
+    metadata:
+      labels:
+        app: bloc-test-traefik
+    spec:
+      serviceAccountName: traefik
+      containers:
+        - name: traefik
+          image: traefik:v3.7.15@sha256:1daf7eb7aa88e7754b99308fc669ec2b74bc1121f854ec4f334f8271b44d9489
+          args:
+            - --entryPoints.websecure.address=:8443
+            - --entryPoints.websecure.http.tls=true
+            - --providers.kubernetesingress=true
+            - --providers.kubernetesingress.ingressclass=bloc-test-traefik
+          ports:
+            - name: websecure
+              containerPort: 8443
