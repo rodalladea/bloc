@@ -1,0 +1,136 @@
+name: Distribution
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: distribution-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+    outputs:
+      reuse: ${{ steps.original.outputs.reuse }}
+      run_id: ${{ steps.original.outputs.run_id }}
+      candidate: ${{ steps.original.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Admit tag and find original evidence
+        id: original
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: python3 scripts/distribution/prepare.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+  platform:
+    needs: prepare
+    if: needs.prepare.outputs.reuse != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Build attested image on native platform
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p platform/image
+          docker buildx create --name bloc --driver docker-container --driver-opt image=moby/buildkit@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea --use
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml","rb"))["package"]["version"])')
+          docker buildx build --platform "linux/$ARCH" --build-arg "VERSION=$version" --build-arg "REVISION=$GITHUB_SHA" --provenance=mode=max --attest type=sbom,generator=docker/buildkit-syft-scanner@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9 --output type=oci,dest=platform/image.tar .
+          tar -xf platform/image.tar -C platform/image
+          rm platform/image.tar
+      - name: Exercise exact OCI image
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -o pipefail
+          docker run -d --name bloc-test-registry -p 127.0.0.1:5001:5000 registry@sha256:ddf754342cfc8acc51a56d5d0ab6af06826461864460636d8bd5c546dab2a7b8
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:5001/v2/; then break; fi
+            sleep 1
+          done
+          python3 scripts/distribution/platform.py --layout platform/image --platform "linux/$ARCH" | tee platform/smoke.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: platform-${{ matrix.arch }}
+          path: platform/
+          if-no-files-found: error
+          retention-days: 14
+  validate:
+    needs: [prepare, platform]
+    if: ${{ !cancelled() && needs.platform.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: platform-amd64
+          path: platforms/amd64
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: platform-arm64
+          path: platforms/arm64
+      - run: bash scripts/distribution/install-tools.sh
+      - name: Validate tagged source and complete candidate
+        run: bash scripts/distribution/validate.sh
+      - name: Retain original verified bytes before any publication
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ needs.prepare.outputs.candidate || format('candidate-ci-{0}', github.sha) }}
+          path: candidate/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+      - name: Preserve diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: distribution-diagnostics-${{ github.run_attempt }}
+          path: evidence/
+  publish:
+    needs: [prepare, validate]
+    if: ${{ !cancelled() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && needs.prepare.result == 'success' && (needs.validate.result == 'success' || needs.prepare.outputs.reuse == 'true') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      packages: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.prepare.outputs.candidate }}
+          path: candidate
+          run-id: ${{ needs.prepare.outputs.run_id || github.run_id }}
+          github-token: ${{ github.token }}
+      - run: bash scripts/distribution/install-tools.sh
+      - name: Verify and promote without replacement
+        run: python3 scripts/distribution/release.py publish --tag "$GITHUB_REF_NAME" --revision "$GITHUB_SHA" --bundle candidate
+        env:
+          GH_TOKEN: ${{ github.token }}

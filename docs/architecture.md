@@ -14,7 +14,16 @@ user model, provider registry, session store, login flow, or token service.
 
 The listener defaults to loopback. Responses use a restrictive CSP, no-store,
 no-sniff, no-referrer, and frame denial. These are scaffold protections, not a
-complete identity security model. TLS termination and deployment are not set up.
+complete identity security model. Container packaging binds to all interfaces
+inside the container while source startup retains its loopback default.
+
+The Helm chart creates a namespaced Deployment and ClusterIP Service, optionally
+referencing operator-owned ingress/TLS infrastructure. It uses the release's
+multi-platform image digest and requires no persistent storage. Both probes use
+process liveness for this dependency-free scaffold; future dependencies require
+a separate readiness decision. See [ADR 0003](adr/0003-initial-distribution.md)
+(proposed), the [installation runbook](install.md), and [release gates](releases.md).
+Packaging source and local checks do not establish public artifact availability.
 
 ## Planned boundaries
 
