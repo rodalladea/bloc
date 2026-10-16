@@ -205,3 +205,18 @@ verification remains required before CLI consumption and release completion.
 `test_c26_pull_verifies_reported_digest_without_local_repo_digests` and
 `test_c26_pull_rejects_missing_or_conflicting_digest` cover this regression.
 The failure was also reproduced with the published image on Docker 28.5.1.
+
+Recovery verification on 2026-10-16 passed against the retained original bundle:
+source/version, all required validation entries, image provenance/SBOM, chart
+identity, every anonymous registry blob, Docker pulls for both platforms, and
+Helm package-byte equality. The corrected consumer ran locally with empty
+Docker/Helm credential configuration. The maintainer's authorized recovery then
+created the [v0.0.1 release record](https://github.com/rodalladea/bloc/releases/tag/v0.0.1).
+No tag, image, or chart was replaced. The original hosted run remains failed;
+this is a documented local recovery, not a claim that its publisher passed.
+
+Image: `sha256:35fe08468d867beec22d2530f69e008329db06a7455f55f5e75628864d5fa42e`.
+Chart: `sha256:0283630212f6cc0d16d3855885690f21df93f74a422412796007e6e04226ca64`.
+C26 is now verified against public GHCR; together with the existing criterion
+proofs this completes 36/36. Earlier pending-publication statements above are
+historical verification records, superseded by this recovery evidence.
