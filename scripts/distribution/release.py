@@ -82,6 +82,16 @@ def publish(record, image, chart, image_registry, chart_registry, anonymous_imag
     return expected
 
 
+def pull_image(record, platform, env):
+    output = subprocess.check_output(
+        ['docker','pull','--platform',platform,'ghcr.io/rodalladea/bloc:v'+record['version']],
+        env=env, text=True)
+    print(output, end='', flush=True)
+    # RepoDigests can become empty when a second platform replaces the local tag.
+    if re.findall(r'^Digest: (sha256:[0-9a-f]{64})$', output, re.M) != [record['image']]:
+        raise ValueError('anonymous Docker pull digest disagreement')
+
+
 def anonymous_consumption(record, chart):
     import tempfile
     with tempfile.TemporaryDirectory() as temporary:
@@ -94,10 +104,7 @@ def anonymous_consumption(record, chart):
         env['DOCKER_CONFIG'] = temporary
         env['HELM_REGISTRY_CONFIG'] = str(Path(temporary)/'registry.json')
         for platform in ('linux/amd64', 'linux/arm64'):
-            subprocess.run(['docker','pull','--platform',platform,'ghcr.io/rodalladea/bloc:v'+record['version']],env=env,check=True)
-            identities = json.loads(subprocess.check_output(['docker','image','inspect','ghcr.io/rodalladea/bloc:v'+record['version'],'--format','{{json .RepoDigests}}'],env=env,text=True))
-            if 'ghcr.io/rodalladea/bloc@'+record['image'] not in identities:
-                raise ValueError('anonymous Docker pull digest disagreement')
+            pull_image(record, platform, env)
         subprocess.run(['helm','pull','oci://ghcr.io/rodalladea/charts/bloc','--version',record['version'],'--destination',temporary],env=env,check=True)
         manifest=json.loads(chart.read(chart.root()['digest']))
         package=(Path(temporary)/('bloc-'+record['version']+'.tgz')).read_bytes()

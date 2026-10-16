@@ -158,6 +158,18 @@ class ReleaseTests(unittest.TestCase):
             self.assertIsNone(self.completion.record)
             store.private=False
 
+    def test_c26_pull_verifies_reported_digest_without_local_repo_digests(self):
+        output = 'Digest: '+self.record['image']+'\nStatus: Downloaded newer image\n'
+        with patch('release.subprocess.check_output', return_value=output):
+            release.pull_image(self.record, 'linux/arm64', {})
+
+    def test_c26_pull_rejects_missing_or_conflicting_digest(self):
+        for output in ('Status: Downloaded newer image\n', 'Digest: sha256:'+'0'*64+'\n'):
+            with self.subTest(output=output):
+                with patch('release.subprocess.check_output', return_value=output):
+                    with self.assertRaisesRegex(ValueError, 'digest disagreement'):
+                        release.pull_image(self.record, 'linux/arm64', {})
+
     def test_c28_partial_upload_is_preserved(self):
         self.charts.fail=True
         with self.assertRaisesRegex(RuntimeError,'chart upload'):
