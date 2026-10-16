@@ -78,6 +78,6 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj /CN=bloc.example.test \
   -addext subjectAltName=DNS:bloc.example.test -keyout "$fixture_dir/tls.key" -out "$fixture_dir/tls.crt" 2>/dev/null
 kubectl -n bloc-ingress-fixture port-forward deployment/traefik 18443:8443 >"$fixture_dir/forward.log" 2>&1 &
 forward_pid=$!
-python3 -u tests/distribution/cluster.py --image "$image_a" --image-b "$image_b" \
+bash tests/distribution/cluster-suites.sh --image "$image_a" --image-b "$image_b" \
   --ingress-class bloc-test-traefik --ingress-url 127.0.0.1:18443 \
   --tls-cert "$fixture_dir/tls.crt" --tls-key "$fixture_dir/tls.key"

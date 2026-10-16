@@ -141,6 +141,12 @@ Task criterion: 21.
 
 ## Verification
 
+The batched launcher runs C9–C18/C20–C21 and C19 concurrently in separate
+PID-specific namespaces. Only the lifecycle process creates the test Ingress.
+Both processes must succeed; all scenario assertions and five-minute recovery
+budgets are unchanged. `test_parallel.py` verifies concurrent start, complete
+scenario selection, and failure propagation from either process.
+
 | Scenario | Delivery / coverage | Evidence |
 | --- | --- | --- |
 | distribution-helm-01 | Implemented / passed locally | `python3 tests/distribution/cluster.py --check C9 --image "$BLOC_TEST_IMAGE"` with the fixture environment in `.checks/initial-distribution.md`. |
