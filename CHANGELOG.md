@@ -5,6 +5,11 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+### Fixed
+
+- Verify anonymous Docker pulls using the reported registry digest when pulling
+  a second platform clears the local image's `RepoDigests` metadata.
+
 ## 0.0.1 - 2026-10-15
 
 ### Added

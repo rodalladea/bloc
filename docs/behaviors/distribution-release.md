@@ -187,3 +187,21 @@ permission. Both real GHCR packages must pass the workflow's anonymous pulls
 before a GitHub completion record can be created. No publication was authorized
 or performed. C22–C25 and C27–C36 combine executable decision tests with workflow
 contract assertions; they are not evidence that GitHub hosted the workflow yet.
+
+### First publication recovery
+
+The maintainer requested completion of all 36 criteria, merge, and issue closure
+on 2026-10-15. PR #3 was merged and tag `v0.0.1` identifies
+`a13a6adacb3b31a3d54fc862aea1eee3aa2605bd`.
+[Run 38841600719](https://github.com/rodalladea/bloc/actions/runs/38841600719)
+passed native platform and source/cluster validation, then uploaded both artifacts.
+Both anonymous Docker pulls succeeded, but the second platform cleared local
+`RepoDigests` and caused a false verification failure before the Helm pull.
+
+Given a second platform pull clears local `RepoDigests`, when Docker reports the
+verified registry digest, then consumption verification accepts that pull.
+A missing or different reported digest still fails. Full anonymous OCI content
+verification remains required before CLI consumption and release completion.
+`test_c26_pull_verifies_reported_digest_without_local_repo_digests` and
+`test_c26_pull_rejects_missing_or_conflicting_digest` cover this regression.
+The failure was also reproduced with the published image on Docker 28.5.1.
