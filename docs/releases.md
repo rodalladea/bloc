@@ -106,6 +106,13 @@ no deployment commands. Never run untrusted PR code with publication permissions
 Run the README Rust checks and `cargo audit`. Distribution proofs live in
 `tests/distribution/`; the workflow invokes
 `scripts/distribution/validate.sh` after the two native platform jobs.
+Source checks and the dependency audit run alongside distribution exercises.
+Candidate evidence is written only after both paths succeed. Cluster lifecycle
+checks (including C18) and the disconnected-recovery check (C19) run concurrently
+in separate disposable namespaces; both retain their full five-minute timeouts.
+The launcher waits for both suites and fails if either fails. Logs are retained
+in `evidence/source-validation.log`, `evidence/cluster-lifecycle.log`, and
+`evidence/cluster-recovery.log`, in addition to the combined cluster log.
 `tests/distribution/setup-cluster.sh` creates only disposable kind resources and
 uses a separately owned ingress controller fixture. It requires Docker, the
 pinned Helm/kind clients, kubectl, Python 3.11+, curl and OpenSSL. It does not use a

@@ -90,7 +90,7 @@ jobs:
           name: platform-arm64
           path: platforms/arm64
       - run: bash scripts/distribution/install-tools.sh
-      - name: Validate tagged source and complete candidate
+      - name: Validate source and cluster suites in parallel
         run: bash scripts/distribution/validate.sh
       - name: Retain original verified bytes before any publication
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
