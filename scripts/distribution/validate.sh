@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 mkdir -p evidence
+RUSTUP_AUTO_INSTALL=1 rustup show active-toolchain
 printf 'Starting source checks/audit alongside distribution validation.\n'
 bash scripts/distribution/source-checks.sh >evidence/source-validation.log 2>&1 &
 source_pid=$!
