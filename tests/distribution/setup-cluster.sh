@@ -17,6 +17,7 @@ fi
 if ! docker inspect "$registry" >/dev/null 2>&1; then
   docker run -d --restart=unless-stopped -p 127.0.0.1:5001:5000 --name "$registry" registry@sha256:ddf754342cfc8acc51a56d5d0ab6af06826461864460636d8bd5c546dab2a7b8
 fi
+python3 scripts/distribution/wait_registry.py
 if ! docker network inspect kind --format '{{json .Containers}}' | grep -q '"Name":"bloc-test-registry"'; then
   docker network connect kind "$registry"
 fi
