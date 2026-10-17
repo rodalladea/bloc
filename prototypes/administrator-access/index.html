@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>bloc — administrator access preview</title>
+  <link rel="stylesheet" href="preview.css">
+  <script src="preview.js" defer></script>
+</head>
+<body>
+  <aside class="preview-tools" aria-label="Design preview controls">
+    <strong>Planned interface · synthetic data · no authentication</strong>
+    <div class="preview-selects">
+      <label for="screen">Screen <select id="screen"><option value="login">Sign in</option><option value="setup">Setup</option><option value="recovery">Recovery</option><option value="password">Password change</option><option value="home">Administration</option></select></label>
+      <label for="state">State <select id="state"></select></label>
+    </div>
+    <span>Use synthetic values only. Forms make no requests and save nothing.</span>
+  </aside>
+  <header class="site-header"><div class="header-inner"><a class="wordmark" href="#login" aria-label="bloc sign in">bloc</a><span>Administration</span></div></header>
+  <main id="content" tabindex="-1"></main>
+  <footer>bloc · development and evaluation preview</footer>
+  <noscript><p class="no-script">This design viewer needs JavaScript to switch screens. The planned application will support ordinary server-rendered forms without JavaScript.</p></noscript>
+</body>
+</html>
