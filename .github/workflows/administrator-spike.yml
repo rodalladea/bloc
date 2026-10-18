@@ -41,8 +41,8 @@ jobs:
         run: docker build -t bloc-administrator-spike:local tools/administrator-spike
       - name: Check selected dependency APIs on the native runner
         run: cargo test --manifest-path tools/administrator-dependency-probe/Cargo.toml --locked
-      - name: Measure with approved resource bounds
-        run: python3 tools/administrator-spike/run.py --output evidence/administrator-spike
+      - name: Measure explicit allocator comparison with approved resource bounds
+        run: python3 tools/administrator-spike/run.py --mmap-threshold 131072 --output evidence/administrator-spike
       - name: Preserve raw results, including partial failures
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

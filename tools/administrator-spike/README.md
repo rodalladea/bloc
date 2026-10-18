@@ -23,6 +23,13 @@ container is removed. A targeted retry can use repeated `--case` arguments in a
 new output directory; selected-case runs are explicitly identified in metadata
 and must not be presented as a clean full-matrix run.
 
+Use `--mmap-threshold 131072` for a separately named allocator comparison.
+It passes `MALLOC_MMAP_THRESHOLD_=131072` to each container and records the
+setting in environment metadata and the inspected container environment.
+Omitting the flag preserves the original allocator environment and resource
+limits. A comparison does not replace or erase the original OOM evidence.
+Runner tests: `python3 -m unittest discover -s tools/administrator-spike -p 'test_*.py' -v`.
+
 The synthetic verification fixture uses a fixed salt. Every measured new hash
 uses fresh operating-system randomness. No supplied credentials are accepted,
 and passwords and PHC encodings are not emitted.
