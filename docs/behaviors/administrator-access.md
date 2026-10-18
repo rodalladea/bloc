@@ -192,7 +192,7 @@ Then ownership and code consumption both roll back and the code remains usable.
 | administrator-storage-03 | Automated independent connections | `tests/setup_storage.rs::competing_claims`; `claim_and_replacement_serialize`; `unusable_codes`; `expiry_after_lock`; `audit_failure_rolls_back` |
 
 These tests use disposable TLS PostgreSQL 17 and 18 via
-`python3 tools/administrator-setup-tests.py --output <new-directory>`.
+`python3 tests/run_storage.py --output <new-directory>`.
 Administrator-access-01/02/03/08 have storage-level coverage only; all their HTTP,
 browser and two-service assertions remain unverified. The remaining interview
 scenarios remain planned. These are checklist-derived tests added in the same

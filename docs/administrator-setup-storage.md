@@ -89,12 +89,14 @@ With Docker, Python 3, OpenSSL and the pinned Rust toolchain:
 ```sh
 docker pull postgres:17.11-bookworm
 docker pull postgres:18.6-bookworm
-python3 tools/administrator-setup-tests.py --output /tmp/bloc-setup-new
+python3 tests/run_storage.py --output /tmp/bloc-setup-new
 ```
 
-The runner reuses disposable TLS fixtures from the dependency probe, binds only
+The runner uses shared test fixtures in `tests/support/postgres.py`, binds only
 loopback random ports, creates synthetic role-separated databases and runs all
-ten named live proofs per major. It records server/image identity and output,
+fourteen named live proofs per major, including trusted TLS, untrusted CA,
+hostname mismatch and plaintext refusal through the application adapter.
+It records server/image identity and output,
 fails if any named proof was omitted, and removes containers/volumes/keys on exit.
 Regular `cargo test --locked --all-targets` marks these live tests ignored; it does
 not substitute for the fixture runner. This delivery changes no chart/startup

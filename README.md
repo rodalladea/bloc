@@ -52,6 +52,17 @@ cargo test --locked --all-targets
 cargo doc --locked --no-deps
 ```
 
+PostgreSQL integration tests use disposable Docker fixtures:
+
+```sh
+docker pull postgres:17.11-bookworm
+docker pull postgres:18.6-bookworm
+python3 tests/run_storage.py --output /tmp/bloc-storage-new
+```
+
+See the [storage runbook](docs/administrator-setup-storage.md#verification) for
+fixture requirements. Previews and one-off experiments are kept outside this repository.
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, commits, pull requests, and review.
 Use the [BDD workflow](docs/development-workflow.md) to define feature behavior
 with examples and connect decisions to tests.

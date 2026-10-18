@@ -1,15 +1,10 @@
-"""Run SQLx TLS prerequisite tests against disposable PostgreSQL 17/18 fixtures."""
+"""Disposable TLS PostgreSQL fixtures for application integration tests."""
 
-import argparse
 import json
-import os
-from pathlib import Path
 import subprocess
-import tempfile
 import time
 
 
-PACKAGE = Path(__file__).resolve().parent
 IMAGES = ("postgres:17.11-bookworm", "postgres:18.6-bookworm")
 
 
@@ -71,50 +66,3 @@ def start_fixture(image, directory, name, containers):
             return binding[0]["HostPort"]
         time.sleep(0.25)
     raise RuntimeError(f"PostgreSQL {name} fixture readiness timed out")
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", required=True, type=Path)
-    args = parser.parse_args()
-    args.output.mkdir(parents=True, exist_ok=False)
-    results = []
-    for major, image in zip((17, 18), IMAGES):
-        subprocess.run(["docker", "pull", image], check=True)
-        identity = json.loads(command("docker", "image", "inspect", image))[0]
-        containers = []
-        try:
-            with tempfile.TemporaryDirectory(prefix="bloc-postgres-tls-") as temporary:
-                directory = Path(temporary)
-                certificate(directory, "ca")
-                certificate(directory, "other-ca")
-                certificate(directory, "matching", "127.0.0.1")
-                certificate(directory, "wrong-name", "127.0.0.2")
-                ports = [start_fixture(identity["Id"], directory, name, containers)
-                         for name in ("matching", "wrong-name", "plain")]
-                environment = os.environ | {
-                    "BLOC_PROBE_MAJOR": str(major), "BLOC_PROBE_CA": str(directory / "ca.crt"),
-                    "BLOC_PROBE_OTHER_CA": str(directory / "other-ca.crt"),
-                    "BLOC_PROBE_TLS_PORT": ports[0], "BLOC_PROBE_WRONG_NAME_PORT": ports[1],
-                    "BLOC_PROBE_PLAIN_PORT": ports[2],
-                }
-                version = command("docker", "exec", containers[0], "psql", "-U", "probe",
-                                  "-d", "probe", "-Atc", "SHOW server_version")
-                with (args.output / f"postgres-{major}.txt").open("w") as output:
-                    run = subprocess.run(["cargo", "test", "--manifest-path", str(PACKAGE / "Cargo.toml"),
-                                          "--locked", "--test", "tls_live", "--", "--ignored", "--nocapture"],
-                                         env=environment, stdout=output, stderr=subprocess.STDOUT)
-                print((args.output / f"postgres-{major}.txt").read_text(), flush=True)
-                results.append({"major": major, "server_version": version,
-                                "image": image, "image_id": identity["Id"],
-                                "repo_digests": identity["RepoDigests"], "exit_code": run.returncode})
-                (args.output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
-                run.check_returncode()
-        finally:
-            for container in containers:
-                subprocess.run(["docker", "rm", "--force", "--volumes", container], check=True,
-                               stdout=subprocess.DEVNULL)
-
-
-if __name__ == "__main__":
-    main()

@@ -1,23 +1,21 @@
-"""Prove setup storage and CLI on disposable TLS PostgreSQL 17 and 18."""
+"""Run storage, operator CLI and TLS regression tests on PostgreSQL 17 and 18."""
 
 import argparse
-import importlib.util
 import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
 
-ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location(
-    "tls_fixtures", ROOT / "tools/administrator-dependency-probe/live.py")
-fixtures = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(fixtures)
+from support import postgres as fixtures
 
+ROOT = Path(__file__).resolve().parents[1]
 TESTS = (
     "migration_contract", "capability_roles", "issue_and_replace", "unusable_codes",
     "competing_claims", "audit_failure_rolls_back", "expiry_after_lock",
     "authority_failure", "durable_output_and_failures", "claim_and_replacement_serialize",
+    "verified_tls_connects_to_expected_major", "untrusted_ca_is_rejected",
+    "wrong_hostname_is_rejected", "plaintext_server_is_rejected",
 )
 
 ROLES = """
@@ -48,16 +46,23 @@ def main():
             with tempfile.TemporaryDirectory(prefix="bloc-setup-fixture-") as temporary:
                 directory = Path(temporary)
                 fixtures.certificate(directory, "ca")
+                fixtures.certificate(directory, "other-ca")
                 fixtures.certificate(directory, "matching", "127.0.0.1")
-                port = fixtures.start_fixture(identity["Id"], directory, "matching", containers)
+                fixtures.certificate(directory, "wrong-name", "127.0.0.2")
+                ports = [fixtures.start_fixture(identity["Id"], directory, name, containers)
+                         for name in ("matching", "wrong-name", "plain")]
                 subprocess.run(["docker", "exec", "-i", containers[0], "psql", "-U", "probe",
                                 "-d", "probe", "-v", "ON_ERROR_STOP=1"],
                                input=ROLES, text=True, check=True, capture_output=True)
                 environment = os.environ | {
-                    "BLOC_SETUP_PORT": port, "BLOC_SETUP_CA": str(directory / "ca.crt"),
+                    "BLOC_SETUP_MAJOR": str(major),
+                    "BLOC_SETUP_PORT": ports[0], "BLOC_SETUP_CA": str(directory / "ca.crt"),
+                    "BLOC_SETUP_OTHER_CA": str(directory / "other-ca.crt"),
+                    "BLOC_SETUP_WRONG_NAME_PORT": ports[1], "BLOC_SETUP_PLAIN_PORT": ports[2],
                 }
                 run = subprocess.run(["cargo", "test", "--locked", "--test", "setup_storage",
-                                      "--test", "operator", "--", "--ignored", "--test-threads=1"],
+                                      "--test", "operator", "--test", "storage_tls",
+                                      "--", "--ignored", "--test-threads=1"],
                                      cwd=ROOT, env=environment, capture_output=True, text=True)
                 output = run.stdout + run.stderr
                 (args.output / f"postgres-{major}.txt").write_text(output)

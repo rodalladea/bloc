@@ -89,7 +89,7 @@ async fn invoke(f: &Fixture, user: &str, args: &[&str], suffix: &str) -> Output 
 }
 
 #[tokio::test]
-#[ignore = "requires disposable TLS PostgreSQL; run tools/administrator-setup-tests.py"]
+#[ignore = "requires disposable TLS PostgreSQL; run tests/run_storage.py"]
 async fn durable_output_and_failures() {
     let f = Fixture::new("cli").await;
     let migration = invoke(&f, "migrator_user", &["database", "migrate"], "migration").await;

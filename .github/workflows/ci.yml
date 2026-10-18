@@ -25,8 +25,6 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo test --locked --all-targets
-      - name: Test isolated administrator hashing runner
-        run: python3 -m unittest discover -s tools/administrator-spike -p 'test_*.py' -v
       - name: Documentation
         run: cargo doc --locked --no-deps
         env:
@@ -42,8 +40,8 @@ jobs:
         run: |
           docker pull postgres:17.11-bookworm
           docker pull postgres:18.6-bookworm
-      - name: Verify setup storage on PostgreSQL 17 and 18
-        run: python3 tools/administrator-setup-tests.py --output evidence/setup-storage
+      - name: Verify storage and TLS on PostgreSQL 17 and 18
+        run: python3 tests/run_storage.py --output evidence/setup-storage
   pr-title:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest

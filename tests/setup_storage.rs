@@ -5,7 +5,7 @@ use common::{EMAIL, Fixture, HASH};
 use sqlx::Row;
 
 #[tokio::test]
-#[ignore = "requires disposable TLS PostgreSQL; run tools/administrator-setup-tests.py"]
+#[ignore = "requires disposable TLS PostgreSQL; run tests/run_storage.py"]
 async fn migration_contract() {
     let f = Fixture::new("migration").await;
     f.migrator.migrate().await.unwrap();
@@ -33,7 +33,7 @@ async fn migration_contract() {
 }
 
 #[tokio::test]
-#[ignore = "requires disposable TLS PostgreSQL; run tools/administrator-setup-tests.py"]
+#[ignore = "requires disposable TLS PostgreSQL; run tests/run_storage.py"]
 async fn capability_roles() {
     let f = Fixture::new("roles").await;
     assert_eq!(
@@ -80,7 +80,7 @@ async fn capability_roles() {
 }
 
 #[tokio::test]
-#[ignore = "requires disposable TLS PostgreSQL; run tools/administrator-setup-tests.py"]
+#[ignore = "requires disposable TLS PostgreSQL; run tests/run_storage.py"]
 async fn issue_and_replace() {
     let f = Fixture::new("replace").await;
     let expiry = f
@@ -159,7 +159,7 @@ async fn issue_and_replace() {
 }
 
 #[tokio::test]
-#[ignore = "requires disposable TLS PostgreSQL; run tools/administrator-setup-tests.py"]
+#[ignore = "requires disposable TLS PostgreSQL; run tests/run_storage.py"]
 async fn unusable_codes() {
     let f = Fixture::new("unusable").await;
     f.operator.issue_setup_code(&[1; 32]).await.unwrap();
@@ -207,7 +207,7 @@ async fn unusable_codes() {
 }
 
 #[tokio::test]
-#[ignore = "requires disposable TLS PostgreSQL; run tools/administrator-setup-tests.py"]
+#[ignore = "requires disposable TLS PostgreSQL; run tests/run_storage.py"]
 async fn competing_claims() {
     let f = Fixture::new("race").await;
     f.operator.issue_setup_code(&[1; 32]).await.unwrap();
@@ -232,7 +232,7 @@ async fn competing_claims() {
 }
 
 #[tokio::test]
-#[ignore = "requires disposable TLS PostgreSQL; run tools/administrator-setup-tests.py"]
+#[ignore = "requires disposable TLS PostgreSQL; run tests/run_storage.py"]
 async fn claim_and_replacement_serialize() {
     for issuance_first in [true, false] {
         let name = if issuance_first {
@@ -303,7 +303,7 @@ async fn claim_and_replacement_serialize() {
 }
 
 #[tokio::test]
-#[ignore = "requires disposable TLS PostgreSQL; run tools/administrator-setup-tests.py"]
+#[ignore = "requires disposable TLS PostgreSQL; run tests/run_storage.py"]
 async fn audit_failure_rolls_back() {
     let f = Fixture::new("audit").await;
     f.operator.issue_setup_code(&[1; 32]).await.unwrap();
@@ -333,7 +333,7 @@ async fn audit_failure_rolls_back() {
 }
 
 #[tokio::test]
-#[ignore = "requires disposable TLS PostgreSQL; run tools/administrator-setup-tests.py"]
+#[ignore = "requires disposable TLS PostgreSQL; run tests/run_storage.py"]
 async fn expiry_after_lock() {
     let f = Fixture::new("lockexpiry").await;
     f.operator.issue_setup_code(&[1; 32]).await.unwrap();
@@ -365,7 +365,7 @@ async fn expiry_after_lock() {
 }
 
 #[tokio::test]
-#[ignore = "requires disposable TLS PostgreSQL; run tools/administrator-setup-tests.py"]
+#[ignore = "requires disposable TLS PostgreSQL; run tests/run_storage.py"]
 async fn authority_failure() {
     let f = Fixture::new("authority").await;
     #[derive(Clone)]

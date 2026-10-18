@@ -1,10 +1,19 @@
-//! Run through live.py: every fixture is ephemeral and contains synthetic data.
+//! Regression tests for verified PostgreSQL transport; run tests/run_storage.py.
 
+use bloc::storage::{Error, Storage};
 use sqlx::{
     Connection, PgConnection,
     postgres::{PgConnectOptions, PgSslMode},
 };
-use std::{env, time::Duration};
+use std::{env, path::Path, time::Duration};
+
+async fn application_connection(port_variable: &str, ca_variable: &str) -> Result<Storage, Error> {
+    let url = format!(
+        "postgres://probe:synthetic-probe-only@127.0.0.1:{}/probe",
+        env::var(port_variable).unwrap()
+    );
+    Storage::connect(&url, Path::new(&env::var(ca_variable).unwrap())).await
+}
 
 fn options(port_variable: &str, ca_variable: &str) -> PgConnectOptions {
     PgConnectOptions::new()
@@ -24,9 +33,14 @@ async fn connect(options: PgConnectOptions) -> Result<PgConnection, sqlx::Error>
 }
 
 #[tokio::test]
-#[ignore = "requires live.py disposable PostgreSQL fixtures"]
+#[ignore = "requires tests/run_storage.py disposable PostgreSQL fixtures"]
 async fn verified_tls_connects_to_expected_major() {
-    let mut connection = connect(options("BLOC_PROBE_TLS_PORT", "BLOC_PROBE_CA"))
+    assert!(
+        application_connection("BLOC_SETUP_PORT", "BLOC_SETUP_CA")
+            .await
+            .is_ok()
+    );
+    let mut connection = connect(options("BLOC_SETUP_PORT", "BLOC_SETUP_CA"))
         .await
         .expect("trusted matching server must connect");
     let (version, ssl): (String, bool) = sqlx::query_as(
@@ -35,16 +49,20 @@ async fn verified_tls_connects_to_expected_major() {
     .fetch_one(&mut connection)
     .await
     .unwrap();
-    let expected: u32 = env::var("BLOC_PROBE_MAJOR").unwrap().parse().unwrap();
+    let expected: u32 = env::var("BLOC_SETUP_MAJOR").unwrap().parse().unwrap();
     assert_eq!(version.parse::<u32>().unwrap() / 10000, expected);
     assert!(ssl, "backend must report an encrypted connection");
     connection.close().await.unwrap();
 }
 
 #[tokio::test]
-#[ignore = "requires live.py disposable PostgreSQL fixtures"]
+#[ignore = "requires tests/run_storage.py disposable PostgreSQL fixtures"]
 async fn untrusted_ca_is_rejected() {
-    let result = connect(options("BLOC_PROBE_TLS_PORT", "BLOC_PROBE_OTHER_CA")).await;
+    assert!(matches!(
+        application_connection("BLOC_SETUP_PORT", "BLOC_SETUP_OTHER_CA").await,
+        Err(Error::Unavailable)
+    ));
+    let result = connect(options("BLOC_SETUP_PORT", "BLOC_SETUP_OTHER_CA")).await;
     let Err(sqlx::Error::Io(error)) = result else {
         panic!("untrusted CA must fail certificate verification: {result:?}");
     };
@@ -56,9 +74,13 @@ async fn untrusted_ca_is_rejected() {
 }
 
 #[tokio::test]
-#[ignore = "requires live.py disposable PostgreSQL fixtures"]
+#[ignore = "requires tests/run_storage.py disposable PostgreSQL fixtures"]
 async fn wrong_hostname_is_rejected() {
-    let result = connect(options("BLOC_PROBE_WRONG_NAME_PORT", "BLOC_PROBE_CA")).await;
+    assert!(matches!(
+        application_connection("BLOC_SETUP_WRONG_NAME_PORT", "BLOC_SETUP_CA").await,
+        Err(Error::Unavailable)
+    ));
+    let result = connect(options("BLOC_SETUP_WRONG_NAME_PORT", "BLOC_SETUP_CA")).await;
     let Err(sqlx::Error::Io(error)) = result else {
         panic!("trusted certificate for another IP must fail TLS: {result:?}");
     };
@@ -70,9 +92,13 @@ async fn wrong_hostname_is_rejected() {
 }
 
 #[tokio::test]
-#[ignore = "requires live.py disposable PostgreSQL fixtures"]
+#[ignore = "requires tests/run_storage.py disposable PostgreSQL fixtures"]
 async fn plaintext_server_is_rejected() {
-    let result = connect(options("BLOC_PROBE_PLAIN_PORT", "BLOC_PROBE_CA")).await;
+    assert!(matches!(
+        application_connection("BLOC_SETUP_PLAIN_PORT", "BLOC_SETUP_CA").await,
+        Err(Error::Unavailable)
+    ));
+    let result = connect(options("BLOC_SETUP_PLAIN_PORT", "BLOC_SETUP_CA")).await;
     let Err(sqlx::Error::Tls(error)) = result else {
         panic!("VerifyFull must refuse a server without TLS");
     };
