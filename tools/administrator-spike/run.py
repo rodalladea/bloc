@@ -79,7 +79,7 @@ def main():
         "source_sha256": hashlib.sha256(Path(__file__).with_name("src").joinpath("main.rs").read_bytes()).hexdigest(),
         "cpu_limit": 1, "memory_bytes": 536870912, "swap_bytes": 0,
         "mmap_threshold": args.mmap_threshold,
-        "scope": "synthetic microbenchmark only; no HTTP, database, blocklist, or service overload evidence",
+        "scope": "synthetic microbenchmark only; no HTTP, database, or service overload evidence",
         "selected_cases": sorted(set(args.case)) if args.case else case_names,
     }
     (args.output / "environment.json").write_text(json.dumps(metadata, indent=2) + "\n")

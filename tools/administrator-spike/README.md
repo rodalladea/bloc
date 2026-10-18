@@ -35,7 +35,7 @@ uses fresh operating-system randomness. No supplied credentials are accepted,
 and passwords and PHC encodings are not emitted.
 
 These results cover primitive hashing and verification only. They do not settle
-HTTP latency, database authority, CSRF, blocklist lookup cost, service admission,
+HTTP latency, database authority, CSRF, service admission,
 health under overload or production readiness. Docker Desktop measurements are
 virtualized native-architecture evidence, not a hardware capacity guarantee.
 Native Linux amd64 evidence is required separately from Linux arm64 evidence.

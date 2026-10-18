@@ -25,10 +25,8 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo test --locked --all-targets
-      - name: Test isolated administrator preparation tools
-        run: |
-          python3 -m unittest discover -s tools/administrator-corpus -v
-          python3 -m unittest discover -s tools/administrator-spike -p 'test_*.py' -v
+      - name: Test isolated administrator hashing runner
+        run: python3 -m unittest discover -s tools/administrator-spike -p 'test_*.py' -v
       - name: Documentation
         run: cargo doc --locked --no-deps
         env:
