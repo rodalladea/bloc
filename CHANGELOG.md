@@ -5,6 +5,12 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+### Added
+
+- Internal PostgreSQL setup storage, explicit migrations, restricted operator
+  setup-code command, and atomic owner/audit transactions with live role and
+  concurrency tests. Browser setup and authentication remain unimplemented.
+
 ### Fixed
 
 - Verify anonymous Docker pulls using the reported registry digest when pulling

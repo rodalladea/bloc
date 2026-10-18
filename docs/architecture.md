@@ -9,8 +9,10 @@ Connect adds authentication. SAML federation is a separate planned protocol surf
 
 One Rust package uses Axum and Tokio. `main.rs` owns process startup and shutdown;
 `lib.rs` builds a testable router. HTML and assets are embedded at compile time.
-HTMX enhances a status link by fetching an HTML fragment. There is no database,
-user model, provider registry, session store, login flow, or token service.
+HTMX enhances a status link by fetching an HTML fragment. The HTTP router has no
+database dependency, provider registry, session store, login flow, or token service. An internal setup
+storage module and explicit migration/operator commands now target PostgreSQL
+17/18; no HTTP route consumes them yet. See the [storage runbook](administrator-setup-storage.md).
 
 The listener defaults to loopback. Responses use a restrictive CSP, no-store,
 no-sniff, no-referrer, and frame denial. These are scaffold protections, not a
@@ -34,8 +36,10 @@ Packaging source and local checks do not establish public artifact availability.
 - Web: server-rendered admin and login pages, HTMX fragments, HTTP APIs.
 
 These are boundaries to establish as features land, not empty crates to generate.
-Persistent storage, tenancy semantics, migration tooling, and library choices
-require separate ADRs. PostgreSQL is a candidate, not an existing requirement.
+Tenancy and protocol boundaries require separate ADRs. The planned administrator
+increment selects shared PostgreSQL; proposed [ADR 0004](adr/0004-initial-administrator-access.md)
+records its setup schema, SQLx migration and privilege boundaries. The scaffold
+HTTP server remains database-free until that integration lands.
 
 Provider selection will be driven by enabled, validated configurations scoped to
 a tenant. Provider secrets remain server-side. Explicit account-linking policy

@@ -1,5 +1,8 @@
 //! bloc's HTTP application. Identity protocols are planned, not implemented.
 
+pub mod operator;
+pub mod storage;
+
 use axum::{
     Router,
     extract::Request,

@@ -5,10 +5,16 @@ Open-source identity and access management, built with Rust and HTMX.
 bloc aims to provide centralized login, configurable identity providers, OpenID
 Connect, OAuth authorization for third-party applications, and SAML federation.
 
-**Status: initial scaffold.** The HTTP server, development landing page, HTMX
-status interaction, and liveness endpoint work. Authentication, users, storage,
-provider configuration, token issuance, and SAML are **not implemented**. Do not
+**Status: HTTP scaffold with internal setup storage.** The HTTP server,
+development landing page, HTMX status interaction, and liveness endpoint work.
+Browser authentication, user management, provider configuration, token issuance,
+and SAML are **not implemented**. Do not
 use this scaffold to protect applications or process real credentials.
+
+Internal administrator setup storage, explicit migrations and an operator
+setup-code command are available for integration work. No browser setup or
+authentication route is exposed. See the [setup storage runbook](docs/administrator-setup-storage.md)
+for separate database roles, configuration and live PostgreSQL tests.
 
 ## Run locally
 
