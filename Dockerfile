@@ -4,6 +4,7 @@ COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY src ./src
 COPY templates ./templates
 COPY assets ./assets
+COPY migrations ./migrations
 RUN cargo build --locked --release
 
 FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
