@@ -14,8 +14,6 @@ jobs:
     uses: ./.github/workflows/administrator-service-capacity.yml
   check:
     needs: native-capacity
-    env:
-      BLOC_NATIVE_SERVICE_EVIDENCE: ${{ runner.temp }}/native-service.json
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -38,6 +36,8 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo test --locked --all-targets
+        env:
+          BLOC_NATIVE_SERVICE_EVIDENCE: ${{ runner.temp }}/native-service.json
       - name: Documentation
         run: cargo doc --locked --no-deps
         env:
