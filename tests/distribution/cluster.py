@@ -4,6 +4,7 @@ import argparse
 import contextlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import socket
@@ -93,11 +94,32 @@ def exercise(args):
             for name,version_number in [('A','0.0.1'),('B','0.0.2')]:
                 chart=tmp/name
                 shutil.copytree('charts/bloc',chart)
-                text=(chart/'Chart.yaml').read_text().replace('version: 0.0.1','version: '+version_number).replace('appVersion: "0.0.1"','appVersion: "'+version_number+'"')
+                text=re.sub(r'^(version|appVersion):.*$', lambda match: match[1]+': "'+version_number+'"', (chart/'Chart.yaml').read_text(), flags=re.M)
                 (chart/'Chart.yaml').write_text(text)
                 (chart/'values.yaml').write_text((chart/'values.yaml').read_text().replace('digest: \"\"','digest: '+(digest_a if name=='A' else digest_b)))
                 command(helm,'package',str(chart),'--destination',str(tmp))
                 packages[name]=str(tmp/f'bloc-{version_number}.tgz')
+            if 'C17' in checks:
+                # Exercise the published scaffold separately from the local A/B fixtures.
+                predecessor=tmp/'predecessor'
+                predecessor.mkdir()
+                command(helm,'pull','oci://ghcr.io/rodalladea/charts/bloc',
+                        '--version','0.0.1','--destination',str(predecessor))
+                h('install','fixture',str(predecessor/'bloc-0.0.1.tgz'),
+                  '--wait=watcher','--timeout','5m')
+                previous='ghcr.io/rodalladea/bloc@sha256:35fe08468d867beec22d2530f69e008329db06a7455f55f5e75628864d5fa42e'
+                assert deployment()['spec']['template']['spec']['containers'][0]['image']==previous
+                verify_http()
+                h('upgrade','fixture',packages['A'],'--values',str(values),
+                  '--wait=watcher','--timeout','5m','--rollback-on-failure')
+                assert deployment()['spec']['template']['spec']['containers'][0]['image']==repository+'@'+digest_a
+                assert ready()
+                verify_http()
+                h('rollback','fixture','1','--wait=watcher','--timeout','5m')
+                assert deployment()['spec']['template']['spec']['containers'][0]['image']==previous
+                verify_http()
+                h('uninstall','fixture','--wait=watcher','--timeout','5m')
+                print('Published v0.0.1 predecessor: install, upgrade to administrator image and rollback passed')
             h('install','fixture',packages['A'],'--version','0.0.1','--values',str(values),'--wait=watcher','--timeout','5m')
             verify_http()
             dep=deployment(); spec=dep['spec']['template']['spec']; container=spec['containers'][0]

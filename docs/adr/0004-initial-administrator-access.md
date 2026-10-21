@@ -135,7 +135,7 @@ Evidence considered:
 Architectural acceptance does not waive release validation. The retained native
 capacity evidence measures application fingerprint
 `dfb7a42dbd58b614015d36290ff80551b9488d8d4854afd334bb61d9fb08091b`;
-the F1 fix changes the current fingerprint to
+the F1 head at acceptance has fingerprint
 `da99e64cff11267e3688091a6f21a422ee1f8ceb7f04a2b70a7c006829478c4b`.
 Fresh source-matched native amd64/arm64 capacity evidence and the complete
 Distribution gates are required before publication. Earlier browser and cluster

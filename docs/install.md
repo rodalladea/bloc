@@ -19,27 +19,27 @@ Use the actual verification evidence linked from the release notes.
 
 ## Container
 
-After the `v0.0.1` release is complete, an anonymous client can run:
+After the `v0.1.0` release is complete, an anonymous client can run:
 
 ```sh
-docker pull ghcr.io/rodalladea/bloc:v0.0.1
+docker pull ghcr.io/rodalladea/bloc:v0.1.0
 docker run --rm --name bloc --read-only --cap-drop ALL \
-  --security-opt no-new-privileges -p 127.0.0.1:3000:3000 \
+  --security-opt no-new-privileges -p 127.0.1.0:3000:3000 \
   --mount type=bind,src="$PWD/runtime-secrets",dst=/run/bloc,readonly \
   --env BLOC_DATABASE_URL_FILE=/run/bloc/runtime-url \
   --env BLOC_DATABASE_CA_FILE=/run/bloc/ca.crt \
   --env BLOC_ABUSE_KEY_FILE=/run/bloc/abuse-key \
   --env BLOC_CANONICAL_ORIGIN=https://bloc.example.test \
-  --env BLOC_TRUSTED_PROXY_CIDRS=127.0.0.1/32 \
+  --env BLOC_TRUSTED_PROXY_CIDRS=127.0.1.0/32 \
   --env MALLOC_MMAP_THRESHOLD_=131072 --cpus 1 --memory 512m --memory-swap 512m \
-  ghcr.io/rodalladea/bloc:v0.0.1
+  ghcr.io/rodalladea/bloc:v0.1.0
 ```
 
-In another terminal, `curl --fail http://127.0.0.1:3000/healthz` returns `ok`
+In another terminal, `curl --fail http://127.0.1.0:3000/healthz` returns `ok`
 and a newline. The image defaults to non-root execution, `0.0.0.0:3000`, and
 `RUST_LOG=info`. Override `BLOC_BIND_ADDR` and `RUST_LOG` with Docker `--env`;
 when changing the listener port, change the port mapping too. Source execution
-still defaults to `127.0.0.1:3000`. A shared primary and a runtime-only `runtime-secrets` directory are required; no
+still defaults to `127.0.1.0:3000`. A shared primary and a runtime-only `runtime-secrets` directory are required; no
 writable application filesystem is required. Configure the actual immediate proxy
 CIDRs (container peers may differ from host loopback). Stop with
 `docker stop --timeout 30 bloc`.
@@ -69,11 +69,11 @@ Keep image overrides out of ordinary saved values so an upgrade selects the new
 chart's image. The source chart deliberately has an empty digest and requires an
 explicit real test digest; it is not a releasable package as checked out.
 
-Once `0.0.1` is published:
+Once `0.1.0` is published:
 
 ```sh
 helm install bloc oci://ghcr.io/rodalladea/charts/bloc \
-  --version 0.0.1 --namespace bloc --create-namespace \
+  --version 0.1.0 --namespace bloc --create-namespace \
   --values bloc-values.yaml --wait=watcher --timeout 5m
 kubectl --namespace bloc get deployment bloc-bloc
 kubectl --namespace bloc port-forward service/bloc-bloc 3000:80
@@ -82,8 +82,8 @@ kubectl --namespace bloc port-forward service/bloc-bloc 3000:80
 In another terminal:
 
 ```sh
-curl --fail http://127.0.0.1:3000/healthz
-curl --fail http://127.0.0.1:3000/readyz
+curl --fail http://127.0.1.0:3000/healthz
+curl --fail http://127.0.1.0:3000/readyz
 ```
 
 The default chart creates a namespaced Deployment and ClusterIP Service, without
