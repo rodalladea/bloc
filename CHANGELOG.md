@@ -5,6 +5,14 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+### Added
+
+- Administrator-only tenant and tenant-user directory management with immutable
+  identities, tenant-local email uniqueness, independent suspension/reactivation,
+  version conflicts, guarded PostgreSQL authority and atomic targeted audit events.
+  Directory records do not authenticate users. Requires explicit migration 0003;
+  old and new binaries cannot share an incompatible schema contract.
+
 ## 0.1.1 - 2026-10-21
 
 ### Changed

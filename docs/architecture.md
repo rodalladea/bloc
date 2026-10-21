@@ -30,9 +30,17 @@ compatibility and `/healthz` for liveness, and separates optional operational Jo
 and operator Pod credentials. Full-service native capacity remains acceptance work;
 no production readiness or identity-protocol conformance is claimed.
 
+Independent tenant/user directories extend this guarded authority model. Each
+user has immutable tenant ownership, tenant-local canonical email uniqueness and
+independent lifecycle status. Reads and atomic directory/audit mutations recheck
+current administrator authority under the installation lock. See
+[ADR 0005](adr/0005-tenant-user-directories.md) and the
+[directory runbook](tenant-user-management.md). These records do not authenticate
+application users.
+
 ## Planned boundaries
 
-- Domain: tenants/realms, users, external identities, clients, roles, grants.
+- Domain: external identities, clients, roles, grants; tenant/user directories are implemented.
 - Application: login orchestration, consent, account linking, admin authorization.
 - Protocol adapters: OIDC/OAuth issuer, OIDC broker, SAML IdP and SP roles.
 - Infrastructure: persistence, key storage/rotation, email, audit events.

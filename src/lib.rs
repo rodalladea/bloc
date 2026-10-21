@@ -6,6 +6,8 @@ extern crate self as bloc;
 pub mod administrator;
 pub mod config;
 pub mod credentials;
+mod directory;
+mod directory_storage;
 pub mod operator;
 pub mod request_security;
 pub mod storage;

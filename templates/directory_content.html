@@ -1,0 +1,117 @@
+<main id="content" tabindex="-1" hx-target="#content" hx-swap="outerHTML" hx-sync="#content:drop" hx-history="false" hx-boost="true">
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+<a href="/admin" hx-boost="false">Administration</a>
+<span>/</span>
+<a href="/admin/tenants">Tenants</a>{% if !p.hidden %}{% if p.user %}<span>/</span>
+<a href="{{ p.tenant_path }}">{{ p.tenant.name }}</a>
+<span>/</span>
+<a href="{{ p.list_path }}">Users</a>{% endif %}{% if !p.list %}<span>/</span>
+<span>{% if p.create %}Create{% else if p.user %}User details{% else %}Tenant details{% endif %}</span>{% endif %}{% endif %}</nav>
+{% if !p.hidden && p.user %}<section class="context" aria-label="Tenant context">
+<p>
+<strong>Tenant: {{ p.tenant.name }}</strong> <span class="badge {% if p.tenant.status == "active" %}active{% endif %}">{% if p.tenant.status == "active" %}Active{% else %}Suspended{% endif %}</span>
+</p>
+<p class="mono">{{ p.tenant.id }}</p>{% if p.tenant.status == "suspended" %}<p>This tenant is suspended. You can still manage its users. User statuses are unchanged.</p>{% endif %}</section>{% endif %}
+<div class="heading">
+<div>
+<h1>{{ p.title }}</h1>
+<p class="intro">{{ p.intro }}</p>{% if !p.hidden && !p.user && !p.list && !p.create %}<p class="mono">{{ p.record.id }} <span class="badge {% if p.record.status == "active" %}active{% endif %}">{% if p.record.status == "active" %}Active{% else %}Suspended{% endif %}</span>
+</p>{% endif %}</div>{% if !p.hidden && p.list && (!p.rows.is_empty() || !p.feedback.is_empty()) %}<a class="button" href="{{ p.list_path }}/new">{% if p.user %}Create user{% else %}Create tenant{% endif %}</a>{% endif %}</div>
+{% if !p.feedback.is_empty() %}<div class="notice error" role="alert" id="feedback" tabindex="-1">
+<p>{{ p.feedback }}</p>{% if !p.invalid.is_empty() %}<a href="#{{ p.invalid }}">Review field</a>{% endif %}{% if !p.recovery.is_empty() %}<a href="{{ p.recovery }}">{{ p.recovery_label }}</a>{% endif %}</div>{% endif %}
+{% if !p.hidden %}
+{% if p.list %}{% if p.feedback.is_empty() %}{% if p.rows.is_empty() %}<section class="panel empty">
+<h2>{% if p.user %}No users yet{% else %}No tenants yet{% endif %}</h2>
+<p>{% if p.user %}Create the first user in this tenant. Directory users cannot sign in.{% else %}Create an independent directory to start managing users.{% endif %}</p>
+<a class="button" href="{{ p.list_path }}/new">{% if p.user %}Create user{% else %}Create tenant{% endif %}</a>
+</section>{% else %}<div class="table-wrap" role="region" aria-label="{% if p.user %}Tenant users{% else %}Tenants{% endif %}" tabindex="0">
+<table>
+<thead>
+<tr>
+<th scope="col">{% if p.user %}Email / user ID{% else %}Name / tenant ID{% endif %}</th>{% if p.user %}<th scope="col">Display name</th>{% endif %}<th scope="col">{% if p.user %}User status{% else %}Status{% endif %}</th>
+<th scope="col">Created (UTC)</th>
+</tr>
+</thead>
+<tbody>{% for row in p.rows %}<tr data-record="{{ row.id }}">
+<td>
+<a href="{{ p.list_path }}/{{ row.id }}">{% if p.user %}{{ row.email }}{% else %}{{ row.name }}{% endif %}</a>
+<span class="mono">{{ row.id }}</span>
+</td>{% if p.user %}<td>{% if row.display_name.is_empty() %}—{% else %}{{ row.display_name }}{% endif %}</td>{% endif %}<td>
+<span class="badge {% if row.status == "active" %}active{% endif %}">{% if row.status == "active" %}Active{% else %}Suspended{% endif %}</span>
+</td>
+<td>{{ row.created }}</td>
+</tr>{% endfor %}</tbody>
+</table>
+</div>
+<div class="pagination">
+<span class="help">{% if p.user %}Users in this tenant{% else %}Tenants{% endif %} · up to 50 per page</span>{% if !p.next.is_empty() %}<a class="button secondary" rel="next" href="{{ p.next }}">Next page →</a>{% endif %}</div>{% endif %}{% endif %}
+{% else %}
+<div class="{% if p.create %}form{% else %}grid{% endif %}">
+<div>
+<section class="panel">
+<h2>{% if p.create %}{% if p.user %}User profile{% else %}Tenant profile{% endif %}{% else %}Profile{% endif %}</h2>
+<form method="post" action="{% if p.create %}{{ p.list_path }}{% else %}{{ p.detail_path }}{% endif %}" hx-post="{% if p.create %}{{ p.list_path }}{% else %}{{ p.detail_path }}{% endif %}" novalidate>
+<input type="hidden" name="csrf" value="{{ p.csrf }}">{% if p.create %}<input type="hidden" name="creation_id" value="{{ p.creation }}">{% else %}<input type="hidden" name="version" value="{{ p.version }}">{% endif %}
+{% if p.user %}<div class="field">
+<label for="email">Email address</label>
+<input id="email" name="email" type="email" value="{{ p.record.email }}" aria-describedby="email-help{% if p.invalid == "email" %} email-error{% endif %}" {% if p.invalid == "email" %}aria-invalid="true"{% endif %}>
+<p id="email-help" class="help">Unverified. Domain case is normalized; local-part case is preserved.</p>{% if p.invalid == "email" %}<p id="email-error" class="field-error">{{ p.error }}</p>{% endif %}</div>
+<div class="field">
+<label for="display-name">Display name <span class="help">(optional)</span>
+</label>
+<input id="display-name" name="display_name" value="{{ p.record.display_name }}" aria-describedby="display-help{% if p.invalid == "display-name" %} display-error{% endif %}" {% if p.invalid == "display-name" %}aria-invalid="true"{% endif %}>
+<p id="display-help" class="help">Up to 128 characters and 512 UTF-8 bytes. Control characters are not allowed.</p>{% if p.invalid == "display-name" %}<p id="display-error" class="field-error">{{ p.error }}</p>{% endif %}</div>
+{% else %}<div class="field">
+<label for="name">Tenant name</label>
+<input id="name" name="name" value="{% if !p.create || !p.record.name.is_empty() %}{{ p.record.name }}{% endif %}" aria-describedby="name-help{% if p.invalid == "name" %} name-error{% endif %}" {% if p.invalid == "name" %}aria-invalid="true"{% endif %}>
+<p id="name-help" class="help">1–128 characters, up to 512 UTF-8 bytes. Names do not need to be unique.</p>{% if p.invalid == "name" %}<p id="name-error" class="field-error">{{ p.error }}</p>{% endif %}</div>{% endif %}
+<div class="actions">
+<button type="submit">{% if p.create %}{% if p.user %}Create user{% else %}Create tenant{% endif %}{% else %}Save changes{% endif %}</button>
+<a href="{% if p.create %}{{ p.list_path }}{% else %}{{ p.detail_path }}{% endif %}">Cancel</a>
+</div>
+<p class="working help" role="status" hidden>Saving… Wait for a result before submitting again.</p>
+</form>
+</section>
+{% if !p.create %}<section class="panel" {% if p.confirm %}id="confirmation" tabindex="-1"{% endif %}>{% if p.confirm %}<h2>{% if p.status == "active" %}Reactivate{% else %}Suspend{% endif %} this {% if p.user %}user{% else %}tenant{% endif %}?</h2>
+<p>{% if p.user %}Only this user’s directory status will change. Tenant status stays unchanged.{% else if p.status == "active" %}The tenant will become active. Individually suspended users will remain suspended.{% else %}The tenant will become suspended. Individual user statuses will remain unchanged.{% endif %}</p>
+<p class="mono">{{ p.record.id }}</p>
+<form method="post" action="{{ p.detail_path }}/status" hx-post="{{ p.detail_path }}/status">
+<input type="hidden" name="csrf" value="{{ p.csrf }}">
+<input type="hidden" name="version" value="{{ p.version }}">
+<input type="hidden" name="status" value="{{ p.status }}">
+<div class="actions">
+<button type="submit">{% if p.status == "active" %}Reactivate{% else %}Suspend{% endif %} {% if p.user %}user{% else %}tenant{% endif %}</button>
+<a href="{{ p.detail_path }}?cancel=1" hx-get="{{ p.detail_path }}?cancel=1">Cancel</a>
+</div>
+<p class="working help" role="status" hidden>Saving… Wait for a result before submitting again.</p>
+</form>{% else %}<h2>{% if p.user %}User status{% else %}Tenant status{% endif %}</h2>
+<p>
+<span class="badge {% if p.record.status == "active" %}active{% endif %}">{% if p.record.status == "active" %}Active{% else %}Suspended{% endif %}</span>
+</p>{% if p.user %}<dl>
+<dt>Tenant status</dt>
+<dd>{% if p.tenant.status == "active" %}Active{% else %}Suspended{% endif %}</dd>
+<dt>Combined directory status</dt>
+<dd>{{ p.combined }}</dd>
+</dl>
+<p class="help">Directory status only. This user cannot sign in.</p>{% else %}<p>Tenant status does not change individual user statuses. Suspended tenants remain editable.</p>{% endif %}<a class="button secondary" id="status-action" href="{{ p.detail_path }}/status?status={% if p.record.status == "active" %}suspended{% else %}active{% endif %}&amp;version={{ p.version }}" hx-get="{{ p.detail_path }}/status?status={% if p.record.status == "active" %}suspended{% else %}active{% endif %}&amp;version={{ p.version }}" {% if p.cancel_focus %}data-focus="true"{% endif %}>{% if p.record.status == "active" %}Suspend{% else %}Reactivate{% endif %} {% if p.user %}user{% else %}tenant{% endif %}</a>{% endif %}</section>{% endif %}
+</div>{% if !p.create %}<aside>
+<section class="panel">
+<h2>Record</h2>
+<dl>
+<dt>{% if p.user %}User ID{% else %}Tenant ID{% endif %}</dt>
+<dd class="mono">{{ p.record.id }}</dd>{% if p.user %}<dt>Tenant ID · immutable</dt>
+<dd class="mono">{{ p.tenant.id }}</dd>{% endif %}<dt>Version</dt>
+<dd>{{ p.record.version }}</dd>
+<dt>Created</dt>
+<dd>{{ p.record.created }}</dd>
+<dt>Updated</dt>
+<dd>{{ p.record.updated }}</dd>{% if p.user %}<dt>Email verification</dt>
+<dd>Unverified</dd>{% endif %}</dl>
+</section>{% if !p.user %}<section class="panel">
+<h2>Directory</h2>
+<p>Manage the users bound to this tenant.</p>
+<a class="button secondary" href="{{ p.tenant_path }}/users">View users</a>
+</section>{% endif %}</aside>{% endif %}</div>
+{% if p.create %}<p class="help">{% if p.user %}Created users start active. No verification email is sent and no credentials are created.{% else %}Created tenants start active. Duplicate names create independent directories.{% endif %}</p>{% endif %}
+{% endif %}{% endif %}<div id="directory-loading" class="notice" role="status" hidden>Loading directory… Wait for the current request to finish.</div>
+</main>

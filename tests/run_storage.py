@@ -10,6 +10,9 @@ import tempfile
 from support import postgres as fixtures
 
 ROOT = Path(__file__).resolve().parents[1]
+DIRECTORY_TESTS = tuple(f"directory_c{i:02}" for i in range(1,38)) + ("directory_input_refusals", "directory_response_policy")
+DIRECTORY_BROWSER_TESTS = tuple("directory_screen_"+s for s in ("t1","t2","t3","u1","u2","u3")) + ("directory_browser_interactions",)
+
 ADMIN_TESTS = (
     "throttled_post_forms_remain_usable", "throttled_form_issuance_requires_reload", "admission_full_contract", "admission_http_retry_capacity", "authority_http_matrix", "streaming_form_bounds",
     "credential_validation_http", "enhanced_success_navigation", "administration_home", "admission_capacity", "admission_races", "audit_data_bounds",
@@ -53,6 +56,9 @@ GRANT bloc_maintenance TO maintenance_user;
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--cached-images", action="store_true", help="Use already present pinned fixture images without pulling")
+    parser.add_argument("--proof", choices=DIRECTORY_TESTS+DIRECTORY_BROWSER_TESTS, help="Run one exact directory proof with --target")
+    parser.add_argument("--target", choices=("tenant_user_management",), help="Run only the directory feature target")
     parser.add_argument("--major", type=int, choices=(17, 18), help="Run one database major; default runs both")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--browser-python", help="Playwright Python; requires a pinned local HTTPS proxy on4443")
@@ -60,12 +66,15 @@ def main():
     args = parser.parse_args()
     if bool(args.browser_python) != bool(args.tls_spki):
         parser.error("--browser-python and --tls-spki are required together")
+    if args.proof and not args.target:
+        parser.error("--proof requires --target")
     args.output.mkdir(parents=True, exist_ok=False)
     results = []
     for major, image in zip((17, 18), fixtures.IMAGES):
         if args.major and args.major != major:
             continue
-        subprocess.run(["docker", "pull", image], check=True)
+        if not args.cached_images:
+            subprocess.run(["docker", "pull", image], check=True)
         identity = json.loads(fixtures.command("docker", "image", "inspect", image))[0]
         containers = []
         try:
@@ -87,14 +96,13 @@ def main():
                     "BLOC_SETUP_WRONG_NAME_PORT": ports[1], "BLOC_SETUP_PLAIN_PORT": ports[2],
                 }
                 if args.browser_python:
-                    environment |= {"BLOC_BROWSER_PYTHON": args.browser_python, "BLOC_TEST_SPKI": args.tls_spki}
+                    environment |= {"BLOC_BROWSER_PYTHON": args.browser_python, "BLOC_TEST_SPKI": args.tls_spki, "BLOC_DIRECTORY_BROWSER_EVIDENCE":str(args.output / f"browser-{major}")}
                 selection = ["--skip", "native_service_capacity"]
                 if not args.browser_python:
-                    selection += ["--skip", "browser_"]
-                run = subprocess.run(["cargo", "test", "--locked", "--lib", "--test", "setup_storage",
-                                      "--test", "operator", "--test", "storage_tls", "--test", "administrator_access",
-                                      "--test", "administrator_operations",
-                                      "--", "--ignored", "--test-threads=1", *selection],
+                    selection += ["--skip", "browser_", "--skip", "directory_screen_"]
+                targets = ["--test", "tenant_user_management"] if args.target else ["--lib", "--test", "setup_storage", "--test", "operator", "--test", "storage_tls", "--test", "administrator_access", "--test", "administrator_operations", "--test", "tenant_user_management"]
+                run = subprocess.run(["cargo", "test", "--locked", *targets, *([args.proof] if args.proof else []),
+                                      "--", "--ignored", "--test-threads=1", *(["--exact"] if args.proof else []), *selection],
                                      cwd=ROOT, env=environment, capture_output=True, text=True)
                 output = run.stdout + run.stderr
                 (args.output / f"postgres-{major}.txt").write_text(output)
@@ -105,7 +113,8 @@ def main():
                                 "repo_digests": identity.get("RepoDigests"), "exit_code": run.returncode})
                 (args.output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
                 run.check_returncode()
-                for test in TESTS + ADMIN_TESTS + OPERATIONS_TESTS + WORKER_TESTS + (BROWSER_TESTS if args.browser_python else ()):
+                inventory = (args.proof,) if args.proof else DIRECTORY_TESTS if args.target else TESTS + ADMIN_TESTS + OPERATIONS_TESTS + WORKER_TESTS + DIRECTORY_TESTS
+                for test in inventory + (() if args.proof else (DIRECTORY_BROWSER_TESTS if args.target else BROWSER_TESTS + DIRECTORY_BROWSER_TESTS) if args.browser_python else ()):
                     if f"test {test} ... ok" not in run.stdout:
                         raise RuntimeError(f"named proof did not run: {test}")
         finally:

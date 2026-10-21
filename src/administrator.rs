@@ -197,7 +197,7 @@ fn render(page: &Page, status: StatusCode, hx: bool) -> Response {
         .insert(header::VARY, HeaderValue::from_static("HX-Request"));
     response
 }
-fn cookie(response: &mut Response, name: &str, value: &str) {
+pub(crate) fn cookie(response: &mut Response, name: &str, value: &str) {
     if let Ok(value) = HeaderValue::from_str(&format!(
         "{name}={value}; Secure; HttpOnly; SameSite=Strict; Path=/"
     )) {
@@ -213,7 +213,7 @@ fn clear(response: &mut Response) {
         }
     }
 }
-fn navigation(path: &str, hx: bool) -> Response {
+pub(crate) fn navigation(path: &str, hx: bool) -> Response {
     let mut response = Redirect::to(path).into_response();
     if hx {
         *response.status_mut() = StatusCode::OK;
@@ -224,7 +224,7 @@ fn navigation(path: &str, hx: bool) -> Response {
     }
     response
 }
-fn expired(hx: bool) -> Response {
+pub(crate) fn expired(hx: bool) -> Response {
     if hx {
         let mut response = (
             StatusCode::UNAUTHORIZED,
@@ -832,6 +832,32 @@ pub fn router(app: Application) -> Router {
                 } else {
                     (StatusCode::SERVICE_UNAVAILABLE, "unavailable\n")
                 }
+            }),
+        )
+        .route(
+            "/admin/tenants",
+            get(crate::directory::handler).post(crate::directory::handler),
+        )
+        .route(
+            "/admin/tenants/{*resource}",
+            get(crate::directory::handler).post(crate::directory::handler),
+        )
+        .route(
+            "/assets/directory.css",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+                    include_str!("../assets/directory.css"),
+                )
+            }),
+        )
+        .route(
+            "/assets/directory.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../assets/directory.js"),
+                )
             }),
         )
         .route("/admin", get(handler))

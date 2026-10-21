@@ -26,7 +26,7 @@ pub enum Claim {
 /// Concrete shared PostgreSQL dependency; it never migrates during construction.
 #[derive(Clone)]
 pub struct Storage {
-    pool: PgPool,
+    pub(crate) pool: PgPool,
 }
 
 fn connection_options(url: &str, ca: &Path) -> Result<PgConnectOptions, Error> {
@@ -110,6 +110,13 @@ impl Storage {
                     "access".into(),
                     sqlx::migrate::MigrationType::Simple,
                     sqlx::SqlStr::from_static(include_str!("../migrations/0002_access.sql")),
+                    false,
+                ),
+                sqlx::migrate::Migration::new(
+                    3,
+                    "directory".into(),
+                    sqlx::migrate::MigrationType::Simple,
+                    sqlx::SqlStr::from_static(include_str!("../migrations/0003_directory.sql")),
                     false,
                 ),
             ]
