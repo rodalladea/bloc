@@ -29,9 +29,9 @@ silently approve all proposed engineering details in the design.
 
 The requester approved prerequisite policy and the five-screen preview; native
 hashing matrices and live TLS evidence are available. The finalized setup-storage
-contract is `projects/bloc/.design/administrator-access-security-storage.md`, Drive
+contract is [projects/bloc/.design/administrator-access-security-storage.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=b490b2ad6fe83a7616a19e5c37b177b63a6ea6214f9aa05d), Drive
 ID `b490b2ad6fe83a7616a19e5c37b177b63a6ea6214f9aa05d`. The task alignment is
-`projects/bloc/.tasks/administrator-access.md`, Drive ID
+[projects/bloc/.tasks/administrator-access.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=87bd2c0006669399f6e64c832b144da78fd0bbeca80fb059), Drive ID
 `87bd2c0006669399f6e64c832b144da78fd0bbeca80fb059`.
 Full-service overload, HTTP security, browser and deployment acceptance require
 their named proofs. Storage coverage alone never establishes these outcomes.
@@ -146,12 +146,12 @@ And database-free shared-disk operation is outside the supported scope.
 
 The table maps assertions, not a claim that every acceptance gate passed. The
 remaining-feature checklist is in Drive at
-`projects/bloc/.checks/administrator-access-remaining.md` (ID
+[projects/bloc/.checks/administrator-access-remaining.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=fafb19e31501b64e2ba792592f2160bcbcfa0131e8512fa6) (ID
 `fafb19e31501b64e2ba792592f2160bcbcfa0131e8512fa6`). Native full-service
 amd64+arm64 evidence is a separate required gate; a named validator without
 measurements is not a performance proof. Independent verification of the complete
 checklist is required; the source-bound result is recorded in Drive at
-`projects/bloc/.checks/administrator-access-remaining.verified.md` (ID
+[projects/bloc/.checks/administrator-access-remaining.verified.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=40c5445b513b94595a600be6c25ad39b98ab2dde29e25703) (ID
 `40c5445b513b94595a600be6c25ad39b98ab2dde29e25703`).
 Only the initial validation/hash tests were confirmed red before implementation;
 the wider integration tests were added during implementation. No broader test-first
