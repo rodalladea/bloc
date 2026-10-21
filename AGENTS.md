@@ -29,6 +29,12 @@ Keep it concise; put detailed guidance in the linked documents.
 - Keep visual previews, one-off experiments, and their evidence in Drive rather
   than this repository. Retain application code, regression tests, and project
   documentation needed to build, operate, and maintain bloc.
+- When repository documentation references a Catapio Drive artifact, keep its
+  artifact path and include a clickable public link. Use bloc's established
+  [public project share](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394)
+  with `?file=<file-id>` for files within that share, and verify the current file
+  ID through Drive. Never make a private artifact public without explicit
+  authorization.
 - Follow [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
   [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 - Use Context7 MCP for current library, framework, SDK, API, CLI, and cloud-service
