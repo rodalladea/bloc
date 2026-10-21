@@ -1,17 +1,51 @@
 """Synthetic authority fixtures for packaging checks; never production secrets."""
-import contextlib,fcntl,ipaddress,itertools,json,os,subprocess,sys,tempfile,time
+import contextlib,ipaddress,json,os,subprocess,sys,tempfile,time
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from support import postgres
 from run_storage import ROLES
 
-def cluster_address(network):
-    subnets=(ipaddress.ip_network(config['Subnet']) for config in network['IPAM']['Config'])
-    subnet=next((candidate for candidate in subnets if candidate.version==4),None)
-    if subnet is None:
-        raise ValueError('kind network requires an IPv4 subnet')
-    used={entry['IPv4Address'].split('/')[0] for entry in network['Containers'].values()}
-    return next(str(ip) for ip in itertools.islice(subnet.hosts(),100,1000) if str(ip) not in used)
+def assigned_address(container,network='kind'):
+    value=container.get('NetworkSettings',{}).get('Networks',{}).get(network,{}).get('IPAddress')
+    try:
+        address=ipaddress.ip_address(value)
+    except (ValueError,TypeError):
+        raise ValueError('authority requires a Docker-assigned IPv4 address') from None
+    if address.version!=4 or address.is_unspecified or address.is_multicast:
+        raise ValueError('authority requires a Docker-assigned IPv4 address')
+    return str(address)
+
+@contextlib.contextmanager
+def docker_primary(network='kind'):
+    """Own one TLS primary; Docker reserves its address before certificate issuance."""
+    container=None
+    with tempfile.TemporaryDirectory(prefix='bloc-cluster-authority-') as temporary:
+        directory=Path(temporary)
+        try:
+            startup=("remaining=240; while [ ! -f /tmp/bloc-authority-ready ]; do "
+                     "[ \"$remaining\" -gt 0 ] || { echo 'authority material unavailable' >&2; exit 1; }; "
+                     "remaining=$((remaining-1)); sleep .25; done; "
+                     "chown postgres:postgres /tmp/probe.key && chmod 600 /tmp/probe.key && "
+                     "exec docker-entrypoint.sh postgres -c ssl=on "
+                     "-c ssl_cert_file=/tmp/probe.crt -c ssl_key_file=/tmp/probe.key")
+            container=postgres.command('docker','create','--network',network,
+                '--env','POSTGRES_USER=probe','--env','POSTGRES_DB=probe',
+                '--env','POSTGRES_PASSWORD=synthetic-probe-only',
+                '--entrypoint','sh',postgres.IMAGES[0],'-c',startup)
+            postgres.command('docker','start',container)
+            address=assigned_address(json.loads(postgres.command('docker','inspect',container))[0],network)
+            postgres.certificate(directory,'ca');postgres.certificate(directory,'matching',address)
+            for source,target in [('matching.crt','probe.crt'),('matching.key','probe.key'),('ca.crt','probe-ca.crt')]:
+                postgres.command('docker','cp',str(directory/source),container+':/tmp/'+target)
+            postgres.command('docker','exec',container,'touch','/tmp/bloc-authority-ready')
+            for _ in range(240):
+                if subprocess.run(['docker','exec',container,'pg_isready','-h','127.0.0.1','-U','probe'],capture_output=True).returncode==0:break
+                time.sleep(.25)
+            else:raise RuntimeError('cluster primary unavailable')
+            subprocess.run(['docker','exec','-i',container,'psql','-U','probe','-d','probe','-v','ON_ERROR_STOP=1'],input=ROLES+'\nCREATE DATABASE bloc OWNER migrator_user;',text=True,capture_output=True,check=True)
+            yield container,address,directory
+        finally:
+            if container:subprocess.run(['docker','rm','--force','--volumes',container],capture_output=True,check=True)
 
 @contextlib.contextmanager
 def source_configuration():
@@ -42,37 +76,16 @@ def configuration():
 @contextlib.contextmanager
 def cluster_authority(kube,namespace,image):
     def k(*args,input=None):return subprocess.run([kube,'-n',namespace,*args],input=input,text=True,capture_output=True,check=True)
-    container=None
-    primary_lock=None
-    with tempfile.TemporaryDirectory(prefix='bloc-cluster-authority-') as temporary:
-        directory=Path(temporary)
-        try:
-            primary_lock=open(Path(tempfile.gettempdir())/"bloc-kind-authority-allocation.lock","a")
-            fcntl.flock(primary_lock,fcntl.LOCK_EX)
-            networks=json.loads(postgres.command('docker','network','inspect','kind'))
-            address=cluster_address(networks[0])
-            postgres.certificate(directory,'ca');postgres.certificate(directory,'matching',address)
-            container=postgres.command('docker','create','--network','kind','--ip',address,'--env','POSTGRES_USER=probe','--env','POSTGRES_DB=probe','--env','POSTGRES_PASSWORD=synthetic-probe-only','--entrypoint','sh',postgres.IMAGES[0],'-c','chown postgres:postgres /tmp/probe.key && chmod 600 /tmp/probe.key && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/probe.crt -c ssl_key_file=/tmp/probe.key')
-            for source,target in [('matching.crt','probe.crt'),('matching.key','probe.key')]:postgres.command('docker','cp',str(directory/source),container+':/tmp/'+target)
-            postgres.command('docker','start',container)
-            primary_lock.close();primary_lock=None
-            for _ in range(240):
-                if subprocess.run(['docker','exec',container,'pg_isready','-h','127.0.0.1','-U','probe'],capture_output=True).returncode==0:break
-                time.sleep(.25)
-            else:raise RuntimeError('cluster primary unavailable')
-            subprocess.run(['docker','exec','-i',container,'psql','-U','probe','-d','probe','-v','ON_ERROR_STOP=1'],input=ROLES+'\nCREATE DATABASE bloc OWNER migrator_user;',text=True,capture_output=True,check=True)
-            for role in ['runtime','migrator','operator','maintenance']:(directory/(role+'-url')).write_text('postgres://'+role+'_user:synthetic-setup-only@'+address+':5432/bloc')
-            (directory/'abuse-key').write_bytes(bytes(range(32)))
-            files=['--from-file='+role+'-url='+str(directory/(role+'-url')) for role in ['runtime','migrator','operator','maintenance']]
-            k('create','secret','generic','bloc-database',*files,'--from-file=ca.crt='+str(directory/'ca.crt'),'--from-file=abuse-key='+str(directory/'abuse-key'))
-            pod={'apiVersion':'v1','kind':'Pod','metadata':{'name':'bloc-fixture-migrate'},'spec':{'restartPolicy':'Never','automountServiceAccountToken':False,'containers':[{'name':'migration','image':image,'args':['database','migrate'],'env':[{'name':'BLOC_DATABASE_URL_FILE','value':'/run/bloc/migrator-url'},{'name':'BLOC_DATABASE_CA_FILE','value':'/run/bloc/ca.crt'}],'volumeMounts':[{'name':'authority','mountPath':'/run/bloc','readOnly':True}]}],'volumes':[{'name':'authority','secret':{'secretName':'bloc-database','items':[{'key':'migrator-url','path':'migrator-url'},{'key':'ca.crt','path':'ca.crt'}]}}]}}
-            k('apply','-f','-',input=json.dumps(pod))
-            try:k('wait','--for=jsonpath={.status.phase}=Succeeded','pod/bloc-fixture-migrate','--timeout=180s')
-            except subprocess.CalledProcessError:
-                print(k('logs','bloc-fixture-migrate').stdout)
-                raise
-            k('delete','pod','bloc-fixture-migrate','--wait=true')
-            yield
-        finally:
-            if primary_lock:primary_lock.close()
-            if container:subprocess.run(['docker','rm','--force','--volumes',container],capture_output=True,check=True)
+    with docker_primary() as (_,address,directory):
+        for role in ['runtime','migrator','operator','maintenance']:(directory/(role+'-url')).write_text('postgres://'+role+'_user:synthetic-setup-only@'+address+':5432/bloc')
+        (directory/'abuse-key').write_bytes(bytes(range(32)))
+        files=['--from-file='+role+'-url='+str(directory/(role+'-url')) for role in ['runtime','migrator','operator','maintenance']]
+        k('create','secret','generic','bloc-database',*files,'--from-file=ca.crt='+str(directory/'ca.crt'),'--from-file=abuse-key='+str(directory/'abuse-key'))
+        pod={'apiVersion':'v1','kind':'Pod','metadata':{'name':'bloc-fixture-migrate'},'spec':{'restartPolicy':'Never','automountServiceAccountToken':False,'containers':[{'name':'migration','image':image,'args':['database','migrate'],'env':[{'name':'BLOC_DATABASE_URL_FILE','value':'/run/bloc/migrator-url'},{'name':'BLOC_DATABASE_CA_FILE','value':'/run/bloc/ca.crt'}],'volumeMounts':[{'name':'authority','mountPath':'/run/bloc','readOnly':True}]}],'volumes':[{'name':'authority','secret':{'secretName':'bloc-database','items':[{'key':'migrator-url','path':'migrator-url'},{'key':'ca.crt','path':'ca.crt'}]}}]}}
+        k('apply','-f','-',input=json.dumps(pod))
+        try:k('wait','--for=jsonpath={.status.phase}=Succeeded','pod/bloc-fixture-migrate','--timeout=180s')
+        except subprocess.CalledProcessError:
+            print(k('logs','bloc-fixture-migrate').stdout)
+            raise
+        k('delete','pod','bloc-fixture-migrate','--wait=true')
+        yield
