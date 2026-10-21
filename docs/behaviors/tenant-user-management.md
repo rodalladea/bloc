@@ -26,14 +26,14 @@ installation-scoped and separate from every directory user.
 
 Sources in Catapio Drive:
 
-- `projects/bloc/.tasks/tenant-user-management.md`, ID
+- [projects/bloc/.tasks/tenant-user-management.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=80eef47830bfb5c6c2ea4e75225dd789894993ad3f6d0dbf), ID
   `80eef47830bfb5c6c2ea4e75225dd789894993ad3f6d0dbf`: criteria 1–37 and final
   resolution logs. Historical pending wording is superseded by those logs.
-- `projects/bloc/.design/tenant-user-management.md`, ID
+- [projects/bloc/.design/tenant-user-management.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=5e5497c1f23b1c58a59c292673c21ea770bae91caa62406c), ID
   `5e5497c1f23b1c58a59c292673c21ea770bae91caa62406c`: product rationale.
-- `projects/bloc/.design/tenant-user-management-screens.md`, ID
+- [projects/bloc/.design/tenant-user-management-screens.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=884509362acfc8d88e9ca47ece59bd2deb598e37e405c125), ID
   `884509362acfc8d88e9ca47ece59bd2deb598e37e405c125`, and preview source
-  `8360fbadc81cf795b130e8ec13994a7c23b4b5b1769bc400`: approved binding T1–T3 and
+  [8360fbadc81cf795b130e8ec13994a7c23b4b5b1769bc400](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=8360fbadc81cf795b130e8ec13994a7c23b4b5b1769bc400): approved binding T1–T3 and
   U1–U3 screens, including responsive arrangement, copy and interaction states.
 
 ## Open questions and assumptions
@@ -392,10 +392,13 @@ the Drive checklist records raw logs, focused final reruns and source boundaries
 | Full-page/fragment escaping, response headers and redirects | `directory_response_policy` |
 
 The proof checklist lives in Drive at
-`projects/bloc/.checks/tenant-user-management.md`, ID
+[projects/bloc/.checks/tenant-user-management.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=e75ac2357f1d873e2a39d195f22011ed54a51f59f292cf59), ID
 `e75ac2357f1d873e2a39d195f22011ed54a51f59f292cf59`.
 Acceptance requires actual named executions on PostgreSQL 17 and 18, live
 production-assembly browser checks, the existing administrator regressions and
-an independent verification report accounting for every check. Author executions are recorded in the checklist; independent acceptance is
-pending its separate report. A directory-only result cannot establish
+an independent verification report accounting for every check. Author executions
+are recorded in the checklist. Independent light-profile verification passed all
+64 checks at `247cd5a`; see
+[projects/bloc/.checks/tenant-user-management.verified.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=9ac2d4afdd4e6c61cdeb6477edd99d2701d587a35a3d09b8).
+No faults were injected under that profile. A directory-only result cannot establish
 production authentication readiness or identity-protocol conformance.

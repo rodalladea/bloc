@@ -12,16 +12,16 @@ implementation prerequisite questions ("Ok, go with it").
 
 Sources in Catapio Drive:
 
-- `projects/bloc/.design/tenant-user-management.md`, ID
+- [projects/bloc/.design/tenant-user-management.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=5e5497c1f23b1c58a59c292673c21ea770bae91caa62406c), ID
   `5e5497c1f23b1c58a59c292673c21ea770bae91caa62406c`.
-- `projects/bloc/.tasks/tenant-user-management.md`, ID
+- [projects/bloc/.tasks/tenant-user-management.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=80eef47830bfb5c6c2ea4e75225dd789894993ad3f6d0dbf), ID
   `80eef47830bfb5c6c2ea4e75225dd789894993ad3f6d0dbf`.
 
 This records the adopted boundary; it does not claim implementation or
 verification. The requester subsequently approved the concrete interface set:
-`projects/bloc/.design/tenant-user-management-screens.md`, ID
+[projects/bloc/.design/tenant-user-management-screens.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=884509362acfc8d88e9ca47ece59bd2deb598e37e405c125), ID
 `884509362acfc8d88e9ca47ece59bd2deb598e37e405c125`, with embedded preview source
-ID `8360fbadc81cf795b130e8ec13994a7c23b4b5b1769bc400`. These are binding interface
+ID [8360fbadc81cf795b130e8ec13994a7c23b4b5b1769bc400](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=8360fbadc81cf795b130e8ec13994a7c23b4b5b1769bc400). These are binding interface
 sources. The [behavior record](../behaviors/tenant-user-management.md) maps the
 agreed examples and pending proofs.
 
