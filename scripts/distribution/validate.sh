@@ -22,6 +22,7 @@ version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml","rb")
 python3 scripts/distribution/candidate.py --platform platforms/amd64/image --platform platforms/arm64/image --revision "$revision" --version "$version"
 bash tests/distribution/setup-cluster.sh candidate/image
 finish_source
+python3 tests/distribution/source.py 2>&1 | tee evidence/source-startup.log
 printf 'Source checks and all cluster suites passed; completing candidate evidence.\n'
 python3 tests/distribution/registry.py --layout candidate/image --revision "$revision" 2>&1 | tee evidence/registry.log
 cp platforms/amd64/smoke.log evidence/amd64.log

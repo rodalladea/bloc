@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class ValidationTests(unittest.TestCase):
     def test_source_checks_overlap_and_every_failure_blocks_candidate_evidence(self):
         phases = ['fmt', 'clippy', 'test', 'doc', 'install', 'audit']
-        for failure in ['init', '', *phases]:
+        for failure in ['init', '', *phases, 'source-smoke']:
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temporary:
                 work = Path(temporary)
                 for directory in ('bin', 'scripts/distribution', 'tests/distribution',
@@ -48,14 +48,19 @@ if phase == os.environ['FAIL_SOURCE']: raise SystemExit(1)
 if phase == 'audit': pathlib.Path('source-passed').touch()
 ''')
                 (work/'bin/python3').write_text(f'#!{sys.executable}\n' + '''
-import pathlib, sys
+import os, pathlib, sys
 assert pathlib.Path('toolchain-ready').exists(), 'distribution preceded toolchain initialization'
 args = sys.argv[1:]
 if args[0] == '-m': pathlib.Path('distribution-started').touch()
 elif args[0] == '-c': print('0.0.1')
 elif args[0] == 'scripts/distribution/candidate.py': pathlib.Path('candidate').mkdir()
+elif args[0] == 'tests/distribution/source.py':
+    assert pathlib.Path('source-passed').exists(), 'source smoke overlaps source checks'
+    pathlib.Path('source-smoke-passed').touch()
+    if os.environ['FAIL_SOURCE'] == 'source-smoke': raise SystemExit(1)
 elif args[0] == '-':
     assert pathlib.Path('source-passed').exists(), 'evidence preceded source success'
+    assert pathlib.Path('source-smoke-passed').exists(), 'evidence preceded source smoke'
     pathlib.Path('candidate/evidence.json').write_text('{}')
 ''')
                 (work/'bin/git').write_text('#!/bin/sh\nprintf "fixture-revision\\n"\n')
@@ -73,7 +78,7 @@ elif args[0] == '-':
                     self.assertFalse((work/'candidate/evidence.json').exists())
                     continue
                 executed = (work/'cargo-commands').read_text().splitlines()
-                self.assertEqual(executed, phases[:phases.index(failure)+1] if failure else phases)
+                self.assertEqual(executed, phases[:phases.index(failure)+1] if failure in phases else phases)
                 self.assertEqual((work/'candidate/evidence.json').exists(), not failure)
 
 

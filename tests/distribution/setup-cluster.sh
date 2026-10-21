@@ -4,7 +4,6 @@ set -euo pipefail
 layout=${1:?verified OCI layout required}
 mkdir -p evidence
 exec > >(tee evidence/cluster.log) 2>&1
-python3 tests/distribution/source.py
 kind_name=bloc-distribution
 registry=bloc-test-registry
 if ! kind get clusters | grep -qx "$kind_name"; then
