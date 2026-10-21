@@ -11,7 +11,7 @@ from support import postgres as fixtures
 
 ROOT = Path(__file__).resolve().parents[1]
 ADMIN_TESTS = (
-    "admission_full_contract", "admission_http_retry_capacity", "authority_http_matrix", "streaming_form_bounds",
+    "throttled_post_forms_remain_usable", "throttled_form_issuance_requires_reload", "admission_full_contract", "admission_http_retry_capacity", "authority_http_matrix", "streaming_form_bounds",
     "credential_validation_http", "enhanced_success_navigation", "administration_home", "admission_capacity", "admission_races", "audit_data_bounds",
     "authority_outage", "authorization_matrix", "capability_roles_extended", "credential_atomicity",
     "credential_change_race", "csrf_capacity", "csrf_lifecycle", "email_semantics",

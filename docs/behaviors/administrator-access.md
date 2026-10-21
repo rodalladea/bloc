@@ -259,3 +259,35 @@ These tests use disposable TLS PostgreSQL 17 and 18 via
 The original storage evidence remains intact. The HTTP continuation above extends
 the current implementation; final native capacity and independent acceptance are
 separate gates.
+
+
+## Throttled form retry — PR review F1, requester fix, 2026-10-20
+
+### administrator-access-throttle-01: retry the returned form
+
+Given a valid browser-bound form for setup, sign-in, recovery or password change
+(and a current administrator session for password change)
+When shared admission rejects its POST
+Then the full-page or enhanced response is 429 with positive Retry-After
+And it retains the same nonempty CSRF token and safe email, without refilling
+operator codes or passwords.
+When admission becomes available and the returned form is submitted without a GET
+Then the operation succeeds with the normal redirect or enhanced HX-Redirect.
+
+### administrator-access-throttle-02: reload when issuance is throttled
+
+Given a browser without a usable form token on any administrator screen
+When form issuance is throttled
+Then the full-page or enhanced response is 429 with positive Retry-After,
+an alert and a same-screen Reload form link, with no form or CSRF field.
+When admission becomes available and the link is followed
+Then a usable form is issued and its token passes CSRF validation.
+
+| Scenario | Coverage | Exact tests |
+| --- | --- | --- |
+| administrator-access-throttle-01 | PostgreSQL-backed HTTP, full pages and HX fragments, four POST routes | `tests/administrator_access.rs::throttled_post_forms_remain_usable` |
+| administrator-access-throttle-02 | PostgreSQL-backed HTTP, full pages and HX fragments, five GET screens | `tests/administrator_access.rs::throttled_form_issuance_requires_reload` |
+
+Decision source: [PR #6 judge finding F1](https://github.com/rodalladea/bloc/pull/6#discussion_r4332392851)
+and the request to fix the review feedback. These regressions exercise HTTP output;
+they do not establish browser-engine swap/focus behavior or production acceptance.

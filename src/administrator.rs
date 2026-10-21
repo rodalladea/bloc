@@ -50,6 +50,7 @@ struct Page {
     home: bool,
     closed: bool,
     unavailable: bool,
+    reload: bool,
     email: String,
     csrf: String,
     feedback: String,
@@ -146,6 +147,7 @@ impl Page {
             home: matches!(path, "/admin" | "/admin/logout"),
             closed: false,
             unavailable: false,
+            reload: false,
             email: String::new(),
             csrf: String::new(),
             feedback: String::new(),
@@ -250,24 +252,38 @@ fn retry(mut response: Response, seconds: i32) -> Response {
     }
     response
 }
+enum AdmissionError {
+    Throttled(i32),
+    Capacity,
+    Storage,
+}
+impl AdmissionError {
+    fn response(self, path: &str, hx: bool) -> Response {
+        match self {
+            Self::Throttled(wait) => {
+                let mut page = Page::new(path);
+                page.path = path.into();
+                page.reload = true;
+                page.feedback = throttle_feedback(wait);
+                retry(render(&page, StatusCode::TOO_MANY_REQUESTS, hx), wait)
+            }
+            Self::Capacity => retry(unavailable(path, hx), 60),
+            Self::Storage => unavailable(path, hx),
+        }
+    }
+}
+fn throttle_feedback(wait: i32) -> String {
+    format!("Too many attempts. Wait {wait} seconds, then try again.")
+}
 async fn admission(
     app: &Application,
     buckets: &[(&str, [u8; 32], i32)],
-    path: &str,
-    hx: bool,
-) -> Result<(), Box<Response>> {
+) -> Result<(), AdmissionError> {
     match app.storage.reserve(buckets).await {
         Ok(0) => Ok(()),
-        Ok(-1) => Err(Box::new(retry(unavailable(path, hx), 60))),
-        Ok(wait) => {
-            let mut p = Page::new(path);
-            p.feedback = format!("Too many attempts. Wait {wait} seconds, then try again.");
-            Err(Box::new(retry(
-                render(&p, StatusCode::TOO_MANY_REQUESTS, hx),
-                wait,
-            )))
-        }
-        Err(_) => Err(Box::new(unavailable(path, hx))),
+        Ok(-1) => Err(AdmissionError::Capacity),
+        Ok(wait) => Err(AdmissionError::Throttled(wait)),
+        Err(_) => Err(AdmissionError::Storage),
     }
 }
 async fn form_page(
@@ -298,8 +314,8 @@ async fn form_page(
         Ok(k) => k,
         Err(_) => return unavailable(&page.path, hx),
     };
-    if let Err(r) = admission(app, &[("form_issue_source", source_key, 1)], &page.path, hx).await {
-        return *r;
+    if let Err(error) = admission(app, &[("form_issue_source", source_key, 1)]).await {
+        return error.response(if page.home { "/admin" } else { &page.path }, hx);
     }
     let (browser, token) = match (security::random(), security::random()) {
         (Ok(b), Ok(t)) => (security::encode(&b), t),
@@ -522,8 +538,25 @@ async fn handle_request(State(app): State<Application>, request: Request) -> Res
     } else {
         buckets.push(("operator_code", [0; 32], 1))
     }
-    if let Err(response) = admission(&app, &buckets, &path, hx).await {
-        return *response;
+    match admission(&app, &buckets).await {
+        Ok(()) => {}
+        Err(AdmissionError::Throttled(wait)) => {
+            page.feedback = throttle_feedback(wait);
+            return retry(
+                form_page(
+                    &app,
+                    page,
+                    &headers,
+                    session.as_ref().filter(|_| protected),
+                    &source,
+                    StatusCode::TOO_MANY_REQUESTS,
+                    hx,
+                )
+                .await,
+                wait,
+            );
+        }
+        Err(error) => return error.response(&path, hx),
     }
     if matches!(path.as_str(), "/admin/setup" | "/admin/recovery") {
         let code = field(&form, "code");

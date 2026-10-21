@@ -2678,3 +2678,195 @@ async fn streaming_form_bounds() {
     assert!(result.starts_with("HTTP/1.1 413"), "{result}");
     assert_eq!(f.count("installation_administrator").await, 0);
 }
+
+#[tokio::test]
+#[ignore = "TLS fixture"]
+async fn throttled_post_forms_remain_usable() {
+    for hx in [false, true] {
+        for (index, path) in [
+            "/admin/setup",
+            "/admin/login",
+            "/admin/recovery",
+            "/admin/password",
+        ]
+        .iter()
+        .enumerate()
+        {
+            let f = Fixture::new(&format!("throttlepost{index}{}", u8::from(hx))).await;
+            let mut b = Browser::new(&f).await;
+            let code = sec::encode(&[2; 32]);
+            if *path == "/admin/setup" {
+                f.operator
+                    .issue_setup_code(&sec::digest(&code))
+                    .await
+                    .unwrap();
+            } else {
+                b.setup(&f).await;
+                if *path == "/admin/recovery" {
+                    f.operator
+                        .issue_recovery_code(&sec::digest(&code))
+                        .await
+                        .unwrap();
+                } else if *path == "/admin/password" {
+                    b.login().await;
+                }
+            }
+            let token = b.token(path).await;
+            let password = if *path == "/admin/login" {
+                "a synthetic password"
+            } else {
+                "replacement synthetic password"
+            };
+            let fields = [
+                ("csrf", token.as_str()),
+                ("email", "Owner@example.test"),
+                ("code", code.as_str()),
+                ("password", password),
+                ("password_confirmation", password),
+                ("current_password", "a synthetic password"),
+            ];
+            let body = url::form_urlencoded::Serializer::new(String::new())
+                .extend_pairs(fields)
+                .finish();
+            let cfg = Config::new("https://bloc.example.test", "127.0.0.1/32", [7; 32]).unwrap();
+            let source = sec::keyed(&cfg, "source", "192.0.2.4").unwrap();
+            sqlx::query("INSERT INTO bloc.administrator_admission_bucket VALUES ('credential_source',$1,array_fill(clock_timestamp(),ARRAY[10]),clock_timestamp()+interval '2 minutes') ON CONFLICT (scope,subject_digest) DO UPDATE SET admitted_at=EXCLUDED.admitted_at,expires_at=EXCLUDED.expires_at").bind(source.to_vec()).execute(&f.admin).await.unwrap();
+            let changes = if hx {
+                vec![("hx-request", Some("true"))]
+            } else {
+                vec![]
+            };
+            let (status, html, headers) =
+                custom(&b, "POST", path, &body, &changes, "127.0.0.1:1").await;
+            assert_eq!(status, 429, "{path} hx={hx}: {html}");
+            assert!(
+                headers["retry-after"]
+                    .to_str()
+                    .unwrap()
+                    .parse::<u32>()
+                    .unwrap()
+                    > 0
+            );
+            let returned_token = html
+                .split("name=\"csrf\" value=\"")
+                .nth(1)
+                .unwrap()
+                .split('"')
+                .next()
+                .unwrap();
+            assert!(!returned_token.is_empty(), "{path} hx={hx}");
+            assert_eq!(returned_token, token);
+            assert!(html.contains("Too many attempts."));
+            assert_eq!(html.contains("<!doctype html>"), !hx);
+            assert!(html.contains("id=\"content\""));
+            if matches!(*path, "/admin/setup" | "/admin/login") {
+                assert!(html.contains("value=\"Owner@example.test\""));
+            }
+            for secret in [code.as_str(), password, "a synthetic password"] {
+                assert!(!html.contains(secret), "refilled secret for {path}");
+            }
+            sqlx::query("UPDATE bloc.administrator_admission_bucket SET admitted_at=array_fill(clock_timestamp()-interval '61 seconds',ARRAY[cardinality(admitted_at)])").execute(&f.admin).await.unwrap();
+            let retry_body = url::form_urlencoded::Serializer::new(String::new())
+                .extend_pairs(fields.map(|(name, value)| {
+                    (
+                        name,
+                        if name == "csrf" {
+                            returned_token
+                        } else {
+                            value
+                        },
+                    )
+                }))
+                .finish();
+            let (status, html, headers) =
+                custom(&b, "POST", path, &retry_body, &changes, "127.0.0.1:1").await;
+            assert_eq!(status, if hx { 200 } else { 303 }, "{path} hx={hx}: {html}");
+            let destination = if *path == "/admin/login" {
+                "/admin"
+            } else {
+                "/admin/login"
+            };
+            assert_eq!(
+                headers[if hx { "hx-redirect" } else { "location" }],
+                destination
+            );
+            if *path != "/admin/login" {
+                let csrf = b.token("/admin/login").await;
+                let (status, html, _) = b
+                    .request(
+                        "POST",
+                        "/admin/login",
+                        &[
+                            ("csrf", &csrf),
+                            ("email", "Owner@example.test"),
+                            ("password", password),
+                        ],
+                    )
+                    .await;
+                assert_eq!(status, 303, "new credential must work: {html}");
+            }
+        }
+    }
+}
+
+#[tokio::test]
+#[ignore = "TLS fixture"]
+async fn throttled_form_issuance_requires_reload() {
+    for hx in [false, true] {
+        for (index, path) in [
+            "/admin/setup",
+            "/admin/login",
+            "/admin/recovery",
+            "/admin/password",
+            "/admin",
+        ]
+        .iter()
+        .enumerate()
+        {
+            let f = Fixture::new(&format!("throttleissue{index}{}", u8::from(hx))).await;
+            let mut b = Browser::new(&f).await;
+            if matches!(*path, "/admin/password" | "/admin") {
+                b.setup(&f).await;
+                b.login().await;
+            }
+            b.cookies.remove("__Host-bloc-csrf");
+            let cfg = Config::new("https://bloc.example.test", "127.0.0.1/32", [7; 32]).unwrap();
+            let source = sec::keyed(&cfg, "source", "192.0.2.4").unwrap();
+            sqlx::query("INSERT INTO bloc.administrator_admission_bucket VALUES ('form_issue_source',$1,array_fill(clock_timestamp(),ARRAY[30]),clock_timestamp()+interval '2 minutes') ON CONFLICT (scope,subject_digest) DO UPDATE SET admitted_at=EXCLUDED.admitted_at,expires_at=EXCLUDED.expires_at").bind(source.to_vec()).execute(&f.admin).await.unwrap();
+            let changes = if hx {
+                vec![("hx-request", Some("true"))]
+            } else {
+                vec![]
+            };
+            let (status, html, headers) =
+                custom(&b, "GET", path, "", &changes, "127.0.0.1:1").await;
+            assert_eq!(status, 429, "{path} hx={hx}: {html}");
+            assert!(
+                headers["retry-after"]
+                    .to_str()
+                    .unwrap()
+                    .parse::<u32>()
+                    .unwrap()
+                    > 0
+            );
+            assert!(!html.contains("<form"), "{path}: {html}");
+            assert!(!html.contains("name=\"csrf\""));
+            assert!(html.contains("role=\"alert\""));
+            assert!(html.contains("Too many attempts."));
+            assert!(
+                html.contains(&format!("href=\"{path}\">Reload form</a>")),
+                "{path}: {html}"
+            );
+            sqlx::query("UPDATE bloc.administrator_admission_bucket SET admitted_at=array_fill(clock_timestamp()-interval '61 seconds',ARRAY[cardinality(admitted_at)])").execute(&f.admin).await.unwrap();
+            let token = b.token(path).await;
+            assert!(!token.is_empty());
+            let post_path = if *path == "/admin" {
+                "/admin/logout"
+            } else {
+                path
+            };
+            let (status, _, _) = b.request("POST", post_path, &[("csrf", &token)]).await;
+            assert_eq!(status, if *path == "/admin" { 303 } else { 422 });
+        }
+    }
+}
