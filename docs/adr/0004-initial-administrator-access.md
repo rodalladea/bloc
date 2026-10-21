@@ -1,6 +1,6 @@
 # 0004: initial administrator access with shared PostgreSQL
 
-Status: proposed
+Status: accepted — 2026-10-21
 
 ## Context
 
@@ -9,7 +9,7 @@ or administration boundary. In discovery on 2026-10-16, the requester selected
 initial installation ownership and administrator access as the first identity
 feature, then required multiple instances in one region for enterprise-oriented
 deployments. This record captures the agreed direction and remaining design
-work; it does not claim implementation or formal acceptance of this ADR.
+work. The dated acceptance below records the subsequent maintainer decision.
 
 See the [design](../../.design/administrator-access.md) and
 [behavior record](../behaviors/administrator-access.md).
@@ -27,7 +27,7 @@ See the [design](../../.design/administrator-access.md) and
 
 ## Decision
 
-The proposed architecture implements the confirmed interview decisions in the
+The accepted architecture implements the confirmed interview decisions in the
 design's Key decisions section. Deployment access authorizes the first
 installation administrator through an operator-generated code, and later
 authorizes recovery of that same account. The built-in HTML interface is the
@@ -106,3 +106,43 @@ Native full-service capacity on both architectures and independent verification
 are acceptance gates, with source-bound results recorded by CI and the behavior
 record. The historical internal-only status above describes the
 first delivery rather than the current HTTP implementation.
+
+## Formal acceptance — 2026-10-21
+
+Rodrigo Dalla Dea, sole maintainer, requested formal acceptance after completing
+[PR #6](https://github.com/rodalladea/bloc/pull/6)'s review. Under
+[governance](../../GOVERNANCE.md), this accepts the architecture and scoped
+engineering decisions recorded here for development and evaluation, including
+shared PostgreSQL authority, restricted database capabilities, explicit migrations,
+Askama templates, and the installation-scoped administrator boundary.
+
+Evidence considered:
+
+- Independent verification records PASS for 59/59 whole claims under the light
+  profile, without fault injection, with runtime proofs at `f3af672` and a
+  scheduling-only addendum at `3f578e1`. The
+  [behavior record](../behaviors/administrator-access.md) identifies the retained
+  Drive report and scenario mappings.
+- At PR head `2cdf11e15f89e5f7abce55195aefff7bab864d02`,
+  [CI](https://github.com/rodalladea/bloc/actions/runs/39535100459),
+  [dependency audit](https://github.com/rodalladea/bloc/actions/runs/39535100418),
+  and [PR title](https://github.com/rodalladea/bloc/actions/runs/39535100412)
+  completed successfully. This head includes the throttled-form F1 correction
+  and mapped HTTP regression tests. Its review conversation was unresolved
+  at acceptance and was subsequently resolved during release preparation; passing
+  required checks remains a merge gate.
+
+Architectural acceptance does not waive release validation. The retained native
+capacity evidence measures application fingerprint
+`dfb7a42dbd58b614015d36290ff80551b9488d8d4854afd334bb61d9fb08091b`;
+the F1 fix changes the current fingerprint to
+`da99e64cff11267e3688091a6f21a422ee1f8ceb7f04a2b70a7c006829478c4b`.
+Fresh source-matched native amd64/arm64 capacity evidence and the complete
+Distribution gates are required before publication. Earlier browser and cluster
+results are historical evidence, not fresh executions of the corrected head.
+
+This decision authorizes neither merging, tagging, publication nor deployment.
+Release and deployment await explicit authorization and the release procedure;
+deployment additionally requires an identified operator environment. MFA remains
+a prerequisite for production authentication use. No identity-protocol conformance
+or production-readiness claim follows from this ADR's acceptance.

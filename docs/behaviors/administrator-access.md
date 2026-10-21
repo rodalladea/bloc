@@ -21,7 +21,7 @@ and source-matched native capacity evidence.
 Source: requester confirmations in the tlc-discover conversation on 2026-10-16.
 The [design](../../.design/administrator-access.md) records the confirmed
 decisions once and separates proposed contracts from unresolved work. The
-[proposed ADR](../adr/0004-initial-administrator-access.md) captures architecture
+[accepted ADR](../adr/0004-initial-administrator-access.md) captures architecture
 and alternatives. This record agrees only the examples below; it does not
 silently approve all proposed engineering details in the design.
 
@@ -291,3 +291,13 @@ Then a usable form is issued and its token passes CSRF validation.
 Decision source: [PR #6 judge finding F1](https://github.com/rodalladea/bloc/pull/6#discussion_r4332392851)
 and the request to fix the review feedback. These regressions exercise HTTP output;
 they do not establish browser-engine swap/focus behavior or production acceptance.
+
+## Architectural acceptance — 2026-10-21
+
+The maintainer requested formal acceptance of [ADR 0004](../adr/0004-initial-administrator-access.md)
+after PR #6 review. The ADR records the accepted development/evaluation scope,
+current hosted checks and evidence revisions. Historical 59/59 verification does
+not cover the subsequent F1 application change: fresh source-matched native
+capacity and full Distribution validation remain publication gates. This record
+retains its scenario mappings and evidence limitations; architectural acceptance
+does not authorize release, deployment, or production authentication use.

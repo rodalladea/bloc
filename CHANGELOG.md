@@ -5,6 +5,8 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+## 0.1.0 - 2026-10-21
+
 ### Added
 
 - Internal PostgreSQL setup storage, explicit migrations, restricted operator

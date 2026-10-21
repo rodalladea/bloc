@@ -2,7 +2,8 @@
 
 This increment is for development and evaluation. MFA, application-user identity,
 OIDC, OAuth, SAML and production authentication approval remain outside this
-increment. ADR 0004 remains proposed. The HTTP implementation uses shared
+increment. [ADR 0004](adr/0004-initial-administrator-access.md) is accepted for
+development and evaluation; release and deployment require separate authorization. The HTTP implementation uses shared
 PostgreSQL authority; acceptance evidence and gaps are recorded in the behavior
 record. Do not infer native service capacity from primitive hashing measurements.
 

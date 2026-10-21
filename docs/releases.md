@@ -45,8 +45,10 @@ leaves the release incomplete. Correct visibility and rerun with original eviden
 This repository change does not itself publish a release or confirm package access.
 
 1. Review the proposed [ADR 0003](adr/0003-initial-distribution.md), behavior
-   evidence, security issues, licenses, and limitations. Authentication remains
-   unimplemented; the first release is explicitly a scaffold.
+   evidence, security issues, licenses, and limitations. Version `0.0.1` is the
+   scaffold; `0.1.0` adds installation administrator access for development and
+   evaluation under accepted ADR 0004. MFA remains required before production
+   authentication use.
 2. Set all version fields together and move appropriate Unreleased changelog notes
    into a dated release section. Review the PR. For packaging changes, manually
    run Distribution on the branch and review its image/cluster evidence.

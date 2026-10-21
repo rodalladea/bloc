@@ -40,7 +40,7 @@ no production readiness or identity-protocol conformance is claimed.
 
 These are boundaries to establish as features land, not empty crates to generate.
 Tenancy and protocol boundaries require separate ADRs. The administrator
-increment uses shared PostgreSQL; proposed [ADR 0004](adr/0004-initial-administrator-access.md)
+increment uses shared PostgreSQL; accepted [ADR 0004](adr/0004-initial-administrator-access.md)
 records its setup schema, SQLx migration and privilege boundaries. The HTTP server requires validated PostgreSQL configuration; serving replicas do
 not run migrations.
 

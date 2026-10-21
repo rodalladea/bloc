@@ -2253,7 +2253,7 @@ fn operational_documentation() {
     }
     assert!(
         include_str!("../docs/adr/0004-initial-administrator-access.md")
-            .contains("Status: proposed")
+            .contains("Status: accepted — 2026-10-21")
     );
 }
 #[test]
