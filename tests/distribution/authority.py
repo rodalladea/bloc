@@ -5,6 +5,14 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from support import postgres
 from run_storage import ROLES
 
+def cluster_address(network):
+    subnets=(ipaddress.ip_network(config['Subnet']) for config in network['IPAM']['Config'])
+    subnet=next((candidate for candidate in subnets if candidate.version==4),None)
+    if subnet is None:
+        raise ValueError('kind network requires an IPv4 subnet')
+    used={entry['IPv4Address'].split('/')[0] for entry in network['Containers'].values()}
+    return next(str(ip) for ip in itertools.islice(subnet.hosts(),100,1000) if str(ip) not in used)
+
 @contextlib.contextmanager
 def source_configuration():
     with tempfile.TemporaryDirectory(prefix='bloc-source-config-') as temporary:
@@ -42,9 +50,7 @@ def cluster_authority(kube,namespace,image):
             primary_lock=open(Path(tempfile.gettempdir())/"bloc-kind-authority-allocation.lock","a")
             fcntl.flock(primary_lock,fcntl.LOCK_EX)
             networks=json.loads(postgres.command('docker','network','inspect','kind'))
-            subnet=ipaddress.ip_network(networks[0]['IPAM']['Config'][0]['Subnet'])
-            used={entry['IPv4Address'].split('/')[0] for entry in networks[0]['Containers'].values()}
-            address=next(str(ip) for ip in itertools.islice(subnet.hosts(),100,1000) if str(ip) not in used)
+            address=cluster_address(networks[0])
             postgres.certificate(directory,'ca');postgres.certificate(directory,'matching',address)
             container=postgres.command('docker','create','--network','kind','--ip',address,'--env','POSTGRES_USER=probe','--env','POSTGRES_DB=probe','--env','POSTGRES_PASSWORD=synthetic-probe-only','--entrypoint','sh',postgres.IMAGES[0],'-c','chown postgres:postgres /tmp/probe.key && chmod 600 /tmp/probe.key && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/probe.crt -c ssl_key_file=/tmp/probe.key')
             for source,target in [('matching.crt','probe.crt'),('matching.key','probe.key')]:postgres.command('docker','cp',str(directory/source),container+':/tmp/'+target)
