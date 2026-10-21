@@ -1,8 +1,7 @@
 name: Distribution
 on:
-  pull_request:
+  workflow_dispatch:
   push:
-    branches: [main]
     tags: ['v*']
 permissions:
   contents: read
@@ -31,6 +30,10 @@ jobs:
         run: python3 scripts/distribution/prepare.py
         env:
           GH_TOKEN: ${{ github.token }}
+  native-capacity:
+    needs: prepare
+    if: needs.prepare.outputs.reuse != 'true'
+    uses: ./.github/workflows/administrator-service-capacity.yml
   platform:
     needs: prepare
     if: needs.prepare.outputs.reuse != 'true'
@@ -73,8 +76,8 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   validate:
-    needs: [prepare, platform]
-    if: ${{ !cancelled() && needs.platform.result == 'success' }}
+    needs: [prepare, platform, native-capacity]
+    if: ${{ !cancelled() && needs.platform.result == 'success' && needs.native-capacity.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -89,9 +92,17 @@ jobs:
         with:
           name: platform-arm64
           path: platforms/arm64
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: administrator-service-*
+          path: ${{ runner.temp }}/native-service
+      - name: Join verified native service records
+        run: python3 tests/support/combine_native_service_evidence.py "${RUNNER_TEMP}/native-service" "${RUNNER_TEMP}/native-service.json"
       - run: bash scripts/distribution/install-tools.sh
       - name: Validate source and cluster suites in parallel
         run: bash scripts/distribution/validate.sh
+        env:
+          BLOC_NATIVE_SERVICE_EVIDENCE: ${{ runner.temp }}/native-service.json
       - name: Retain original verified bytes before any publication
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

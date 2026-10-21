@@ -6,5 +6,6 @@
 !src/**
 !templates/**
 !assets/**
+!migrations/**
 !LICENSE
 !THIRD_PARTY_NOTICES.md

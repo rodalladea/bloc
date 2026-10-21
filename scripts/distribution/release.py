@@ -114,16 +114,22 @@ def anonymous_consumption(record, chart):
 
 def notes(record):
     version=record['version']
-    return f'''bloc {version} — scaffold
+    return f'''bloc {version} — installation administrator access
 
-Authentication, users, persistence, token issuance and SAML are not implemented.
+Installation administrator setup, sign-in, sessions, password changes and operator
+recovery use shared PostgreSQL. This release is for development and evaluation.
+MFA is required before production authentication use. Application-user identity,
+OIDC/OAuth token issuance and SAML are not implemented.
 Source revision: {record['revision']}
 Platforms: linux/amd64, linux/arm64
 Tested Helm: {record['helm']}; Kubernetes: {record['kubernetes']}
 Image: ghcr.io/rodalladea/bloc@{record['image']}
 Chart OCI digest: {record['chart']}
 
-Save operator configuration in values.yaml. Requires an operator-managed cluster.
+Save operator configuration in values.yaml. Requires an operator-managed cluster,
+PostgreSQL 17 or 18 with verified TLS and separate runtime/migrator/operator/
+maintenance roles, explicit migrations, canonical HTTPS origin and trusted proxy
+configuration. Follow docs/administrator-access.md at this revision before install.
 
 ```sh
 helm install bloc oci://ghcr.io/rodalladea/charts/bloc --version {version} --namespace bloc --create-namespace --values values.yaml --wait=watcher --timeout 5m
@@ -138,7 +144,8 @@ helm rollback bloc PREVIOUS_SUCCESSFUL_REVISION --namespace bloc --wait=watcher 
 Failed upgrades remain failures even after recovery. Verify HTTP after recovery;
 if recovery fails, inspect Helm history, Pods and events before retrying.
 See docs/install.md at this revision for ingress prerequisites, recovery and uninstall.
-No automatic deployment, database, production sizing or universal Kubernetes compatibility.
+No automatic deployment or database provisioning; no production-readiness or
+universal Kubernetes compatibility claim.
 '''
 
 
@@ -165,7 +172,7 @@ class GitHubCompletion:
         with tempfile.NamedTemporaryFile(mode='w',suffix='.md') as file:
             file.write(body+'\n<!-- bloc-identities '+json.dumps(identities,sort_keys=True)+' -->\n')
             file.flush()
-            run('gh','release','create',tag,'--repo',self.repository,'--verify-tag','--title',f'bloc {tag} — scaffold','--notes-file',file.name)
+            run('gh','release','create',tag,'--repo',self.repository,'--verify-tag','--title',f'bloc {tag} — installation administrator access','--notes-file',file.name)
 
 
 if __name__ == '__main__':

@@ -1,7 +1,8 @@
 # roadmap
 
-This is an intended sequence, not a release commitment. Only the foundation is
-implemented. Open an issue to refine each milestone before implementation using the
+This is an intended sequence, not a release commitment. The foundation and installation administrator
+access are implemented for development and evaluation; broader identity features
+remain planned. Open an issue to refine each milestone before implementation using the
 [BDD workflow](development-workflow.md). Record agreed examples and open questions
 before treating a milestone as an implementation task.
 
@@ -25,3 +26,9 @@ before treating a milestone as an implementation task.
 
 No authentication release should precede security requirements for its shipped
 flows. Do not interpret this ordering as permission to defer those controls.
+
+Administrator access HTTP implementation provides shared sessions,
+setup, password change/recovery, request security and operations with source
+and integration tests. Acceptance requires source-matched native full-service
+measurements and independent verification. MFA must precede production authentication; no application-user
+identity protocol is delivered by this increment.

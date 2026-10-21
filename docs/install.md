@@ -1,10 +1,16 @@
-# installing the bloc scaffold
+# installing bloc
 
-bloc currently serves static pages and process liveness. Authentication, users,
-storage, token issuance, and federation are not implemented. These procedures
-describe the distribution contract; a public release is available only after its
-GitHub release records successful verification of both packages. No release was
-published by adding these files.
+bloc implements the administrator journey for development and evaluation with
+shared PostgreSQL authority. Use source-matched native service measurements and independent
+verification results to establish acceptance. MFA and production authentication approval remain
+pending; application-user identity protocols are not implemented. A public release
+exists only after its GitHub release records successful verification of both
+packages; source changes do not publish a release.
+
+Follow [administrator operations](administrator-access.md) first to provision
+PostgreSQL 17/18, verified TLS, separate roles, explicit migrations, runtime secret
+files, trusted HTTPS ingress, and backup/restore fencing. Serving replicas never
+migrate automatically or receive operator/migrator credentials.
 
 The initial exercise baseline is Helm **4.3.1** and Kubernetes **1.36.5**.
 The image supports **linux/amd64** and **linux/arm64**. Other cluster versions,
@@ -13,21 +19,30 @@ Use the actual verification evidence linked from the release notes.
 
 ## Container
 
-After the `v0.0.1` release is complete, an anonymous client can run:
+After the `v0.1.0` release is complete, an anonymous client can run:
 
 ```sh
-docker pull ghcr.io/rodalladea/bloc:v0.0.1
-docker run --rm --name bloc-scaffold --read-only --cap-drop ALL \
-  --security-opt no-new-privileges -p 127.0.0.1:3000:3000 \
-  ghcr.io/rodalladea/bloc:v0.0.1
+docker pull ghcr.io/rodalladea/bloc:v0.1.0
+docker run --rm --name bloc --read-only --cap-drop ALL \
+  --security-opt no-new-privileges -p 127.0.1.0:3000:3000 \
+  --mount type=bind,src="$PWD/runtime-secrets",dst=/run/bloc,readonly \
+  --env BLOC_DATABASE_URL_FILE=/run/bloc/runtime-url \
+  --env BLOC_DATABASE_CA_FILE=/run/bloc/ca.crt \
+  --env BLOC_ABUSE_KEY_FILE=/run/bloc/abuse-key \
+  --env BLOC_CANONICAL_ORIGIN=https://bloc.example.test \
+  --env BLOC_TRUSTED_PROXY_CIDRS=127.0.1.0/32 \
+  --env MALLOC_MMAP_THRESHOLD_=131072 --cpus 1 --memory 512m --memory-swap 512m \
+  ghcr.io/rodalladea/bloc:v0.1.0
 ```
 
-In another terminal, `curl --fail http://127.0.0.1:3000/healthz` returns `ok`
+In another terminal, `curl --fail http://127.0.1.0:3000/healthz` returns `ok`
 and a newline. The image defaults to non-root execution, `0.0.0.0:3000`, and
 `RUST_LOG=info`. Override `BLOC_BIND_ADDR` and `RUST_LOG` with Docker `--env`;
 when changing the listener port, change the port mapping too. Source execution
-still defaults to `127.0.0.1:3000`. No database, persistent volume, or writable
-application files are needed. Stop with `docker stop --timeout 30 bloc-scaffold`.
+still defaults to `127.0.1.0:3000`. A shared primary and a runtime-only `runtime-secrets` directory are required; no
+writable application filesystem is required. Configure the actual immediate proxy
+CIDRs (container peers may differ from host loopback). Stop with
+`docker stop --timeout 30 bloc`.
 For an immutable deployment identity, use the image digest in the release notes.
 
 ## Install into Kubernetes
@@ -36,20 +51,29 @@ Use your operator-managed Kubernetes context and a namespace you intend to modif
 Save configuration outside the cluster, for example in `bloc-values.yaml`:
 
 ```yaml
-replicaCount: 1
+replicaCount: 2
 logLevel: info
+access:
+  secretName: bloc-database
+  canonicalOrigin: https://bloc.example.test
+  trustedProxyCIDRs: 10.244.0.0/16
 ```
+
+The CIDR above is illustrative: replace it with the actual immediate ingress
+peer ranges and restrict network access accordingly. Before installation, provision
+the operator-owned Secret keys and run the explicit migration workload described
+in the administrator runbook. Do not put credential values in Helm values.
 
 The released chart already contains the verified multi-platform image digest.
 Keep image overrides out of ordinary saved values so an upgrade selects the new
 chart's image. The source chart deliberately has an empty digest and requires an
 explicit real test digest; it is not a releasable package as checked out.
 
-Once `0.0.1` is published:
+Once `0.1.0` is published:
 
 ```sh
 helm install bloc oci://ghcr.io/rodalladea/charts/bloc \
-  --version 0.0.1 --namespace bloc --create-namespace \
+  --version 0.1.0 --namespace bloc --create-namespace \
   --values bloc-values.yaml --wait=watcher --timeout 5m
 kubectl --namespace bloc get deployment bloc-bloc
 kubectl --namespace bloc port-forward service/bloc-bloc 3000:80
@@ -58,23 +82,23 @@ kubectl --namespace bloc port-forward service/bloc-bloc 3000:80
 In another terminal:
 
 ```sh
-curl --fail http://127.0.0.1:3000/healthz
-curl --fail http://127.0.0.1:3000/
+curl --fail http://127.0.1.0:3000/healthz
+curl --fail http://127.0.1.0:3000/readyz
 ```
 
 The default chart creates a namespaced Deployment and ClusterIP Service, without
-an Ingress or cluster-wide resources. One replica listens on port 3000 behind
+an Ingress or cluster-wide resources. Each replica listens on port 3000 behind
 Service port 80. It runs as UID/GID 65532, with a read-only root filesystem, all
 Linux capabilities dropped, privilege escalation disabled, RuntimeDefault seccomp,
 and no mounted service-account token.
 
-Requests are 100m CPU and 64Mi memory, with a 128Mi memory limit and no CPU limit.
-These are bootstrap defaults, not measured sizing. RollingUpdate uses zero
-unavailable replicas and one surge replica; allow spare scheduling capacity.
-Termination grace is 30 seconds. Both probes request `/healthz` on port 3000 every
-10 seconds, with a 2-second timeout and failure threshold 3. Readiness removes
-unresponsive Pods from Service traffic; liveness restarts them. This only tests
-the dependency-free HTTP process, not identity safety or dependency readiness.
+Defaults request100m CPU/128Mi memory and limit1CPU/512Mi memory, with explicit
+Linux/glibc allocator policy. Native full-service acceptance remains a separate
+gate. RollingUpdate uses zero unavailable replicas and one surge replica; allow
+spare scheduling capacity. Termination grace is30seconds. Readiness checks
+`/readyz` (compatible writable primary), while liveness checks `/healthz` (process),
+every10seconds with2-second timeouts and failure threshold3. Dependency failure
+removes a replica from traffic without treating a live process as dead.
 
 ## Configuration
 
@@ -91,6 +115,12 @@ The [values file](../charts/bloc/values.yaml) and
 | `nodeSelector` | String-to-string map, default `{}` |
 | `tolerations` | Array of objects, default `[]` |
 | `affinity` | Object, default `{}` |
+| `access.secretName` | Operator-owned Secret reference; runtime mounts only runtime-url/ca.crt/abuse-key |
+| `access.canonicalOrigin` | Exact public HTTPS origin |
+| `access.trustedProxyCIDRs` | Explicit immediate peer CIDRs; forwarding headers are overwritten by ingress |
+| `access.migrationJob` | Optional distinct-credential explicit migration Job; defaultfalse |
+| `access.operatorPod` | Optional operator-only sleeping Pod for attached exec; defaultfalse |
+| `access.maintenanceJob` | Optional maintenance-credential daily CronJob; defaultfalse |
 | `ingress.enabled` | Boolean, default `false` |
 | `ingress.className` | Empty uses the operator's default class |
 | `ingress.hostname` | Required DNS hostname when enabled; no scheme/path |
@@ -119,7 +149,8 @@ ingress:
 
 The chart routes `/` to the Service. TLS terminates at the operator's controller;
 the controller connects upstream over HTTP. The chart creates no controller,
-certificate, or TLS secret, and adds no trust in forwarded identity headers.
+certificate, or TLS secret, and does not infer proxy trust from Ingress metadata. Configure `access` explicitly;
+ingress must overwrite forwarding headers and preserve canonical Host.
 After installation, verify `curl --fail https://bloc.example.test/healthz` using
 your certificate trust configuration; do not infer HTTPS success from Pod readiness.
 
@@ -136,7 +167,9 @@ Distinguish failures before changing the application:
 ## Upgrade and recover
 
 Publishing never changes an existing installation. First save your values and
-record `helm history bloc --namespace bloc` and the current image digest. Read
+record `helm history bloc --namespace bloc` and the current image digest. Back up the primary first. For schema changes, fence ingress and coordinate
+explicit migrations and all replicas; automatic image rollback cannot undo a schema
+change or replace the restore/invalidate-access/recovery procedure. Read
 the selected release's limitations, then replace `0.0.2` below with an actual
 published target version (it is an example, not a claim of availability):
 
@@ -190,4 +223,7 @@ helm uninstall bloc --namespace bloc --wait --timeout 5m
 ```
 
 Chart-owned resources are removed. Operator-owned TLS secrets, namespace, ingress
-controller, and DNS remain. The scaffold has no persistent application data.
+controller, and DNS remain. PostgreSQL administrator, session and audit data and operator-owned credentials
+remain external; uninstall does not erase them. Follow the backup/restore runbook
+when reusing a restored database, and require explicit operator action before
+removing persistent authority.

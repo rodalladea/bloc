@@ -7,9 +7,10 @@ logLevel: info
 resources:
   requests:
     cpu: 100m
-    memory: 64Mi
-  limits:
     memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
 nodeSelector: {}
 tolerations: []
 affinity: {}
@@ -19,3 +20,13 @@ ingress:
   hostname: ""
   annotations: {}
   tlsSecretName: ""
+
+# Operator-owned Secret keys: runtime-url, migrator-url, operator-url,
+# maintenance-url, ca.crt, abuse-key (exactly 32 binary bytes).
+access:
+  secretName: bloc-database
+  canonicalOrigin: https://bloc.example.test
+  trustedProxyCIDRs: 127.0.0.1/32
+  migrationJob: false
+  operatorPod: false
+  maintenanceJob: false

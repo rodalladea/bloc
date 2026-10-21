@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # CI tools are isolated from the application runtime.
+case "${1:-all}" in
+  all|helm) ;;
+  *) echo "Usage: $0 [all|helm]" >&2; exit 2 ;;
+esac
 arch=$(uname -m)
 case "$arch" in
   x86_64) arch=amd64; helm_sha=0403a88ae20913d11b10a2467b50087721fea7581736da6b9d3992f5357fe54b; kind_sha=aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d ;;
@@ -13,7 +17,10 @@ curl --fail --location --retry 3 "https://get.helm.sh/helm-v4.3.1-linux-${arch}.
 printf '%s  %s\n' "$helm_sha" "$tools_dir/helm.tar.gz" | sha256sum --check
 tar -xzf "$tools_dir/helm.tar.gz" -C "$tools_dir"
 cp "$tools_dir/linux-$arch/helm" "$tools_dir/helm"
-curl --fail --location --retry 3 "https://github.com/kubernetes-sigs/kind/releases/download/v0.33.0/kind-linux-${arch}" -o "$tools_dir/kind"
-printf '%s  %s\n' "$kind_sha" "$tools_dir/kind" | sha256sum --check
-chmod +x "$tools_dir/helm" "$tools_dir/kind"
+chmod +x "$tools_dir/helm"
+if [[ "${1:-all}" == all ]]; then
+  curl --fail --location --retry 3 "https://github.com/kubernetes-sigs/kind/releases/download/v0.33.0/kind-linux-${arch}" -o "$tools_dir/kind"
+  printf '%s  %s\n' "$kind_sha" "$tools_dir/kind" | sha256sum --check
+  chmod +x "$tools_dir/kind"
+fi
 printf '%s\n' "$tools_dir" >> "$GITHUB_PATH"

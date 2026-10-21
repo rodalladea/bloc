@@ -3,7 +3,16 @@ set -euo pipefail
 mkdir -p evidence
 RUSTUP_AUTO_INSTALL=1 rustup show active-toolchain
 printf 'Starting source checks/audit alongside distribution validation.\n'
-bash scripts/distribution/source-checks.sh >evidence/source-validation.log 2>&1 &
+source_checks() {
+  cargo fmt --all -- --check 2>&1 | tee evidence/format.log
+  cargo clippy --locked --all-targets -- -D warnings 2>&1 | tee evidence/lint.log
+  cargo test --locked --all-targets 2>&1 | tee evidence/test.log
+  RUSTDOCFLAGS='-D warnings' cargo doc --locked --no-deps 2>&1 | tee evidence/documentation.log
+  cargo install cargo-audit --version 0.22.2 --locked
+  cargo audit 2>&1 | tee evidence/audit.log
+  cargo test --locked --test administrator_access native_service_capacity -- --ignored --exact 2>&1 | tee evidence/native-capacity.log
+}
+source_checks >evidence/source-validation.log 2>&1 &
 source_pid=$!
 finish_source() {
   if [[ -n "$source_pid" ]]; then
@@ -22,6 +31,7 @@ version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml","rb")
 python3 scripts/distribution/candidate.py --platform platforms/amd64/image --platform platforms/arm64/image --revision "$revision" --version "$version"
 bash tests/distribution/setup-cluster.sh candidate/image
 finish_source
+python3 tests/distribution/source.py 2>&1 | tee evidence/source-startup.log
 printf 'Source checks and all cluster suites passed; completing candidate evidence.\n'
 python3 tests/distribution/registry.py --layout candidate/image --revision "$revision" 2>&1 | tee evidence/registry.log
 cp platforms/amd64/smoke.log evidence/amd64.log

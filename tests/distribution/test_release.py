@@ -85,7 +85,8 @@ class ReleaseTests(unittest.TestCase):
 
     def test_c22_pull_requests_have_no_publication_writes(self):
         workflow = self.workflow()
-        self.assertIn('pull_request:', workflow)
+        self.assertNotIn('pull_request:', workflow)
+        self.assertIn('workflow_dispatch:', workflow)
         self.assertIn("github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')", workflow)
         validate = workflow.split('  validate:')[1].split('  publish:')[0]
         self.assertNotIn('packages: write', validate)
@@ -122,16 +123,16 @@ class ReleaseTests(unittest.TestCase):
 
     def test_c25_unified_version_and_packaged_digest(self):
         import tomllib
-        self.assertEqual(tomllib.loads((ROOT/'Cargo.toml').read_text())['package']['version'],'0.0.1')
+        version = tomllib.loads((ROOT/'Cargo.toml').read_text())['package']['version']
         bloc = next(p for p in tomllib.loads((ROOT/'Cargo.lock').read_text())['package'] if p['name']=='bloc')
-        self.assertEqual(bloc['version'],'0.0.1')
-        self.assertIn('version: 0.0.1', (ROOT/'charts/bloc/Chart.yaml').read_text())
-        self.assertIn('appVersion: "0.0.1"', (ROOT/'charts/bloc/Chart.yaml').read_text())
+        self.assertEqual(bloc['version'],version)
+        self.assertIn(f'version: {version}', (ROOT/'charts/bloc/Chart.yaml').read_text())
+        self.assertIn(f'appVersion: "{version}"', (ROOT/'charts/bloc/Chart.yaml').read_text())
         from candidate import chart_layout
         with patch.dict(os.environ, {'HELM':os.environ.get('HELM','helm')}):
-            chart_layout(ROOT/'charts/bloc',self.root/'package',self.record['image'],'a'*40,'0.0.1')
+            chart_layout(ROOT/'charts/bloc',self.root/'package',self.record['image'],'a'*40,version)
         import tarfile
-        with tarfile.open(self.root/'package/bloc-0.0.1.tgz') as archive:
+        with tarfile.open(self.root/f'package/bloc-{version}.tgz') as archive:
             values=archive.extractfile('bloc/values.yaml').read().decode()
             self.assertEqual(archive.extractfile('bloc/LICENSE').read(),(ROOT/'LICENSE').read_bytes())
         self.assertIn(self.record['image'], values)
@@ -215,7 +216,18 @@ class ReleaseTests(unittest.TestCase):
         import re
         workflow=self.workflow()
         for action in re.findall(r'uses:\s*(\S+)',workflow):
-            self.assertRegex(action,r'^[\w/-]+@[0-9a-f]{40}$')
+            if action == './.github/workflows/administrator-service-capacity.yml':
+                local = ROOT / action[2:]
+                self.assertTrue(local.is_file())
+                contract=local.read_text()
+                self.assertIn('  workflow_call:',contract)
+                self.assertIn('      contents: read',contract)
+                self.assertNotIn('contents: write',contract)
+                self.assertNotIn('packages: write',contract)
+                for nested in re.findall(r'uses:\s*(\S+)',contract):
+                    self.assertRegex(nested,r'^[\w/-]+@[0-9a-f]{40}$')
+            else:
+                self.assertRegex(action,r'^[\w/-]+@[0-9a-f]{40}$')
         self.assertEqual(workflow.count('packages: write'),1)
         self.assertEqual(workflow.count('contents: write'),1)
         self.assertIn('GH_TOKEN: ${{ github.token }}',workflow)
@@ -223,7 +235,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_c34_notes_contain_identities_and_recovery(self):
         notes=release.notes(self.record)
-        for value in ('scaffold','linux/amd64','linux/arm64','4.3.1','1.36.5','a'*40,
+        for value in ('installation administrator access','MFA','verified TLS','linux/amd64','linux/arm64','4.3.1','1.36.5','a'*40,
                       self.record['image'], self.record['chart'],'--version 0.0.1','--values',
                       '--rollback-on-failure','helm rollback','recovery fails'):
             self.assertIn(value,notes)

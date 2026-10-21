@@ -4,6 +4,7 @@ import argparse
 import contextlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import socket
@@ -13,6 +14,7 @@ import time
 import urllib.request
 
 from chart import INVALID
+from authority import cluster_authority
 
 
 def command(*args, check=True, env=None):
@@ -81,7 +83,9 @@ def exercise(args):
         with forwarding(kube,namespace) as healthy:
             assert healthy()
     passed=[]
+    authority=cluster_authority(kube,namespace,args.image)
     try:
+        authority.__enter__()
         with tempfile.TemporaryDirectory() as tmp:
             tmp=Path(tmp)
             values=tmp/'operator.json'
@@ -90,11 +94,32 @@ def exercise(args):
             for name,version_number in [('A','0.0.1'),('B','0.0.2')]:
                 chart=tmp/name
                 shutil.copytree('charts/bloc',chart)
-                text=(chart/'Chart.yaml').read_text().replace('version: 0.0.1','version: '+version_number).replace('appVersion: "0.0.1"','appVersion: "'+version_number+'"')
+                text=re.sub(r'^(version|appVersion):.*$', lambda match: match[1]+': "'+version_number+'"', (chart/'Chart.yaml').read_text(), flags=re.M)
                 (chart/'Chart.yaml').write_text(text)
                 (chart/'values.yaml').write_text((chart/'values.yaml').read_text().replace('digest: \"\"','digest: '+(digest_a if name=='A' else digest_b)))
                 command(helm,'package',str(chart),'--destination',str(tmp))
                 packages[name]=str(tmp/f'bloc-{version_number}.tgz')
+            if 'C17' in checks:
+                # Exercise the published scaffold separately from the local A/B fixtures.
+                predecessor=tmp/'predecessor'
+                predecessor.mkdir()
+                command(helm,'pull','oci://ghcr.io/rodalladea/charts/bloc',
+                        '--version','0.0.1','--destination',str(predecessor))
+                h('install','fixture',str(predecessor/'bloc-0.0.1.tgz'),
+                  '--wait=watcher','--timeout','5m')
+                previous='ghcr.io/rodalladea/bloc@sha256:35fe08468d867beec22d2530f69e008329db06a7455f55f5e75628864d5fa42e'
+                assert deployment()['spec']['template']['spec']['containers'][0]['image']==previous
+                verify_http()
+                h('upgrade','fixture',packages['A'],'--values',str(values),
+                  '--wait=watcher','--timeout','5m','--rollback-on-failure')
+                assert deployment()['spec']['template']['spec']['containers'][0]['image']==repository+'@'+digest_a
+                assert ready()
+                verify_http()
+                h('rollback','fixture','1','--wait=watcher','--timeout','5m')
+                assert deployment()['spec']['template']['spec']['containers'][0]['image']==previous
+                verify_http()
+                h('uninstall','fixture','--wait=watcher','--timeout','5m')
+                print('Published v0.0.1 predecessor: install, upgrade to administrator image and rollback passed')
             h('install','fixture',packages['A'],'--version','0.0.1','--values',str(values),'--wait=watcher','--timeout','5m')
             verify_http()
             dep=deployment(); spec=dep['spec']['template']['spec']; container=spec['containers'][0]
@@ -108,7 +133,7 @@ def exercise(args):
             assert spec['securityContext']=={'runAsNonRoot':True,'runAsUser':65532,'runAsGroup':65532,'seccompProfile':{'type':'RuntimeDefault'}}
             assert not spec['automountServiceAccountToken']
             assert container['securityContext']=={'readOnlyRootFilesystem':True,'allowPrivilegeEscalation':False,'capabilities':{'drop':['ALL']}}
-            assert container['resources']=={'requests':{'cpu':'100m','memory':'64Mi'},'limits':{'memory':'128Mi'}}
+            assert container['resources']=={'requests':{'cpu':'100m','memory':'128Mi'},'limits':{'cpu':'1','memory':'512Mi'}}
             passed.append('C10')
             if 'C13' in checks:
                 before=deployment()['metadata']['resourceVersion']
@@ -125,7 +150,7 @@ def exercise(args):
             if 'C16' in checks:
                 for probe in ['readinessProbe','livenessProbe']:
                     actual=container[probe]
-                    assert actual['httpGet']['path']=='/healthz' and actual['httpGet']['port']==3000
+                    assert actual['httpGet']['path']==('/readyz' if probe=='readinessProbe' else '/healthz') and actual['httpGet']['port']==3000
                     assert [actual[k] for k in ['periodSeconds','timeoutSeconds','failureThreshold']]==[10,2,3]
                 pod=get('pods')['items'][0]
                 name=pod['metadata']['name']; restarts=pod['status']['containerStatuses'][0]['restartCount']
@@ -146,7 +171,7 @@ def exercise(args):
                 assert any('Readiness probe failed' in e.get('message','') for e in events)
                 verify_http(); passed.append('C16')
             node=json.loads(command(kube,'get','nodes','-o','json').stdout)['items'][0]['metadata']['name']
-            saved={'replicaCount':2,'image':{'repository':repository},'logLevel':'debug','resources':{'requests':{'cpu':'200m','memory':'96Mi'},'limits':{'memory':'192Mi'}},'nodeSelector':{'kubernetes.io/hostname':node},'tolerations':[{'key':'bloc-test','operator':'Exists','effect':'NoSchedule'}],'affinity':{'nodeAffinity':{'requiredDuringSchedulingIgnoredDuringExecution':{'nodeSelectorTerms':[{'matchExpressions':[{'key':'kubernetes.io/hostname','operator':'In','values':[node]}]}]}}}}
+            saved={'replicaCount':2,'image':{'repository':repository},'logLevel':'debug','resources':{'requests':{'cpu':'200m','memory':'96Mi'},'limits':{'cpu':'1','memory':'192Mi'}},'nodeSelector':{'kubernetes.io/hostname':node},'tolerations':[{'key':'bloc-test','operator':'Exists','effect':'NoSchedule'}],'affinity':{'nodeAffinity':{'requiredDuringSchedulingIgnoredDuringExecution':{'nodeSelectorTerms':[{'matchExpressions':[{'key':'kubernetes.io/hostname','operator':'In','values':[node]}]}]}}}}
             values.write_text(json.dumps(saved))
             h('upgrade','fixture',packages['A'],'--version','0.0.1','--values',str(values),'--wait=watcher','--timeout','5m','--rollback-on-failure')
             assert json.loads(h('get','values','fixture','-o','json').stdout)==saved
@@ -266,6 +291,7 @@ def exercise(args):
             assert not missing,missing
             print(json.dumps({'passed':passed,'helm':'4.3.1','kubernetes':'1.36.5','context':context}))
     finally:
+        authority.__exit__(None,None,None)
         k('get','events','--sort-by=.metadata.creationTimestamp')
         command(kube,'delete','namespace',namespace,'--wait=false',check=False)
 

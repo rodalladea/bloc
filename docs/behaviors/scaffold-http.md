@@ -1,3 +1,9 @@
+> Superseded HTTP entry-point behavior: `/` now redirects to `/admin/login`;
+> the scaffold landing/status fragment is removed. See
+> [administrator access](administrator-access.md). Assets, security headers and
+> liveness remain covered by `tests/http.rs`; Referrer-Policy is documented with
+> the administrator origin contract.
+
 # scaffold HTTP behavior
 
 Status: implemented

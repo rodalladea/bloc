@@ -26,7 +26,7 @@ def chart_layout(source, destination, image_digest, revision, version):
         subprocess.run([helm,'package',str(chart),'--destination',str(destination)],check=True)
     layer=(destination/f'bloc-{version}.tgz').read_bytes()
     config=encode({'name':'bloc','version':version,'appVersion':version,
-                   'description':'Dependency-free bloc HTTP scaffold; identity is not implemented.',
+                   'description':'bloc identity service with installation administrator access; identity protocols are not implemented.',
                    'apiVersion':'v2','type':'application'})
     layout=Layout(destination/'chart')
     layout.put(config); layout.put(layer)

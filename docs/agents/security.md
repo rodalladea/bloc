@@ -1,7 +1,7 @@
 # security guidance for agents
 
-Read [the security design](../security.md) before identity work. The scaffold has
-no authentication or authorization boundary yet.
+Read [the security design](../security.md) before identity work. The administrator boundary is under verification; application-user identity
+protocols remain unimplemented.
 
 Do not implement cryptography, token verification, XML signature validation, or
 protocol flows from memory. Consult protocol specifications and maintained library

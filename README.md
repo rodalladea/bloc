@@ -5,37 +5,32 @@ Open-source identity and access management, built with Rust and HTMX.
 bloc aims to provide centralized login, configurable identity providers, OpenID
 Connect, OAuth authorization for third-party applications, and SAML federation.
 
-**Status: initial scaffold.** The HTTP server, development landing page, HTMX
-status interaction, and liveness endpoint work. Authentication, users, storage,
-provider configuration, token issuance, and SAML are **not implemented**. Do not
-use this scaffold to protect applications or process real credentials.
+**Status: administrator access implemented for development and evaluation.** Server-rendered
+setup, sign-in, sessions, password change, operator recovery and administration
+home now use shared PostgreSQL. Production authentication approval remains blocked
+on full acceptance and MFA; application-user identity, provider configuration,
+OIDC/OAuth token issuance and SAML are not implemented.
 
 ## Run locally
 
-Install Rust using [rustup](https://rustup.rs/). The repository pins its toolchain
-in `rust-toolchain.toml`; Cargo downloads dependencies on the first build.
+Install the pinned Rust toolchain and provision PostgreSQL 17 or 18 with separate
+runtime/migrator/operator/maintenance roles and verified TLS. Follow the
+[administrator operations runbook](docs/administrator-access.md), including the
+local HTTPS proxy and required secret-file configuration. `.env.example` lists
+variable names; bloc does not load `.env` files automatically.
+
+Run explicit migrations with migrator credentials before starting runtime replicas:
 
 ```sh
+cargo run --locked -- database migrate
 cargo run --locked
 ```
 
-Open <http://127.0.0.1:3000>. No Node.js, database, or external identity provider
-is needed. HTMX is pinned and served locally.
-
-Configuration comes from process environment variables. `.env.example` is a
-reference; `.env` files are not loaded automatically.
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `BLOC_BIND_ADDR` | `127.0.0.1:3000` | Socket address for the HTTP listener |
-| `RUST_LOG` | `info` | Log filter |
-
-```sh
-BLOC_BIND_ADDR=127.0.0.1:4000 RUST_LOG=debug cargo run --locked
-```
-
-`GET /healthz` reports process liveness only. It is not a dependency readiness or
-security check. Ctrl-C and, on Unix, SIGTERM trigger graceful shutdown.
+The canonical root redirects to `/admin/login`. Initial ownership requires an
+attached `bloc admin setup-code` invocation and explicit `/admin/setup` access.
+`/healthz` is process liveness; `/readyz` checks compatible primary authority.
+Ctrl-C/SIGTERM trigger graceful shutdown. Never use operator credentials to serve
+HTTP traffic or expose operator code output through routine container logs.
 
 ## Development
 
@@ -45,6 +40,32 @@ cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked --all-targets
 cargo doc --locked --no-deps
 ```
+
+PostgreSQL integration tests use disposable Docker fixtures:
+
+```sh
+docker pull postgres:17.11-bookworm
+docker pull postgres:18.6-bookworm
+python3 tests/run_storage.py --output /tmp/bloc-storage-new
+```
+
+Use `--major 17` or `--major 18` to run one database version. The runner pulls
+only the selected images and cleans up its disposable containers.
+
+PR CI runs formatting, lint, ordinary tests, packaging policy tests and docs.
+Database suites run on PostgreSQL 17 and 18 in parallel when runtime, tests,
+dependencies, chart or build configuration changes. Documentation-only changes
+omit database fixtures. Rust dependencies/build outputs are cached per CI lane.
+PR title edits run only the lightweight title check.
+
+The dependency audit runs for dependency changes, weekly, or manually. Full
+multi-platform image/Kubernetes validation runs through the **Distribution**
+workflow manually or on version tags. Run it for packaging changes before merging
+or releasing. Capacity benchmarks run manually through **Administrator service
+capacity** and as part of Distribution; ordinary PRs do not build benchmark images.
+
+See the [storage runbook](docs/administrator-setup-storage.md#verification) for
+fixture requirements. Previews and one-off experiments are kept outside this repository.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, commits, pull requests, and review.
 Use the [BDD workflow](docs/development-workflow.md) to define feature behavior
@@ -61,7 +82,8 @@ packaging source does not mean a release has been published. The source chart
 requires an explicit image digest; release packaging supplies the verified digest.
 
 The initial cluster exercise baseline is Helm 4.3.1 and Kubernetes 1.36.5.
-Distribution still contains only the scaffold, with no identity features.
+Administrator acceptance requires the mapped integration proofs and native full-service
+measurements. Check the current CI results and verification record before acceptance.
 See [AGENTS.md](AGENTS.md) for the AI agent instruction index.
 
 ## Project guide
@@ -78,3 +100,23 @@ See [AGENTS.md](AGENTS.md) for the AI agent instruction index.
 bloc is licensed under [Apache-2.0](LICENSE). Contributions use the same license.
 Vendored dependencies retain their own licenses; see
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+The chart proof requires Helm 4.3.1 on `PATH` (or set `BLOC_HELM` to its executable).
+The explicit `native_service_capacity` proof deliberately fails without
+`BLOC_NATIVE_SERVICE_EVIDENCE` containing real full-service records from **both**
+native Linux architectures. Run
+`python3 tests/support/native_service_capacity.py --output <new-external-directory>`
+on each native architecture, retain raw records, and combine the two `record.json`
+objects in one JSON array. Invoke the proof with
+`cargo test --locked --test administrator_access native_service_capacity -- --ignored --exact`
+and `BLOC_NATIVE_SERVICE_EVIDENCE` pointing to that array. Distribution validates
+both records against the current application fingerprint; ordinary unit checks
+do not run this heavyweight proof or establish capacity acceptance.
+
+Live browser tests additionally require Playwright and a local pinned HTTPS proxy
+at `https://bloc.example.test:4443` forwarding to two loopback service ports31001
+and31002. Run `tests/run_storage.py` with `--browser-python <python>` and
+`--tls-spki <synthetic-SPKI-pin>` to include the five named browser checks on both
+database majors. The fixture suite requires local Docker and does not exercise a
+production ingress certificate. Run service/browser suites serially to avoid
+colliding with their fixed test ports.

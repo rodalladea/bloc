@@ -26,6 +26,9 @@ Keep it concise; put detailed guidance in the linked documents.
   placeholder as working authentication or a conformant identity protocol.
 - Preserve user changes. Keep diffs scoped; do not commit, publish, or release
   unless instructed. Never introduce credentials or real identity data.
+- Keep visual previews, one-off experiments, and their evidence in Drive rather
+  than this repository. Retain application code, regression tests, and project
+  documentation needed to build, operate, and maintain bloc.
 - Follow [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
   [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 - Use Context7 MCP for current library, framework, SDK, API, CLI, and cloud-service
