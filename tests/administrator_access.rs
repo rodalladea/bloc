@@ -2257,6 +2257,7 @@ fn operational_documentation() {
     );
 }
 #[test]
+#[ignore = "explicit native capacity proof; requires paired amd64 and arm64 evidence"]
 fn native_service_capacity() {
     let Some(path) = std::env::var_os("BLOC_NATIVE_SERVICE_EVIDENCE") else {
         panic!(

@@ -3,31 +3,54 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened, edited, ready_for_review]
 permissions:
   contents: read
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  native-capacity:
-    uses: ./.github/workflows/administrator-service-capacity.yml
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      integration: ${{ steps.paths.outputs.integration }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: paths
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.sha }}
+        run: |
+          python3 - <<'PYTHON'
+          import os, subprocess
+          base = os.environ['BASE']
+          if not base or set(base) == {'0'}:
+              relevant = True
+          else:
+              paths = subprocess.check_output(['git', 'diff', '--name-only', '-z', base, os.environ['HEAD']]).decode().split('\0')
+              relevant = any(p.startswith(('src/', 'migrations/', 'templates/', 'assets/', 'tests/', 'charts/', 'deploy/', '.github/workflows/', 'scripts/')) or p in ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'Dockerfile') for p in paths)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'integration={str(relevant).lower()}\n')
+          PYTHON
   check:
-    needs: native-capacity
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
-          pattern: administrator-service-*
-          path: ${{ runner.temp }}/native-service
-      - name: Join verified native service records
-        run: python3 tests/support/combine_native_service_evidence.py "${RUNNER_TEMP}/native-service" "${RUNNER_TEMP}/native-service.json"
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: rust-${{ runner.os }}-${{ runner.arch }}-check-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
       - name: Install pinned chart verification tools
-        run: bash scripts/distribution/install-tools.sh
+        run: bash scripts/distribution/install-tools.sh helm
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain
       - name: Format
@@ -36,42 +59,33 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo test --locked --all-targets
-        env:
-          BLOC_NATIVE_SERVICE_EVIDENCE: ${{ runner.temp }}/native-service.json
+      - name: Packaging policy tests
+        run: python3 -m unittest discover -s tests/distribution -p 'test_*.py' -v
       - name: Documentation
         run: cargo doc --locked --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
   setup-storage:
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        major: [17, 18]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: rust-${{ runner.os }}-${{ runner.arch }}-pg${{ matrix.major }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
       - name: Install pinned chart verification tools
-        run: bash scripts/distribution/install-tools.sh
-      - name: Pull disposable PostgreSQL fixtures
-        run: |
-          docker pull postgres:17.11-bookworm
-          docker pull postgres:18.6-bookworm
-      - name: Verify storage and TLS on PostgreSQL 17 and 18
-        run: python3 tests/run_storage.py --output evidence/setup-storage
-  pr-title:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Validate Conventional Commit title
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          python3 - <<'PY'
-          import os
-          import re
-          import sys
-          pattern = r'(feat|fix|docs|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9_./-]+\))?!?: \S.*'
-          if not re.fullmatch(pattern, os.environ['PR_TITLE']):
-              print('Use a Conventional Commit title, for example: feat(providers): add validation')
-              sys.exit(1)
-          PY
+        run: bash scripts/distribution/install-tools.sh helm
+      - name: Verify administrator, storage and TLS behavior
+        run: python3 tests/run_storage.py --major "${{ matrix.major }}" --output evidence/setup-storage

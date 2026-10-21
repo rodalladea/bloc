@@ -3,7 +3,16 @@ set -euo pipefail
 mkdir -p evidence
 RUSTUP_AUTO_INSTALL=1 rustup show active-toolchain
 printf 'Starting source checks/audit alongside distribution validation.\n'
-bash scripts/distribution/source-checks.sh >evidence/source-validation.log 2>&1 &
+source_checks() {
+  cargo fmt --all -- --check 2>&1 | tee evidence/format.log
+  cargo clippy --locked --all-targets -- -D warnings 2>&1 | tee evidence/lint.log
+  cargo test --locked --all-targets 2>&1 | tee evidence/test.log
+  RUSTDOCFLAGS='-D warnings' cargo doc --locked --no-deps 2>&1 | tee evidence/documentation.log
+  cargo install cargo-audit --version 0.22.2 --locked
+  cargo audit 2>&1 | tee evidence/audit.log
+  cargo test --locked --test administrator_access native_service_capacity -- --ignored --exact 2>&1 | tee evidence/native-capacity.log
+}
+source_checks >evidence/source-validation.log 2>&1 &
 source_pid=$!
 finish_source() {
   if [[ -n "$source_pid" ]]; then

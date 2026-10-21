@@ -53,6 +53,7 @@ GRANT bloc_maintenance TO maintenance_user;
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--major", type=int, choices=(17, 18), help="Run one database major; default runs both")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--browser-python", help="Playwright Python; requires a pinned local HTTPS proxy on4443")
     parser.add_argument("--tls-spki", help="Explicit synthetic local HTTPS SPKI pin; never disable verification globally")
@@ -62,6 +63,9 @@ def main():
     args.output.mkdir(parents=True, exist_ok=False)
     results = []
     for major, image in zip((17, 18), fixtures.IMAGES):
+        if args.major and args.major != major:
+            continue
+        subprocess.run(["docker", "pull", image], check=True)
         identity = json.loads(fixtures.command("docker", "image", "inspect", image))[0]
         containers = []
         try:
@@ -84,7 +88,9 @@ def main():
                 }
                 if args.browser_python:
                     environment |= {"BLOC_BROWSER_PYTHON": args.browser_python, "BLOC_TEST_SPKI": args.tls_spki}
-                selection = [] if args.browser_python else ["--skip", "browser_"]
+                selection = ["--skip", "native_service_capacity"]
+                if not args.browser_python:
+                    selection += ["--skip", "browser_"]
                 run = subprocess.run(["cargo", "test", "--locked", "--lib", "--test", "setup_storage",
                                       "--test", "operator", "--test", "storage_tls", "--test", "administrator_access",
                                       "--test", "administrator_operations",

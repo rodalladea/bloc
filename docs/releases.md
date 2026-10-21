@@ -48,7 +48,8 @@ This repository change does not itself publish a release or confirm package acce
    evidence, security issues, licenses, and limitations. Authentication remains
    unimplemented; the first release is explicitly a scaffold.
 2. Set all version fields together and move appropriate Unreleased changelog notes
-   into a dated release section. Review the PR and its distribution checks.
+   into a dated release section. Review the PR. For packaging changes, manually
+   run Distribution on the branch and review its image/cluster evidence.
 3. Merge the reviewed source. The maintainer explicitly creates and pushes its
    numeric version tag. Never create a fake public release to test upgrades.
 4. The tagged revision reruns Rust formatting, lint, tests, documentation and
@@ -107,6 +108,11 @@ Run the README Rust checks and `cargo audit`. Distribution proofs live in
 `tests/distribution/`; the workflow invokes
 `scripts/distribution/validate.sh` after the two native platform jobs.
 Source checks and the dependency audit run alongside distribution exercises.
+This full workflow runs manually or for version tags, rather than every PR or
+main-branch push. Routine PR CI keeps source and packaging policy checks; its
+PostgreSQL suites run the two majors in parallel for relevant changes. The
+separate dependency-audit workflow runs for dependency changes, weekly, or manually.
+Native capacity is an explicit manual/release proof, not a prerequisite for PR CI.
 Candidate evidence is written only after both paths succeed. Cluster lifecycle
 checks (including C18) and the disconnected-recovery check (C19) run concurrently
 in separate disposable namespaces; both retain their full five-minute timeouts.

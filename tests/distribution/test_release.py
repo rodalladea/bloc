@@ -85,7 +85,8 @@ class ReleaseTests(unittest.TestCase):
 
     def test_c22_pull_requests_have_no_publication_writes(self):
         workflow = self.workflow()
-        self.assertIn('pull_request:', workflow)
+        self.assertNotIn('pull_request:', workflow)
+        self.assertIn('workflow_dispatch:', workflow)
         self.assertIn("github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')", workflow)
         validate = workflow.split('  validate:')[1].split('  publish:')[0]
         self.assertNotIn('packages: write', validate)

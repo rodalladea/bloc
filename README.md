@@ -49,6 +49,21 @@ docker pull postgres:18.6-bookworm
 python3 tests/run_storage.py --output /tmp/bloc-storage-new
 ```
 
+Use `--major 17` or `--major 18` to run one database version. The runner pulls
+only the selected images and cleans up its disposable containers.
+
+PR CI runs formatting, lint, ordinary tests, packaging policy tests and docs.
+Database suites run on PostgreSQL 17 and 18 in parallel when runtime, tests,
+dependencies, chart or build configuration changes. Documentation-only changes
+omit database fixtures. Rust dependencies/build outputs are cached per CI lane.
+PR title edits run only the lightweight title check.
+
+The dependency audit runs for dependency changes, weekly, or manually. Full
+multi-platform image/Kubernetes validation runs through the **Distribution**
+workflow manually or on version tags. Run it for packaging changes before merging
+or releasing. Capacity benchmarks run manually through **Administrator service
+capacity** and as part of Distribution; ordinary PRs do not build benchmark images.
+
 See the [storage runbook](docs/administrator-setup-storage.md#verification) for
 fixture requirements. Previews and one-off experiments are kept outside this repository.
 
@@ -87,13 +102,16 @@ Vendored dependencies retain their own licenses; see
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 The chart proof requires Helm 4.3.1 on `PATH` (or set `BLOC_HELM` to its executable).
-`native_service_capacity` deliberately fails without
+The explicit `native_service_capacity` proof deliberately fails without
 `BLOC_NATIVE_SERVICE_EVIDENCE` containing real full-service records from **both**
 native Linux architectures. Run
 `python3 tests/support/native_service_capacity.py --output <new-external-directory>`
 on each native architecture, retain raw records, and combine the two `record.json`
-objects in one JSON array. CI validates both records against the current application
-fingerprint; ordinary unit checks alone do not establish full feature acceptance.
+objects in one JSON array. Invoke the proof with
+`cargo test --locked --test administrator_access native_service_capacity -- --ignored --exact`
+and `BLOC_NATIVE_SERVICE_EVIDENCE` pointing to that array. Distribution validates
+both records against the current application fingerprint; ordinary unit checks
+do not run this heavyweight proof or establish capacity acceptance.
 
 Live browser tests additionally require Playwright and a local pinned HTTPS proxy
 at `https://bloc.example.test:4443` forwarding to two loopback service ports31001
