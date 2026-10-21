@@ -61,10 +61,10 @@ session checks, not merely delete a cookie on one instance.
 The requester approved the concrete prerequisite policy and five-screen preview.
 Native primitive hashing matrices and verified PostgreSQL 17/18 TLS evidence are
 available. The finalized setup-storage RFC supplies the schema/grant mechanism:
-`projects/bloc/design/administrator-access-security-storage.md`, Drive ID
-`4bcaafc1a56954360b14426d7fe92239d1a351dcd0a55487`, section
+[projects/bloc/.design/administrator-access-security-storage.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=b490b2ad6fe83a7616a19e5c37b177b63a6ea6214f9aa05d), Drive ID
+`b490b2ad6fe83a7616a19e5c37b177b63a6ea6214f9aa05d`, section
 “Implementation contract — restricted setup storage, 2026-10-18”. The task is
-`projects/bloc/.tasks/administrator-access.md`, Drive ID
+[projects/bloc/.tasks/administrator-access.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=87bd2c0006669399f6e64c832b144da78fd0bbeca80fb059), Drive ID
 `87bd2c0006669399f6e64c832b144da78fd0bbeca80fb059`.
 
 Use SQLx 0.9.0 with explicit locked, checksum-validated forward migrations and

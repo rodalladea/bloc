@@ -11,9 +11,9 @@ it to protect applications or process real credentials. ADR 0004 is proposed.
 
 The requester-approved policy, finalized setup-storage RFC and task live in Drive:
 
-- `projects/bloc/design/administrator-access-prerequisites.md`, ID `e8e306130bdbf3a9b158f1fe1c757a6baed52ae8f212b4fa`.
-- `projects/bloc/design/administrator-access-security-storage.md`, ID `4bcaafc1a56954360b14426d7fe92239d1a351dcd0a55487`.
-- `projects/bloc/.tasks/administrator-access.md`, ID `87bd2c0006669399f6e64c832b144da78fd0bbeca80fb059`.
+- [projects/bloc/.design/administrator-access-prerequisites.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=f0a34937991edcb3fbc49835976e9ab09193c7b1f27b5e13), ID `f0a34937991edcb3fbc49835976e9ab09193c7b1f27b5e13`.
+- [projects/bloc/.design/administrator-access-security-storage.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=b490b2ad6fe83a7616a19e5c37b177b63a6ea6214f9aa05d), ID `b490b2ad6fe83a7616a19e5c37b177b63a6ea6214f9aa05d`.
+- [projects/bloc/.tasks/administrator-access.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=87bd2c0006669399f6e64c832b144da78fd0bbeca80fb059), ID `87bd2c0006669399f6e64c832b144da78fd0bbeca80fb059`.
 
 ## Database authority
 
