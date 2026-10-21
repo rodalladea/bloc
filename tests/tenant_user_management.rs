@@ -184,6 +184,7 @@ async fn directory_c01() {
 #[ignore = "TLS fixture"]
 async fn directory_c02() {
     let (f, mut b) = signed("directoryc02").await;
+    let lower = database_time(&f).await;
     create_tenant(&mut b, TENANT, " Acme ").await;
     let (s, h, _) = b
         .request("GET", &format!("/admin/tenants/{TENANT}"), &[])
@@ -200,6 +201,7 @@ async fn directory_c02() {
     .await
     .unwrap();
     assert_eq!(row, ("Acme".into(), "active".into(), 1, true));
+    metadata(&f, &h, false, lower, true).await;
 }
 async fn user(
     b: &mut Browser,
@@ -230,7 +232,11 @@ async fn edit(
     let csrf = b.token(path.trim_end_matches("/status")).await;
     let mut fields = fields.to_vec();
     fields.push(("csrf", &csrf));
-    b.request("POST", path, &fields).await
+    let result = b.request("POST", path, &fields).await;
+    if result.0 == StatusCode::SEE_OTHER {
+        assert_eq!(result.2["location"], path.trim_end_matches("/status"));
+    }
+    result
 }
 async fn events(f: &Fixture) -> i64 {
     sqlx::query_scalar("SELECT count(*) FROM bloc.security_audit_event WHERE action LIKE 'tenant%'")
@@ -256,6 +262,63 @@ fn tenant_path() -> String {
 fn user_path() -> String {
     format!("/admin/tenants/{TENANT}/users/{USER}")
 }
+
+async fn database_time(f: &Fixture) -> i64 {
+    sqlx::query_scalar("SELECT (extract(epoch FROM clock_timestamp())*1000000)::bigint")
+        .fetch_one(&f.admin)
+        .await
+        .unwrap()
+}
+fn record_value<'a>(html: &'a str, label: &str) -> &'a str {
+    let tail = html.split(&format!("<dt>{label}</dt>")).nth(1).unwrap();
+    tail.split_once('>')
+        .unwrap()
+        .1
+        .split("</dd>")
+        .next()
+        .unwrap()
+}
+async fn metadata(f: &Fixture, html: &str, user: bool, lower: i64, initial: bool) {
+    let table = if user { "tenant_user" } else { "tenant" };
+    let id = if user { USER } else { TENANT };
+    let sql = format!(
+        "SELECT version,(extract(epoch FROM created_at)*1000000)::bigint,(extract(epoch FROM updated_at)*1000000)::bigint,to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'),to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') FROM bloc.{table} WHERE id=$1::text::uuid"
+    );
+    let (version, created, updated, created_text, updated_text): (i64, i64, i64, String, String) =
+        sqlx::query_as(sqlx::AssertSqlSafe(sql))
+            .bind(id)
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
+    let upper = database_time(f).await;
+    assert!(updated >= lower && updated <= upper);
+    if initial {
+        assert_eq!(created, updated);
+        assert!(created >= lower);
+    }
+    assert_eq!(record_value(html, "Version"), version.to_string());
+    assert_eq!(record_value(html, "Created"), created_text);
+    assert_eq!(record_value(html, "Updated"), updated_text);
+}
+fn row_ids(html: &str) -> Vec<String> {
+    html.split("<tr data-record=\"")
+        .skip(1)
+        .map(|s| s.split('"').next().unwrap().to_string())
+        .collect()
+}
+fn no_extra_list_controls(html: &str) {
+    for absent in [
+        "Search",
+        "Filter",
+        "total",
+        "Total",
+        "Count",
+        "type=\"search\"",
+    ] {
+        assert!(!html.contains(absent), "{absent}");
+    }
+}
+
 macro_rules! check {
     ($name:ident,$f:ident,$b:ident,$body:block) => {
         #[tokio::test]
@@ -275,6 +338,14 @@ check!(directory_c03, f, b, {
 });
 check!(directory_c04, f, b, {
     let csrf = b.token("/admin/tenants/new").await;
+    let (status, _, _) = b
+        .request(
+            "POST",
+            "/admin/tenants",
+            &[("csrf", &csrf), ("creation_id", TENANT)],
+        )
+        .await;
+    assert_eq!(status, 422);
     for name in [
         "".into(),
         "  ".into(),
@@ -291,8 +362,18 @@ check!(directory_c04, f, b, {
             .await;
         assert_eq!(s, 422, "{h}");
         assert!(h.contains("control characters"));
+        if !name.contains('\n') {
+            assert!(h.contains(&format!("value=\"{name}\"")));
+        }
     }
     assert_eq!(events(&f).await, 0);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM bloc.tenant")
+            .fetch_one(&f.admin)
+            .await
+            .unwrap(),
+        0
+    );
     create_tenant(&mut b, TENANT, &"😀".repeat(128)).await;
 });
 check!(directory_c05, f, b, {
@@ -313,6 +394,33 @@ check!(directory_c05, f, b, {
     assert_eq!(codes, [303, 409]);
     assert!((a.1 + &z.1).contains("Review existing tenant"));
     assert_eq!(events(&f).await, 1);
+    let original = tenant_row(&f).await;
+    assert_eq!((original.0.as_str(), original.2), ("Acme", 1));
+    let (s, h, _) = b
+        .request(
+            "POST",
+            "/admin/tenants",
+            &[
+                ("csrf", &csrf),
+                ("creation_id", TENANT),
+                ("name", "Replacement"),
+            ],
+        )
+        .await;
+    assert_eq!(s, 409);
+    assert!(h.contains(&format!(
+        "href=\"{}\">Review existing tenant",
+        tenant_path()
+    )));
+    assert_eq!(tenant_row(&f).await, original);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM bloc.tenant")
+            .fetch_one(&f.admin)
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(events(&f).await, 1);
 });
 check!(directory_c06, f, b, {
     create_tenant(&mut b, TENANT, "Acme").await;
@@ -321,6 +429,7 @@ check!(directory_c06, f, b, {
         303
     );
     let old = tenant_row(&f).await;
+    let lower = database_time(&f).await;
     assert_eq!(
         edit(
             &mut b,
@@ -339,6 +448,8 @@ check!(directory_c06, f, b, {
         .await
         .unwrap();
     assert_eq!(parent, TENANT);
+    let (_, html, _) = b.request("GET", &tenant_path(), &[]).await;
+    metadata(&f, &html, false, lower, false).await;
 });
 check!(directory_c07, f, b, {
     create_tenant(&mut b, TENANT, "Acme").await;
@@ -358,6 +469,7 @@ check!(directory_c07, f, b, {
     assert_eq!(tenant_row(&f).await.1, "suspended");
     let (_, h, _) = b.request("GET", &tenant_path(), &[]).await;
     assert!(h.contains("user statuses"));
+    assert!(h.contains("<span class=\"badge \">Suspended</span>"));
 });
 check!(directory_c08, f, b, {
     create_tenant(&mut b, TENANT, "Acme").await;
@@ -386,6 +498,9 @@ check!(directory_c08, f, b, {
     }
     assert_eq!(tenant_row(&f).await.1, "active");
     assert_eq!(user_row(&f).await.2, "suspended");
+    let (s, h, _) = b.request("GET", &tenant_path(), &[]).await;
+    assert_eq!(s, 200);
+    assert!(h.contains("<span class=\"badge active\">Active</span>"));
 });
 check!(directory_c09, f, b, {
     create_tenant(&mut b, TENANT, "Acme").await;
@@ -432,6 +547,11 @@ check!(directory_c09, f, b, {
     let (_, h, _) = b.request("GET", &user_path(), &[]).await;
     assert!(h.contains("This tenant is suspended"));
     assert_eq!(tenant_row(&f).await.1, "suspended");
+    let (s, h, _) = b.request("GET", "/admin/tenants", &[]).await;
+    assert_eq!(s, 200);
+    assert!(h.contains(TENANT));
+    assert!(h.contains("Renamed"));
+    assert!(h.contains("Suspended"));
 });
 check!(directory_c10, f, b, {
     create_tenant(&mut b, TENANT, "Acme").await;
@@ -445,6 +565,12 @@ check!(directory_c10, f, b, {
     let mut codes = [a.0.as_u16(), z.0.as_u16()];
     codes.sort();
     assert_eq!(codes, [303, 409]);
+    let winner = if a.0 == 303 { "One" } else { "Two" };
+    let snapshot = tenant_row(&f).await;
+    assert_eq!(
+        (snapshot.0.as_str(), snapshot.1.as_str(), snapshot.2),
+        (winner, "active", 2)
+    );
     assert!((a.1 + &z.1).contains("Reload current record"));
     assert_eq!(
         edit(
@@ -457,6 +583,7 @@ check!(directory_c10, f, b, {
         409
     );
     assert_eq!(events(&f).await, 2);
+    assert_eq!(tenant_row(&f).await, snapshot);
 });
 check!(directory_c11, f, b, {
     create_tenant(&mut b, TENANT, "Acme").await;
@@ -499,6 +626,7 @@ check!(directory_c12, f, b, {
     assert!(h.contains("Renamed"));
     assert!(h.contains(TENANT));
     assert!(h.contains(">2<"));
+    assert!(h.contains("<span class=\"badge active\">Active</span>"));
     let mut processes = services(&f).await;
     let request = format!(
         "GET {} HTTP/1.1\r\nHost: bloc.example.test:4443\r\nX-Forwarded-Proto: https\r\nX-Forwarded-For: 192.0.2.4\r\nCookie: __Host-bloc-admin={}\r\nConnection: close\r\n\r\n",
@@ -534,6 +662,7 @@ check!(directory_c12, f, b, {
     assert!(restarted.contains("Renamed"));
     assert!(restarted.contains(TENANT));
     assert!(restarted.contains(">2<"));
+    assert!(restarted.contains("<span class=\"badge active\">Active</span>"));
 });
 async fn seed_tenants(b: &mut Browser, n: usize) {
     for i in 1..=n {
@@ -568,6 +697,25 @@ check!(directory_c13, f, b, {
     assert!(!last.contains("rel=\"next\""));
     assert!(!h.contains("Search"));
     assert_eq!(events(&f).await, 51);
+    no_extra_list_controls(&h);
+    assert_eq!(
+        row_ids(&h),
+        (1..=50)
+            .map(|i| format!("00000000-0000-4000-8000-{i:012}"))
+            .collect::<Vec<_>>()
+    );
+    sqlx::query("UPDATE bloc.tenant SET created_at='2026-01-01T00:00:00Z'::timestamptz + (substring(id::text,25)::bigint % 7)*interval '1 second'").execute(&f.admin).await.unwrap();
+    let expected: Vec<String> =
+        sqlx::query_scalar("SELECT id::text FROM bloc.tenant ORDER BY created_at,id")
+            .fetch_all(&f.admin)
+            .await
+            .unwrap();
+    let (_, first, _) = b.request("GET", "/admin/tenants", &[]).await;
+    let (_, last, _) = b.request("GET", &next(&first), &[]).await;
+    assert_eq!(row_ids(&first), expected[..50]);
+    assert_eq!(row_ids(&last), expected[50..]);
+    assert!(!last.contains("rel=\"next\""));
+    no_extra_list_controls(&last);
 });
 check!(directory_c14, f, b, {
     let (_, h, _) = b.request("GET", "/admin/tenants/new", &[]).await;
@@ -599,6 +747,7 @@ check!(directory_c15, f, b, {
 });
 check!(directory_c16, f, b, {
     create_tenant(&mut b, TENANT, "Acme").await;
+    let lower = database_time(&f).await;
     let (s, h, r) = user(&mut b, TENANT, USER, " Alice@EXAMPLE.com ", " Alice ").await;
     assert_eq!(s, 303, "{h}");
     assert_eq!(r["location"], user_path());
@@ -621,6 +770,16 @@ check!(directory_c16, f, b, {
         .await
         .unwrap();
     assert!(equal);
+    assert!(h.contains("<span class=\"badge active\">Active</span>"));
+    let lifecycle = h
+        .split("<h2>User status</h2>")
+        .nth(1)
+        .unwrap()
+        .split("<dl>")
+        .next()
+        .unwrap();
+    assert!(lifecycle.contains("<span class=\"badge active\">Active</span>"));
+    metadata(&f, &h, true, lower, true).await;
 });
 check!(directory_c17, f, b, {
     create_tenant(&mut b, TENANT, "Acme").await;
@@ -630,12 +789,22 @@ check!(directory_c17, f, b, {
         user(&mut b, OTHER, OTHER, "Alice@example.com", "").await.0,
         303
     );
-    edit(
+    let changed = edit(
         &mut b,
         &user_path(),
         &[("email", "Bob@example.com"), ("version", "1")],
     )
     .await;
+    assert_eq!(changed.0, 303);
+    assert_eq!(changed.2["location"], user_path());
+    assert_eq!(user_row(&f).await.0, "Bob@example.com");
+    let other_name: Option<String> =
+        sqlx::query_scalar("SELECT display_name FROM bloc.tenant_user WHERE id=$1::text::uuid")
+            .bind(OTHER)
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
+    assert_eq!(other_name, None);
     let row: (String, i64, String) =
         sqlx::query_as("SELECT email,version,status FROM bloc.tenant_user WHERE id=$1::text::uuid")
             .bind(OTHER)
@@ -709,6 +878,19 @@ check!(directory_c19, f, b, {
     );
     assert_eq!(maximum.len(), 254);
     assert_eq!(user(&mut b, TENANT, OTHER, &maximum, "").await.0, 303);
+    let old = user_row(&f).await;
+    let n = events(&f).await;
+    let (status, html, _) = edit(
+        &mut b,
+        &user_path(),
+        &[("email", "bad email"), ("version", "1")],
+    )
+    .await;
+    assert_eq!(status, 422);
+    assert!(html.contains("id=\"email-error\""));
+    assert!(html.contains("Enter a valid ASCII email address, up to 254 bytes."));
+    assert_eq!(user_row(&f).await, old);
+    assert_eq!(events(&f).await, n);
 });
 check!(directory_c20, f, b, {
     create_tenant(&mut b, TENANT, "Acme").await;
@@ -716,6 +898,9 @@ check!(directory_c20, f, b, {
         let (s, h, _) = user(&mut b, TENANT, USER, "Alice@example.com", &name).await;
         assert_eq!(s, 422);
         assert!(h.contains("Control characters"));
+        if !name.contains('\n') {
+            assert!(h.contains(&format!("name=\"display_name\" value=\"{name}\"")));
+        }
     }
     assert_eq!(events(&f).await, 1);
     assert_eq!(
@@ -746,6 +931,13 @@ check!(directory_c21, f, b, {
     create_tenant(&mut b, TENANT, "Acme").await;
     user(&mut b, TENANT, USER, "Alice@example.com", "Alice").await;
     let old = user_row(&f).await;
+    let original_targets: Vec<(String, Option<String>, Option<String>)> = sqlx::query_as(
+        "SELECT id::text,tenant_id::text,tenant_user_id::text FROM bloc.security_audit_event ORDER BY id",
+    )
+    .fetch_all(&f.admin)
+    .await
+    .unwrap();
+    let lower = database_time(&f).await;
     assert_eq!(
         edit(
             &mut b,
@@ -779,12 +971,32 @@ check!(directory_c21, f, b, {
     let new = user_row(&f).await;
     assert_eq!(new.3, 2);
     assert_ne!(old.4, new.4);
+    assert_eq!(
+        (&new.0, &new.1, &new.2),
+        (
+            &"Bob@example.com".to_string(),
+            &Some("Bob".to_string()),
+            &old.2
+        )
+    );
+    let parent: String =
+        sqlx::query_scalar("SELECT tenant_id::text FROM bloc.tenant_user WHERE id=$1::text::uuid")
+            .bind(USER)
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
+    assert_eq!(parent, TENANT);
+    let preserved:Vec<(String,Option<String>,Option<String>)>=sqlx::query_as("SELECT id::text,tenant_id::text,tenant_user_id::text FROM bloc.security_audit_event WHERE id::text=ANY($1) ORDER BY id").bind(original_targets.iter().map(|r|r.0.clone()).collect::<Vec<_>>()).fetch_all(&f.admin).await.unwrap();
+    assert_eq!(preserved, original_targets);
+    let (_, h, _) = b.request("GET", &user_path(), &[]).await;
+    metadata(&f, &h, true, lower, false).await;
 });
 check!(directory_c22, f, b, {
     create_tenant(&mut b, TENANT, "Acme").await;
     user(&mut b, TENANT, USER, "Alice@example.com", "").await;
     let parent = tenant_row(&f).await;
     for (v, s) in [("1", "suspended"), ("2", "active"), ("3", "active")] {
+        let before = user_row(&f).await;
         assert_eq!(
             edit(
                 &mut b,
@@ -795,6 +1007,15 @@ check!(directory_c22, f, b, {
             .0,
             303
         );
+        let after = user_row(&f).await;
+        assert_eq!(after.2, s);
+        if v == "3" {
+            assert_eq!(before, after);
+        }
+        let (_, h, _) = b.request("GET", &user_path(), &[]).await;
+        assert!(h.contains(USER));
+        let expected = if s == "active" { "Active" } else { "Suspended" };
+        assert!(h.contains(&format!(">{expected}</span>")));
     }
     assert_eq!(user_row(&f).await.3, 3);
     assert_eq!(events(&f).await, 4);
@@ -810,6 +1031,7 @@ check!(directory_c23, _f, b, {
     ] {
         let (_, h, _) = b.request("GET", &user_path(), &[]).await;
         assert!(h.contains("Combined directory status"));
+        assert_eq!(record_value(&h, "Combined directory status"), text);
         assert!(h.contains("This user cannot sign in"));
         if tv == "1" && uv == "1" && text == "Active" {
             edit(
@@ -830,6 +1052,23 @@ check!(directory_c23, _f, b, {
             assert!(h.contains(text));
         }
     }
+    assert_eq!(
+        edit(
+            &mut b,
+            &format!("{}/status", tenant_path()),
+            &[("version", "2"), ("status", "active")]
+        )
+        .await
+        .0,
+        303
+    );
+    let (_, h, _) = b.request("GET", &user_path(), &[]).await;
+    assert_eq!(record_value(&h, "Tenant status"), "Active");
+    assert_eq!(
+        record_value(&h, "Combined directory status"),
+        "User suspended"
+    );
+    assert!(h.contains("This user cannot sign in"));
 });
 check!(directory_c24, f, b, {
     create_tenant(&mut b, TENANT, "Acme").await;
@@ -1009,9 +1248,19 @@ check!(directory_c27, f, b, {
     create_tenant(&mut b, TENANT, "Acme").await;
     create_tenant(&mut b, OTHER, "Contoso").await;
     user(&mut b, TENANT, USER, "Alice@example.com", "").await;
-    let (s, h, _) = user(&mut b, TENANT, USER, "Bob@example.com", "").await;
+    let original = user_row(&f).await;
+    let (s, h, _) = user(&mut b, TENANT, USER, "Bob@example.com", "Replacement").await;
     assert_eq!(s, 409);
     assert!(h.contains("Review existing user"));
+    assert!(h.contains(&format!("href=\"{}\">Review existing user", user_path())));
+    assert_eq!(user_row(&f).await, original);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM bloc.tenant_user")
+            .fetch_one(&f.admin)
+            .await
+            .unwrap(),
+        1
+    );
     let (s, h, _) = user(&mut b, OTHER, USER, "Bob@example.com", "").await;
     assert_eq!(s, 409);
     assert!(!h.contains("Review existing user"));
@@ -1068,6 +1317,17 @@ check!(directory_c29, f, b, {
     let (_, last, _) = b.request("GET", &next(&h), &[]).await;
     assert_eq!(last.matches("<tr data-record=").count(), 1);
     assert_eq!(events(&f).await, 54);
+    sqlx::query("UPDATE bloc.tenant_user SET created_at='2026-01-01T00:00:00Z'::timestamptz + (substring(id::text,25)::bigint % 7)*interval '1 second' WHERE tenant_id=$1::text::uuid").bind(TENANT).execute(&f.admin).await.unwrap();
+    let expected:Vec<String>=sqlx::query_scalar("SELECT id::text FROM bloc.tenant_user WHERE tenant_id=$1::text::uuid ORDER BY created_at,id").bind(TENANT).fetch_all(&f.admin).await.unwrap();
+    let (_, first, _) = b.request("GET", &path, &[]).await;
+    let (_, last, _) = b.request("GET", &next(&first), &[]).await;
+    assert_eq!(row_ids(&first), expected[..50]);
+    assert_eq!(row_ids(&last), expected[50..]);
+    assert!(!first.contains(OTHER));
+    assert!(!last.contains(OTHER));
+    assert!(!last.contains("rel=\"next\""));
+    no_extra_list_controls(&first);
+    no_extra_list_controls(&last);
 });
 check!(directory_c30, f, b, {
     create_tenant(&mut b, TENANT, "Private").await;
@@ -1114,6 +1374,28 @@ check!(directory_c30, f, b, {
             assert!(!html.contains("Private"));
         }
     }
+    let snapshot = user_row(&f).await;
+    let n = events(&f).await;
+    sqlx::query("UPDATE bloc.administrator_session SET last_activity_at=clock_timestamp()-interval '30 minutes'").execute(&f.admin).await.unwrap();
+    for method in ["GET", "POST"] {
+        for enhanced in [false, true] {
+            let extra = if enhanced {
+                vec![("hx-request", "true")]
+            } else {
+                vec![]
+            };
+            let (code, h, headers) = raw(&b, method, &user_path(), String::new(), &extra).await;
+            assert_eq!(code, if enhanced { 401 } else { 303 });
+            assert_eq!(
+                headers[if enhanced { "hx-redirect" } else { "location" }],
+                "/admin/login?expired=1"
+            );
+            assert!(!h.contains("Private"));
+        }
+    }
+    assert_eq!(user_row(&f).await, snapshot);
+    assert_eq!(events(&f).await, n);
+    b.login().await;
     f.operator.invalidate_access().await.unwrap();
     let (s, h, _) = b.request("GET", &tenant_path(), &[]).await;
     assert_eq!(s, 303);
@@ -1389,6 +1671,45 @@ check!(directory_c33, f, b, {
     assert_eq!(users, 1);
     assert_eq!(events(&f).await, 2);
     f.fail_audit(false).await;
+    let root = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect_with(Fixture::options("probe", "probe"))
+        .await
+        .unwrap();
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "ALTER DATABASE {} ALLOW_CONNECTIONS false",
+        f.database
+    )))
+    .execute(&root)
+    .await
+    .unwrap();
+    sqlx::query("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1 AND usename='runtime_user'").bind(&f.database).execute(&f.admin).await.unwrap();
+    for method in ["GET", "POST"] {
+        let (status, h, _) = b
+            .request(
+                method,
+                &tenant_path(),
+                &[
+                    ("csrf", &csrf),
+                    ("name", "Unavailable change"),
+                    ("version", "1"),
+                ],
+            )
+            .await;
+        assert_eq!(status, 503);
+        assert!(!h.contains("No tenants yet"));
+        assert!(!h.contains("Acme"));
+    }
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "ALTER DATABASE {} ALLOW_CONNECTIONS true",
+        f.database
+    )))
+    .execute(&root)
+    .await
+    .unwrap();
+    assert_eq!(tenant_row(&f).await.0, "Acme");
+    assert_eq!(user_row(&f).await, original);
+    assert_eq!(events(&f).await, 2);
     sqlx::query("UPDATE public._sqlx_migrations SET checksum='invalid'::bytea WHERE version=3")
         .execute(&f.admin)
         .await
@@ -1398,6 +1719,7 @@ check!(directory_c33, f, b, {
     assert!(!h.contains("No tenants yet"));
 });
 check!(directory_c34, f, b, {
+    let lower = database_time(&f).await;
     create_tenant(&mut b, TENANT, "Acme").await;
     user(&mut b, TENANT, USER, "Alice@example.com", "").await;
     edit(
@@ -1428,6 +1750,24 @@ check!(directory_c34, f, b, {
     }
     let rows:Vec<(String,String,Option<String>,bool)>=sqlx::query_as("SELECT action,tenant_id::text,tenant_user_id::text,administrator_id IS NOT NULL AND request_id IS NOT NULL AND occurred_at<=clock_timestamp() FROM bloc.security_audit_event WHERE action LIKE 'tenant%' ORDER BY occurred_at").fetch_all(&f.admin).await.unwrap();
     assert_eq!(rows.len(), 8);
+    let mut actual = rows.iter().map(|r| r.0.as_str()).collect::<Vec<_>>();
+    actual.sort();
+    assert_eq!(
+        actual,
+        vec![
+            "tenant_create",
+            "tenant_reactivate",
+            "tenant_suspend",
+            "tenant_update",
+            "tenant_user_create",
+            "tenant_user_reactivate",
+            "tenant_user_suspend",
+            "tenant_user_update"
+        ]
+    );
+    let valid:bool=sqlx::query_scalar("SELECT bool_and(administrator_id=(SELECT id FROM bloc.installation_administrator) AND (extract(epoch FROM occurred_at)*1000000)::bigint BETWEEN $1 AND (extract(epoch FROM clock_timestamp())*1000000)::bigint AND request_id::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') FROM bloc.security_audit_event WHERE action LIKE 'tenant%'").bind(lower).fetch_one(&f.admin).await.unwrap();
+    assert!(valid);
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(DISTINCT request_id) FROM bloc.security_audit_event WHERE action LIKE 'tenant%'").fetch_one(&f.admin).await.unwrap(),8);
     for (action, t, u, valid) in rows {
         assert_eq!(t, TENANT);
         assert!(valid);
@@ -1571,6 +1911,54 @@ check!(directory_c36, f, b, {
     let nulls:bool=sqlx::query_scalar("SELECT bool_and(tenant_id IS NULL AND tenant_user_id IS NULL) FROM bloc.security_audit_event").fetch_one(&f.admin).await.unwrap();
     assert!(nulls);
     assert_eq!(b.request("GET", "/admin", &[]).await.0, 200);
+    let csrf = b.token("/admin").await;
+    assert_eq!(
+        b.request("POST", "/admin/logout", &[("csrf", &csrf)])
+            .await
+            .0,
+        303
+    );
+    assert_eq!(b.request("GET", "/admin", &[]).await.0, 303);
+    b.login().await;
+    let csrf = b.token("/admin/password").await;
+    let (status, _, headers) = b
+        .request(
+            "POST",
+            "/admin/password",
+            &[
+                ("csrf", &csrf),
+                ("current_password", "a synthetic password"),
+                ("password", "a replacement synthetic password"),
+                ("password_confirmation", "a replacement synthetic password"),
+            ],
+        )
+        .await;
+    assert_eq!(status, 303);
+    assert_eq!(headers["location"], "/admin/login");
+    let csrf = b.token("/admin/login").await;
+    assert_eq!(
+        b.request(
+            "POST",
+            "/admin/login",
+            &[
+                ("csrf", &csrf),
+                ("email", "Owner@example.test"),
+                ("password", "a replacement synthetic password")
+            ]
+        )
+        .await
+        .0,
+        303
+    );
+    assert_eq!(b.request("GET", "/admin", &[]).await.0, 200);
+    let csrf = b.token("/admin").await;
+    assert_eq!(
+        b.request("POST", "/admin/logout", &[("csrf", &csrf)])
+            .await
+            .0,
+        303
+    );
+    assert_eq!(b.request("GET", "/admin", &[]).await.0, 303);
 });
 check!(directory_c37, f, _b, {
     for role in [
@@ -1807,13 +2195,78 @@ check!(directory_input_refusals, f, b, {
     assert_eq!(tenant_row(&f).await.1, "active");
     assert_eq!(tenant_row(&f).await.0, "Acme");
     assert_eq!(events(&f).await, 1);
+    for path in [
+        format!("{}/users/not-a-uuid", tenant_path()),
+        format!("/admin/tenants/not-a-uuid/users/{USER}"),
+        format!("{}/users/not-a-uuid/status", tenant_path()),
+    ] {
+        for method in ["GET", "POST"] {
+            assert_eq!(b.request(method, &path, &[]).await.0, 404);
+        }
+    }
+    let csrf = b.token("/admin/tenants/new").await;
+    let (status, h, _) = b
+        .request(
+            "POST",
+            "/admin/tenants",
+            &[
+                ("csrf", &csrf),
+                ("creation_id", "invalid-uuid"),
+                ("name", "Safe name"),
+            ],
+        )
+        .await;
+    assert_eq!(status, 422);
+    assert!(h.contains("Safe name"));
+    assert!(h.contains("Reload"));
+    let (status, h, _) = user(&mut b, TENANT, "invalid-uuid", "Safe@example.com", "").await;
+    assert_eq!(status, 422);
+    assert!(h.contains("Safe@example.com"));
+    assert!(h.contains("Reload"));
+    let (status, h, _) = b
+        .request(
+            "GET",
+            &format!("{}/users?cursor=invalid", tenant_path()),
+            &[],
+        )
+        .await;
+    assert_eq!(status, 422);
+    assert!(h.contains("First page"));
+    assert!(h.contains("href=\"/admin/tenants/"));
+    assert_eq!(tenant_row(&f).await.0, "Acme");
+    assert_eq!(events(&f).await, 1);
 });
 check!(directory_response_policy, _f, b, {
     create_tenant(&mut b, TENANT, "<script>name</script>").await;
     let (_, h, r) = b.request("GET", &tenant_path(), &[]).await;
+    let csp = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+    assert_eq!(r["content-security-policy"], csp);
+    let config = h
+        .split("name=\"htmx-config\" content='")
+        .nth(1)
+        .unwrap()
+        .split('\'')
+        .next()
+        .unwrap();
+    assert_eq!(
+        config,
+        r#"{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true,"historyCacheSize":0,"includeIndicatorStyles":false,"historyRestoreAsHxRequest":false}"#
+    );
+    assert_eq!(
+        user(
+            &mut b,
+            TENANT,
+            USER,
+            "Alice@example.com",
+            "<script>user</script>"
+        )
+        .await
+        .0,
+        303
+    );
     assert!(!h.contains("<script>name</script>"));
     let heading = h
-        .split("<h1>")
+        .split("<h1 tabindex=\"-1\">")
         .nth(1)
         .unwrap()
         .split("</h1>")
@@ -1845,14 +2298,40 @@ check!(directory_response_policy, _f, b, {
         tenant_path(),
         format!("{}/users", tenant_path()),
         format!("{}/users/new", tenant_path()),
+        user_path(),
     ];
     for path in pages {
+        let (full_status, full_html, full_headers) = b.request("GET", &path, &[]).await;
+        assert_eq!(full_status, 200);
+        assert_eq!(full_headers["content-security-policy"], csp);
+        assert_eq!(full_headers["cache-control"], "no-store");
+        assert_eq!(full_headers["vary"], "HX-Request");
+        assert!(full_html.contains(config));
+        assert!(!full_html.contains("<script>user</script>"));
+        assert!(!full_html.contains("<script>name</script>"));
         let (status, html, headers) =
             raw(&b, "GET", &path, String::new(), &[("hx-request", "true")]).await;
         assert_eq!(status, 200);
         assert!(!html.contains("<!doctype"));
         assert_eq!(headers["vary"], "HX-Request");
         assert_eq!(headers["cache-control"], "no-store");
+        assert_eq!(headers["content-security-policy"], csp);
+        assert!(!html.contains("<script"));
+        assert!(!html.contains("htmx-config"));
+        if path == tenant_path() || path == user_path() {
+            let payload = if path == tenant_path() {
+                "<script>name</script>"
+            } else {
+                "<script>user</script>"
+            };
+            assert!(!html.contains(payload));
+            let decoded = html
+                .replace("&#60;", "<")
+                .replace("&#62;", ">")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">");
+            assert!(decoded.contains(payload));
+        }
     }
     let csrf = b.token(&tenant_path()).await;
     let body = url::form_urlencoded::Serializer::new(String::new())

@@ -126,3 +126,7 @@ colliding with their fixed test ports. For focused directory iteration, add
 `--target tenant_user_management`; `--proof directory_c01` selects one exact proof.
 Use `--cached-images` only when the pinned fixture images are already present and
 registry access is unavailable; the evidence still records their image IDs/digests.
+
+To check both executable/schema upgrade directions, build the current binary and
+run `python3 tests/directory_binary_compatibility.py --legacy-binary <retained-pre-directory-binary> --current-binary target/debug/bloc --output <new-external-directory>`.
+This snapshots both executables and uses disposable PostgreSQL 17/18 fixtures.

@@ -17,9 +17,10 @@ UUID = re.compile(r'/[0-9a-f-]{36}$')
 
 def sql(statement):
     database = urlparse(Path(os.environ['BLOC_DATABASE_URL_FILE']).read_text().strip()).path[1:]
-    subprocess.run(['docker', 'exec', os.environ['BLOC_SETUP_CONTAINER'], 'psql', '-U', 'probe',
-                    '-d', database, '-v', 'ON_ERROR_STOP=1', '-c', statement],
+    result = subprocess.run(['docker', 'exec', os.environ['BLOC_SETUP_CONTAINER'], 'psql', '-U', 'probe',
+                    '-d', database, '-v', 'ON_ERROR_STOP=1', '-At', '-c', statement],
                    check=True, capture_output=True, text=True)
+    return result.stdout.strip()
 
 
 def capture(page, state):
@@ -73,6 +74,130 @@ def user(page, parent, email='Alice@example.com'):
     return page.url
 
 
+
+def record(page, table, identity, parent=None):
+    data = json.loads(sql(f"SELECT json_build_object('id',id::text,'version',version,'created',to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'),'updated',to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')) FROM bloc.{table} WHERE id='{identity}'"))
+    labels = ['Tenant ID' if parent is None else 'User ID']
+    values = [identity]
+    if parent:
+        labels += ['Tenant ID · immutable']
+        values += [parent.rsplit('/', 1)[1]]
+    labels += ['Version', 'Created', 'Updated']
+    values += [str(data['version']), data['created'], data['updated']]
+    if parent:
+        labels += ['Email verification']
+        values += ['Unverified']
+    expect(page.locator('aside dt')).to_have_text(labels)
+    expect(page.locator('aside dd')).to_have_text(values)
+    for value in [data['created'], data['updated']]:
+        assert re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z', value)
+
+
+def tenant_context(page, parent, name, status='Active'):
+    expect(page.locator('.context strong')).to_have_text('Tenant: ' + name)
+    expect(page.locator('.context .mono')).to_have_text(parent.rsplit('/', 1)[1])
+    expect(page.locator('.context .badge')).to_have_text(status)
+    assert page.locator('.context').bounding_box()['y'] < page.locator('.heading').bounding_box()['y']
+
+
+def profile_form(page, user):
+    expect(page.locator('.form')).to_have_css('max-width', '680px')
+    expect(page.locator('.form>div')).to_have_count(1)
+    expect(page.locator('.form aside')).to_have_count(0)
+    expect(page.locator('.form select')).to_have_count(0)
+    fields = ['email', 'display_name'] if user else ['name']
+    expect(page.locator('.form input:not([type=hidden])')).to_have_count(len(fields))
+    assert page.locator('.form input:not([type=hidden])').evaluate_all('es=>es.map(e=>e.name)') == fields
+    actions = page.locator('.form .actions')
+    expect(actions.locator('button,a')).to_have_text(['Create user' if user else 'Create tenant', 'Cancel'])
+    assert actions.locator('button').bounding_box()['x'] < actions.locator('a').bounding_box()['x']
+    if user:
+        context = page.locator('.context').bounding_box()
+        profile = page.locator('.form').bounding_box()
+        assert context['y'] + context['height'] <= profile['y']
+        expect(page.locator('#email-help')).to_have_text('Unverified. Domain case is normalized; local-part case is preserved.')
+        expect(page.locator('label[for=display-name]')).to_have_text('Display name (optional)')
+        expect(page.locator('#display-help')).to_have_text('Up to 128 characters and 512 UTF-8 bytes. Control characters are not allowed.')
+    else:
+        expect(page.locator('#name-help')).to_have_text('1–128 characters, up to 512 UTF-8 bytes. Names do not need to be unique.')
+
+
+def continuation(page, table, parent=None):
+    if parent:
+        tenant_id = parent.rsplit('/', 1)[1]
+        sql(f"INSERT INTO bloc.tenant_user(id,tenant_id,email,created_at,updated_at) SELECT gen_random_uuid(),'{tenant_id}','Continuation'||n||'@example.com','2026-01-01'::timestamptz+n*interval '1 second','2026-01-01'::timestamptz+n*interval '1 second' FROM generate_series(1,50)n")
+        where = f"WHERE tenant_id='{tenant_id}'"
+        destination = parent + '/users'
+    else:
+        sql("INSERT INTO bloc.tenant(id,name,created_at,updated_at) SELECT gen_random_uuid(),'Continuation','2026-01-01'::timestamptz+n*interval '1 second','2026-01-01'::timestamptz+n*interval '1 second' FROM generate_series(1,49)n")
+        where = ''
+        destination = ORIGIN + '/admin/tenants'
+    expected = json.loads(sql(f"SELECT json_agg(id::text ORDER BY created_at,id) FROM bloc.{table} {where}"))
+    page.goto(destination)
+    first = page.locator('tbody tr').evaluate_all('es=>es.map(e=>e.dataset.record)')
+    assert first == expected[:50]
+    page.get_by_role('link', name='Next page →', exact=True).click()
+    expect(page.locator('tbody tr')).to_have_count(1)
+    last = page.locator('tbody tr').evaluate_all('es=>es.map(e=>e.dataset.record)')
+    assert last == expected[50:]
+    assert len(set(first + last)) == 51
+    expect(page.locator('a[rel=next]')).to_have_count(0)
+    if parent:
+        tenant_context(page, parent, 'A' * 128)
+    page.goto(destination)
+
+
+def cancelled_forms(page, parent, target):
+    snapshot = sql("SELECT json_build_object('tenants',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM bloc.tenant t),'users',(SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM bloc.tenant_user u),'events',(SELECT count(*) FROM bloc.security_audit_event))")
+    for path, field, value, destination in [
+        (ORIGIN + '/admin/tenants/new', 'name', 'Abandoned tenant', ORIGIN + '/admin/tenants'),
+        (parent, 'name', 'Abandoned rename', parent),
+        (parent + '/users/new', 'email', 'Abandoned@example.com', parent + '/users'),
+        (target, 'display_name', 'Abandoned profile', target),
+    ]:
+        page.goto(path)
+        page.locator(f'[name={field}]').fill(value)
+        page.locator('form .actions').get_by_role('link', name='Cancel', exact=True).click()
+        page.wait_for_url(destination)
+        assert sql("SELECT json_build_object('tenants',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM bloc.tenant t),'users',(SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM bloc.tenant_user u),'events',(SELECT count(*) FROM bloc.security_audit_event))") == snapshot
+        page.goto(path)
+        page.locator(f'[name={field}]').fill(value)
+        page.locator('.breadcrumbs a[href="/admin/tenants"]').click()
+        page.wait_for_url(ORIGIN + '/admin/tenants')
+        assert sql("SELECT json_build_object('tenants',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM bloc.tenant t),'users',(SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM bloc.tenant_user u),'events',(SELECT count(*) FROM bloc.security_audit_event))") == snapshot
+    for path, label in [(parent, 'Suspend tenant'), (target, 'Suspend user')]:
+        page.goto(path)
+        page.get_by_role('link', name=label, exact=True).click()
+        page.locator('#confirmation').get_by_role('link', name='Cancel', exact=True).click()
+        expect(page.locator('#status-action')).to_be_focused()
+        assert sql("SELECT json_build_object('tenants',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM bloc.tenant t),'users',(SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM bloc.tenant_user u),'events',(SELECT count(*) FROM bloc.security_audit_event))") == snapshot
+    page.goto(target)
+
+
+def saving(page):
+    waiting = []
+    def hold(route):
+        if route.request.method == 'POST':
+            waiting.append(route)
+        else:
+            route.continue_()
+    page.route('**/users/*', hold)
+    submit(page, 'Save changes')
+    expect(page.locator('main')).to_have_attribute('aria-busy', 'true')
+    expect(page.locator('form button')).to_be_disabled()
+    expect(page.locator('form button')).to_have_text('Saving…')
+    feedback = page.locator('form .working[role=status]')
+    expect(feedback).to_be_visible()
+    expect(feedback).to_have_text('Saving… Wait for a result before submitting again.')
+    assert page.locator('form .working').evaluate("e=>e.getAttribute('role')==='status'")
+    assert len(waiting) == 1
+    waiting.pop().continue_()
+    page.wait_for_load_state('networkidle')
+    expect(page.locator('form button')).to_be_enabled()
+    expect(page.locator('main')).not_to_have_attribute('aria-busy', 'true')
+    page.unroute('**/users/*', hold)
+
+
 def arrangement(page):
     expect(page.locator('header')).to_have_count(1)
     expect(page.locator('footer')).to_have_count(1)
@@ -122,6 +247,7 @@ def loading(page):
     assert len(waiting) == 1
     waiting.pop().continue_()
     expect(page.get_by_role('heading', name='Tenants', exact=True)).to_be_visible()
+    expect(page.locator('h1')).to_be_focused()
     page.unroute('**/admin/tenants', hold)
     page.goto(current)
 
@@ -172,17 +298,30 @@ with sync_playwright() as playwright:
         page.goto(ORIGIN + '/admin/tenants')
         expect(page.locator('th')).to_have_text(['Name / tenant ID', 'Status', 'Created (UTC)'])
         expect(page.locator('tbody tr')).to_have_count(2)
+        expect(page.locator('.heading h1')).to_have_text('Tenants')
+        expect(page.locator('.heading .button')).to_have_text('Create tenant')
+        assert page.locator('.heading h1').bounding_box()['x'] < page.locator('.heading .button').bounding_box()['x']
+        expect(page.locator('tbody .badge')).to_have_text(['Active', 'Active'])
+        for value in page.locator('tbody tr td:last-child').all_text_contents():
+            assert re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z', value.strip())
         for target in [first, second]:
             expect(page.locator('main')).to_contain_text(target.rsplit('/', 1)[1])
+        continuation(page, 'tenant')
     elif MODE == 't2':
         page.goto(ORIGIN + '/admin/tenants/new')
         expect(page.get_by_role('heading', name='Tenant profile')).to_be_visible()
         expect(page.locator('.form')).to_have_css('max-width', '680px')
+        profile_form(page, False)
         expect(page.locator('main')).to_contain_text('Created tenants start active. Duplicate names create independent directories.')
         capture(page, 'default')
         submit(page, 'Create tenant')
         expect(page.locator('#feedback')).to_be_focused()
         expect(page.locator('[name=name]')).to_have_attribute('aria-invalid', 'true')
+        page.locator('form .actions').get_by_role('link', name='Cancel', exact=True).click()
+        page.wait_for_url(ORIGIN + '/admin/tenants')
+        expect(page.get_by_role('heading', name='No tenants yet')).to_be_visible()
+        page.get_by_role('link', name='Create tenant', exact=True).click()
+        expect(page.locator('[name=name]')).to_have_value('')
     elif MODE == 't3':
         target = tenant(page, '<script>name</script>')
         expect(page.locator('h1')).to_have_text('<script>name</script>')
@@ -193,6 +332,7 @@ with sync_playwright() as playwright:
         expect(page.locator('[name=version]')).to_have_value('2')
         expect(page.locator('.grid>div h2')).to_have_text(['Profile', 'Tenant status'])
         expect(page.locator('.grid>aside h2')).to_have_text(['Record', 'Directory'])
+        record(page, 'tenant', target.rsplit('/', 1)[1])
         capture(page, 'default')
         page.get_by_role('link', name='Suspend tenant', exact=True).click()
         expect(page.locator('#confirmation')).to_be_focused()
@@ -206,21 +346,32 @@ with sync_playwright() as playwright:
         page.goto(parent + '/users')
         expect(page.get_by_role('heading', name='No users yet')).to_be_visible()
         expect(page.locator('.context')).to_contain_text('Tenant: ' + 'A' * 128)
+        tenant_context(page, parent, 'A' * 128)
         capture(page, 'empty')
         user(page, parent)
         page.goto(parent + '/users')
         expect(page.locator('th')).to_have_text(['Email / user ID', 'Display name', 'User status', 'Created (UTC)'])
+        tenant_context(page, parent, 'A' * 128)
+        expect(page.locator('.intro')).to_have_text('Independent users belonging to this tenant. Directory records do not authenticate anyone.')
+        continuation(page, 'tenant_user', parent)
     elif MODE == 'u2':
         parent = tenant(page, 'A' * 128)
         page.goto(parent + '/users/new')
         expect(page.locator('.context')).to_be_visible()
         expect(page.get_by_role('heading', name='User profile')).to_be_visible()
+        tenant_context(page, parent, 'A' * 128)
+        profile_form(page, True)
         expect(page.locator('main')).to_contain_text('No verification email is sent and no credentials are created.')
         capture(page, 'default')
         page.locator('[name=email]').fill('bad')
         submit(page, 'Create user')
         expect(page.locator('#feedback')).to_be_focused()
         expect(page.locator('[name=email]')).to_have_value('bad')
+        page.locator('form .actions').get_by_role('link', name='Cancel', exact=True).click()
+        page.wait_for_url(parent + '/users')
+        expect(page.get_by_role('heading', name='No users yet')).to_be_visible()
+        page.get_by_role('link', name='Create user', exact=True).click()
+        expect(page.locator('[name=email]')).to_have_value('')
     elif MODE == 'u3':
         parent = tenant(page)
         target = user(page, parent)
@@ -235,11 +386,33 @@ with sync_playwright() as playwright:
         expect(page.locator('[name=version]')).to_have_value('2')
         expect(page.locator('.grid>div h2')).to_have_text(['Profile', 'User status'])
         expect(page.locator('.grid>aside h2')).to_have_text(['Record'])
+        tenant_context(page, parent, 'A' * 128)
+        record(page, 'tenant_user', target.rsplit('/', 1)[1], parent)
+        expect(page.locator('.grid>div>section').nth(1).locator('.badge')).to_have_text('Active')
+        expect(page.locator('.grid>div>section').nth(1).locator('dd')).to_have_text(['Active', 'Active'])
+        for status_path, action, tenant_state, user_state, combined in [
+            (parent, 'Suspend tenant', 'Suspended', 'Active', 'Tenant suspended'),
+            (target, 'Suspend user', 'Suspended', 'Suspended', 'Tenant suspended and user suspended'),
+            (parent, 'Reactivate tenant', 'Active', 'Suspended', 'User suspended'),
+        ]:
+            page.goto(status_path)
+            page.get_by_role('link', name=action, exact=True).click()
+            page.locator('#confirmation').get_by_role('button', name=action, exact=True).click()
+            opposite = ('Reactivate' if action.startswith('Suspend') else 'Suspend') + ' ' + action.split()[-1]
+            expect(page.locator('#status-action')).to_have_text(opposite)
+            page.wait_for_url(status_path)
+            page.goto(target)
+            tenant_context(page, parent, 'A' * 128, tenant_state)
+            expect(page.locator('.grid>div>section').nth(1).locator('.badge')).to_have_text(user_state)
+            expect(page.locator('.grid>div>section').nth(1).locator('dd')).to_have_text([tenant_state, combined])
+            record(page, 'tenant_user', target.rsplit('/', 1)[1], parent)
         for text in ['Combined directory status', 'Unverified', 'This user cannot sign in.']:
             expect(page.locator('main')).to_contain_text(text)
     else:
         parent = tenant(page)
         target = user(page, parent)
+        cancelled_forms(page, parent, target)
+        saving(page)
         for _ in range(2):
             page.get_by_role('link', name='Suspend user', exact=True).click()
             expect(page.locator('#confirmation')).to_be_focused()

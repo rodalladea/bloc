@@ -14,7 +14,7 @@
 <p class="mono">{{ p.tenant.id }}</p>{% if p.tenant.status == "suspended" %}<p>This tenant is suspended. You can still manage its users. User statuses are unchanged.</p>{% endif %}</section>{% endif %}
 <div class="heading">
 <div>
-<h1>{{ p.title }}</h1>
+<h1 tabindex="-1">{{ p.title }}</h1>
 <p class="intro">{{ p.intro }}</p>{% if !p.hidden && !p.user && !p.list && !p.create %}<p class="mono">{{ p.record.id }} <span class="badge {% if p.record.status == "active" %}active{% endif %}">{% if p.record.status == "active" %}Active{% else %}Suspended{% endif %}</span>
 </p>{% endif %}</div>{% if !p.hidden && p.list && (!p.rows.is_empty() || !p.feedback.is_empty()) %}<a class="button" href="{{ p.list_path }}/new">{% if p.user %}Create user{% else %}Create tenant{% endif %}</a>{% endif %}</div>
 {% if !p.feedback.is_empty() %}<div class="notice error" role="alert" id="feedback" tabindex="-1">
