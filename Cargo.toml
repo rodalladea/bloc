@@ -16,7 +16,7 @@ axum = "0.8"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-askama = "=0.16.1"
+askama = { version = "=0.16.1", default-features = false, features = ["derive", "std"] }
 argon2 = "0.5.3"
 hmac = "0.13.0"
 subtle = "2.6"

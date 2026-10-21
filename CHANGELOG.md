@@ -17,6 +17,9 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ### Fixed
 
+- Update TLS certificate verification and trust roots for RUSTSEC-2026-0382 and
+  RUSTSEC-2026-0381, and remove the unused Askama configuration dependency on
+  unmaintained `basic-toml`.
 - Verify anonymous Docker pulls using the reported registry digest when pulling
   a second platform clears the local image's `RepoDigests` metadata.
 
