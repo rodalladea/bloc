@@ -5,7 +5,7 @@ Open-source identity and access management, built with Rust and HTMX.
 bloc aims to provide centralized login, configurable identity providers, OpenID
 Connect, OAuth authorization for third-party applications, and SAML federation.
 
-**Status: administrator access implementation under verification.** Server-rendered
+**Status: administrator access implemented for development and evaluation.** Server-rendered
 setup, sign-in, sessions, password change, operator recovery and administration
 home now use shared PostgreSQL. Production authentication approval remains blocked
 on full acceptance and MFA; application-user identity, provider configuration,
@@ -67,7 +67,8 @@ packaging source does not mean a release has been published. The source chart
 requires an explicit image digest; release packaging supplies the verified digest.
 
 The initial cluster exercise baseline is Helm 4.3.1 and Kubernetes 1.36.5.
-Administrator integration and native full-service acceptance remain under verification.
+Administrator acceptance requires the mapped integration proofs and native full-service
+measurements. Check the current CI results and verification record before acceptance.
 See [AGENTS.md](AGENTS.md) for the AI agent instruction index.
 
 ## Project guide
@@ -91,8 +92,8 @@ The chart proof requires Helm 4.3.1 on `PATH` (or set `BLOC_HELM` to its executa
 native Linux architectures. Run
 `python3 tests/support/native_service_capacity.py --output <new-external-directory>`
 on each native architecture, retain raw records, and combine the two `record.json`
-objects in one JSON array. This gate is currently pending; no successful full
-feature acceptance is claimed from the ordinary unit checks.
+objects in one JSON array. CI validates both records against the current application
+fingerprint; ordinary unit checks alone do not establish full feature acceptance.
 
 Live browser tests additionally require Playwright and a local pinned HTTPS proxy
 at `https://bloc.example.test:4443` forwarding to two loopback service ports31001

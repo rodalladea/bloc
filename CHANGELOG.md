@@ -13,7 +13,7 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 - Installation administrator setup, password sign-in and sign-out, server-side
   sessions, password changes, and operator-authorized recovery, with secure
   request handling, accessible server-rendered screens, and restore invalidation
-  procedures. Native service capacity acceptance remains pending.
+  procedures. Native service capacity acceptance is required before release.
 
 ### Fixed
 

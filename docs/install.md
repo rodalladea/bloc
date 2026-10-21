@@ -1,8 +1,8 @@
 # installing bloc
 
 bloc implements the administrator journey for development and evaluation with
-shared PostgreSQL authority. Final native service acceptance and independent
-verification remain required. MFA and production authentication approval remain
+shared PostgreSQL authority. Use source-matched native service measurements and independent
+verification results to establish acceptance. MFA and production authentication approval remain
 pending; application-user identity protocols are not implemented. A public release
 exists only after its GitHub release records successful verification of both
 packages; source changes do not publish a release.

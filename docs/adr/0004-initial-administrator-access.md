@@ -99,8 +99,10 @@ admission, denial aggregates, guarded recovery/password replacement, restore fen
 and bounded maintenance. Required origin/proxy/secret-file configuration and
 separate operational chart workloads accompany the interface.
 
-This is an implementation under verification, not formal ADR acceptance. The
+The HTTP implementation is delivered for development and evaluation; this does
+not constitute formal ADR acceptance. The
 [operations runbook](../administrator-access.md) governs deployment and restore.
 Native full-service capacity on both architectures and independent verification
-remain acceptance gates. The historical internal-only status above describes the
+are acceptance gates, with source-bound results recorded by CI and the behavior
+record. The historical internal-only status above describes the
 first delivery rather than the current HTTP implementation.

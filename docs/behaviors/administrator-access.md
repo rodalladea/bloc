@@ -1,6 +1,7 @@
 # Initial administrator access
 
-Status: agreed — HTTP implementation under verification; final acceptance pending.
+Status: agreed — HTTP journey implemented; acceptance requires the mapped proofs
+and source-matched native capacity evidence.
 
 ## Problem and scope
 
@@ -28,12 +29,12 @@ silently approve all proposed engineering details in the design.
 
 The requester approved prerequisite policy and the five-screen preview; native
 hashing matrices and live TLS evidence are available. The finalized setup-storage
-contract is `projects/bloc/design/administrator-access-security-storage.md`, Drive
-ID `4bcaafc1a56954360b14426d7fe92239d1a351dcd0a55487`. The task alignment is
+contract is `projects/bloc/.design/administrator-access-security-storage.md`, Drive
+ID `b490b2ad6fe83a7616a19e5c37b177b63a6ea6214f9aa05d`. The task alignment is
 `projects/bloc/.tasks/administrator-access.md`, Drive ID
 `87bd2c0006669399f6e64c832b144da78fd0bbeca80fb059`.
-Full-service overload, HTTP security, browser and deployment acceptance remain
-pending. Storage coverage alone never establishes these outcomes.
+Full-service overload, HTTP security, browser and deployment acceptance require
+their named proofs. Storage coverage alone never establishes these outcomes.
 
 The 2026-10-18 screening exclusion removes corpus preparation, lookup, refresh,
 revision activation, and screening availability from the prerequisite gates.
@@ -148,7 +149,10 @@ remaining-feature checklist is in Drive at
 `projects/bloc/.checks/administrator-access-remaining.md` (ID
 `fafb19e31501b64e2ba792592f2160bcbcfa0131e8512fa6`). Native full-service
 amd64+arm64 evidence is a separate required gate; a named validator without
-measurements is not a performance proof. Independent verification is pending.
+measurements is not a performance proof. Independent verification of the complete
+checklist is required; the source-bound result is recorded in Drive at
+`projects/bloc/.checks/administrator-access-remaining.verified.md` (ID
+`40c5445b513b94595a600be6c25ad39b98ab2dde29e25703`).
 Only the initial validation/hash tests were confirmed red before implementation;
 the wider integration tests were added during implementation. No broader test-first
 sequence is claimed.
