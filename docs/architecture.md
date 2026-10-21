@@ -7,25 +7,28 @@ Connect adds authentication. SAML federation is a separate planned protocol surf
 
 ## Current implementation
 
-One Rust package uses Axum and Tokio. `main.rs` owns process startup and shutdown;
-`lib.rs` builds a testable router. HTML and assets are embedded at compile time.
-HTMX enhances a status link by fetching an HTML fragment. The HTTP router has no
-database dependency, provider registry, session store, login flow, or token service. An internal setup
-storage module and explicit migration/operator commands now target PostgreSQL
-17/18; no HTTP route consumes them yet. See the [storage runbook](administrator-setup-storage.md).
+One Rust package uses Axum/Tokio, Askama 0.16.1 compile-time autoescaped HTML,
+and locally served HTMX 2.0.8. `main.rs` assembles validated configuration and
+shared storage; `administrator::router` is the production HTTP assembly. Domain
+credential validation and bounded Argon2 work are independent of HTTP parsing.
 
-The listener defaults to loopback. Responses use a restrictive CSP, no-store,
-no-sniff, no-referrer, and frame denial. These are scaffold protections, not a
-complete identity security model. Container packaging binds to all interfaces
-inside the container while source startup retains its loopback default.
+Shared PostgreSQL 17/18 is the only owner/session/form/admission/audit authority.
+Guarded SECURITY DEFINER operations serialize security transitions through the
+installation singleton and recheck database time and credential version. Separate
+runtime, operator, migrator and maintenance capabilities have no unrestricted
+runtime authority-table writes. Explicit SQLx checksum migrations never run from
+serving replicas. Restore sets a durable recovery fence until operator-authorized
+credential replacement. See [administrator operations](administrator-access.md).
 
-The Helm chart creates a namespaced Deployment and ClusterIP Service, optionally
-referencing operator-owned ingress/TLS infrastructure. It uses the release's
-multi-platform image digest and requires no persistent storage. Both probes use
-process liveness for this dependency-free scaffold; future dependencies require
-a separate readiness decision. See [ADR 0003](adr/0003-initial-distribution.md)
-(proposed), the [installation runbook](install.md), and [release gates](releases.md).
-Packaging source and local checks do not establish public artifact availability.
+The canonical HTTPS ingress is trusted only by explicit immediate-peer CIDRs;
+requests validate exact Host, one source IP and HTTPS forwarding. Every response
+retains restrictive CSP/no-store/referrer/frame protections. Admin POSTs also
+require canonical Origin or HTTPS Referer and shared browser/session-bound CSRF.
+
+The Helm chart mounts operator-owned secret references, uses `/readyz` for primary
+compatibility and `/healthz` for liveness, and separates optional operational Jobs
+and operator Pod credentials. Full-service native capacity remains acceptance work;
+no production readiness or identity-protocol conformance is claimed.
 
 ## Planned boundaries
 
@@ -36,10 +39,10 @@ Packaging source and local checks do not establish public artifact availability.
 - Web: server-rendered admin and login pages, HTMX fragments, HTTP APIs.
 
 These are boundaries to establish as features land, not empty crates to generate.
-Tenancy and protocol boundaries require separate ADRs. The planned administrator
-increment selects shared PostgreSQL; proposed [ADR 0004](adr/0004-initial-administrator-access.md)
-records its setup schema, SQLx migration and privilege boundaries. The scaffold
-HTTP server remains database-free until that integration lands.
+Tenancy and protocol boundaries require separate ADRs. The administrator
+increment uses shared PostgreSQL; proposed [ADR 0004](adr/0004-initial-administrator-access.md)
+records its setup schema, SQLx migration and privilege boundaries. The HTTP server requires validated PostgreSQL configuration; serving replicas do
+not run migrations.
 
 Provider selection will be driven by enabled, validated configurations scoped to
 a tenant. Provider secrets remain server-side. Explicit account-linking policy

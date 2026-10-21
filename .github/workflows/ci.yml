@@ -10,13 +10,26 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  native-capacity:
+    uses: ./.github/workflows/administrator-service-capacity.yml
   check:
+    needs: native-capacity
+    env:
+      BLOC_NATIVE_SERVICE_EVIDENCE: ${{ runner.temp }}/native-service.json
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: administrator-service-*
+          path: ${{ runner.temp }}/native-service
+      - name: Join verified native service records
+        run: python3 tests/support/combine_native_service_evidence.py "${RUNNER_TEMP}/native-service" "${RUNNER_TEMP}/native-service.json"
+      - name: Install pinned chart verification tools
+        run: bash scripts/distribution/install-tools.sh
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain
       - name: Format
@@ -36,6 +49,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Install pinned chart verification tools
+        run: bash scripts/distribution/install-tools.sh
       - name: Pull disposable PostgreSQL fixtures
         run: |
           docker pull postgres:17.11-bookworm

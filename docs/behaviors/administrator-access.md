@@ -1,6 +1,6 @@
 # Initial administrator access
 
-Status: agreed — interview scope only; implementation and verification pending.
+Status: agreed — HTTP implementation under verification; final acceptance pending.
 
 ## Problem and scope
 
@@ -134,17 +134,76 @@ And database-free shared-disk operation is outside the supported scope.
 
 | Scenario | Delivery / coverage | Evidence |
 | --- | --- | --- |
-| administrator-access-01 | Partial storage coverage / HTTP missing | administrator-storage-01/03 below; browser setup remains unimplemented |
-| administrator-access-02 | Partial storage coverage / two-service requests missing | `tests/setup_storage.rs::competing_claims`; HTTP race not yet tested |
-| administrator-access-03 | Partial storage coverage / HTTP missing | `issue_and_replace`, `unusable_codes`, `expiry_after_lock` in `tests/setup_storage.rs` |
-| administrator-access-04 | Planned / missing | Requires controlled time and restart/cross-instance checks |
-| administrator-access-05 | Planned / missing | Requires recovery and cross-instance revocation assertions |
-| administrator-access-06 | Planned / missing | Requires current-password and revocation assertions |
-| administrator-access-07 | Planned / missing | Requires HTTP and browser evidence |
-| administrator-access-08 | Partial setup storage / other state missing | Real role-separated PostgreSQL setup tests; session and other state remain planned |
+| administrator-access-01 | HTTP/database tests implemented | `tests/administrator_access.rs::setup_page`, `setup_code_refusal`, `setup_success`, `email_policy`, `password_policy` |
+| administrator-access-02 | Independent application HTTP race | `setup_http_race`, `setup_closed`, `setup_abandonment` |
+| administrator-access-03 | Code lifecycle and durable CLI | `operator_code_boundaries`, `setup_cli_contract`; original storage tests retained |
+| administrator-access-04 | Shared session authority and boundaries | `session_deadlines`, `session_restart`, `session_activity_races`, `two_instance_service`, `expiry_navigation` |
+| administrator-access-05 | Recovery and concurrent credentials | `recovery_issue`, `recovery_success`, `recovery_refusal`, `login_recovery_race`, `credential_change_race`, `credential_atomicity` |
+| administrator-access-06 | HTTP password change | `password_change_success`, `password_change_refusal` |
+| administrator-access-07 | Escaped home and email semantics | `administration_home`, `email_semantics`; five named `browser_*` proofs exercise Chromium |
+| administrator-access-08 | Shared primary, privileges, readiness | `authority_outage`, `readiness_liveness`, `capability_roles_extended`, `security_audit_atomicity` |
 
-Discovery changed documentation only. The storage delivery below is partial
-coverage of the agreed increment; HTTP setup remains closed.
+The table maps assertions, not a claim that every acceptance gate passed. The
+remaining-feature checklist is in Drive at
+`projects/bloc/.checks/administrator-access-remaining.md` (ID
+`fafb19e31501b64e2ba792592f2160bcbcfa0131e8512fa6`). Native full-service
+amd64+arm64 evidence is a separate required gate; a named validator without
+measurements is not a performance proof. Independent verification is pending.
+Only the initial validation/hash tests were confirmed red before implementation;
+the wider integration tests were added during implementation. No broader test-first
+sequence is claimed.
+
+## Additional HTTP/security examples
+
+### administrator-access-09: browser authority and bounds
+
+Given an untrusted immediate peer or malformed forwarding authority
+When an administrator request reaches bloc
+Then it returns 403 for an untrusted peer or 400 for invalid canonical forwarding.
+
+Given equivalent HTTPS Host/Origin authority with host case or explicit default443
+When an administrator request reaches bloc through a trusted immediate peer
+Then it follows the same policy as the normalized authority; different hosts/ports,
+userinfo, whitespace, backslashes and Origin paths/queries/fragments are refused.
+
+Given a valid form
+When its Origin is null/foreign, or its CSRF token belongs to another browser
+Then the mutation returns 403 without password work or authority changes.
+
+Given malformed/duplicate form values, unsupported media or an encoded body over
+16 KiB, when submitted, then the HTTP status is 400, 415 or 413 respectively.
+Exact tests: `proxy_authority`, `request_security_http`, `origin_csrf`,
+`form_input_bounds`, `csrf_lifecycle`, `csrf_capacity`, `parsed_authority_contract`,
+`streaming_form_bounds`, and library proof
+`administrator::tests::request_rejections_precede_password_work`. Equivalent
+parsed authority regression was reproduced red before the fix; the additional
+coverage observations strengthen existing agreed policy.
+
+### administrator-access-10: restore and retention
+
+Given a fenced restored installation
+When the operator runs `admin invalidate-access`
+Then credential version advances, restored cookies/form/code authority fail,
+and password sign-in is fenced until newly authorized recovery succeeds.
+
+Given old audits and denial aggregates
+When maintenance runs under its own role
+Then it deletes bounded batches and grants no new access authority.
+Exact tests: `restore_invalidation`, `restore_two_instances`,
+`maintenance_retention`, `audit_data_bounds`, `capability_roles_extended`.
+The live invalidation exercise does not by itself prove a physical backup restore.
+
+### administrator-access-11: ordinary and enhanced forms
+
+Given the five administration screens
+When JavaScript is disabled, then real forms and links complete the journey.
+When HTMX is enabled, designated errors replace the main fragment, focus its
+single alert summary and never refill code/password fields. Normal success is303;
+enhanced success is200 with HX-Redirect because XHR consumes3xx redirects.
+When a request cannot be confirmed, show the approved network message, clear
+secret fields and require an explicit retry. Exact tests: `browser_no_javascript`,
+`browser_validation`, `browser_loading_network`, `browser_session_expiry`,
+`browser_preview`.
 
 ## Setup storage contracts — requester continuation, 2026-10-18
 
@@ -193,7 +252,6 @@ Then ownership and code consumption both roll back and the code remains usable.
 
 These tests use disposable TLS PostgreSQL 17 and 18 via
 `python3 tests/run_storage.py --output <new-directory>`.
-Administrator-access-01/02/03/08 have storage-level coverage only; all their HTTP,
-browser and two-service assertions remain unverified. The remaining interview
-scenarios remain planned. These are checklist-derived tests added in the same
-change as implementation; no red-before-implementation BDD sequence is claimed.
+The original storage evidence remains intact. The HTTP continuation above extends
+the current implementation; final native capacity and independent acceptance are
+separate gates.

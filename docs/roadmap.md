@@ -25,3 +25,9 @@ before treating a milestone as an implementation task.
 
 No authentication release should precede security requirements for its shipped
 flows. Do not interpret this ordering as permission to defer those controls.
+
+Administrator access HTTP implementation is under verification: shared sessions,
+setup, password change/recovery, request security and operations now have source
+and integration tests. Native full-service acceptance and independent verification
+remain required. MFA must precede production authentication; no application-user
+identity protocol is delivered by this increment.

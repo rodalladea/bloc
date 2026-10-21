@@ -10,7 +10,8 @@
     "nodeSelector",
     "tolerations",
     "affinity",
-    "ingress"
+    "ingress",
+    "access"
   ],
   "properties": {
     "replicaCount": {
@@ -126,6 +127,41 @@
           }
         }
       ]
+    },
+    "access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "secretName",
+        "canonicalOrigin",
+        "trustedProxyCIDRs",
+        "migrationJob",
+        "operatorPod",
+        "maintenanceJob"
+      ],
+      "properties": {
+        "secretName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonicalOrigin": {
+          "type": "string",
+          "pattern": "^https://[^/]+$"
+        },
+        "trustedProxyCIDRs": {
+          "type": "string",
+          "minLength": 1
+        },
+        "migrationJob": {
+          "type": "boolean"
+        },
+        "operatorPod": {
+          "type": "boolean"
+        },
+        "maintenanceJob": {
+          "type": "boolean"
+        }
+      }
     }
   }
 }

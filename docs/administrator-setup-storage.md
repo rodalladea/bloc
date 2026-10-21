@@ -1,3 +1,8 @@
+> The browser integration now extends this storage baseline. See
+> [administrator operations](administrator-access.md) for required runtime
+> configuration, recovery, restore fencing and maintenance. Historical verification
+> below describes the originally delivered setup slice.
+
 # Administrator setup storage
 
 This is the internal storage and operator-command delivery. There is no browser

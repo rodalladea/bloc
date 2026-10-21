@@ -39,6 +39,22 @@ spec:
               value: "0.0.0.0:3000"
             - name: RUST_LOG
               value: {{ .Values.logLevel | quote }}
+            - name: BLOC_DATABASE_URL_FILE
+              value: /run/bloc/runtime-url
+            - name: BLOC_DATABASE_CA_FILE
+              value: /run/bloc/ca.crt
+            - name: BLOC_ABUSE_KEY_FILE
+              value: /run/bloc/abuse-key
+            - name: BLOC_CANONICAL_ORIGIN
+              value: {{ .Values.access.canonicalOrigin | quote }}
+            - name: BLOC_TRUSTED_PROXY_CIDRS
+              value: {{ .Values.access.trustedProxyCIDRs | quote }}
+            - name: MALLOC_MMAP_THRESHOLD_
+              value: "131072"
+          volumeMounts:
+            - name: authority
+              mountPath: /run/bloc
+              readOnly: true
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
@@ -46,7 +62,7 @@ spec:
               drop: [ALL]
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /readyz
               port: 3000
             periodSeconds: 10
             timeoutSeconds: 2
@@ -60,6 +76,17 @@ spec:
             failureThreshold: 3
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: authority
+          secret:
+            secretName: {{ .Values.access.secretName | quote }}
+            items:
+              - key: runtime-url
+                path: runtime-url
+              - key: ca.crt
+                path: ca.crt
+              - key: abuse-key
+                path: abuse-key
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

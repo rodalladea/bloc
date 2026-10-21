@@ -55,6 +55,16 @@ fn supported_primary(version: i32, recovery: bool, read_only: bool) -> bool {
 }
 
 impl Storage {
+    /// Configure a bounded pool without requiring the primary to be available at startup.
+    pub fn lazy(url: &str, ca: &Path) -> Result<Self, Error> {
+        let options = connection_options(url, ca)?;
+        Ok(Self {
+            pool: PgPoolOptions::new()
+                .max_connections(5)
+                .acquire_timeout(Duration::from_secs(2))
+                .connect_lazy_with(options),
+        })
+    }
     /// Connect only with verified TLS to a supported writable primary.
     pub async fn connect(url: &str, ca: &Path) -> Result<Self, Error> {
         let options = connection_options(url, ca)?;
@@ -93,7 +103,17 @@ impl Storage {
             false,
         );
         Migrator {
-            migrations: vec![migration].into(),
+            migrations: vec![
+                migration,
+                sqlx::migrate::Migration::new(
+                    2,
+                    "access".into(),
+                    sqlx::migrate::MigrationType::Simple,
+                    sqlx::SqlStr::from_static(include_str!("../migrations/0002_access.sql")),
+                    false,
+                ),
+            ]
+            .into(),
             ..Migrator::DEFAULT
         }
     }
@@ -199,5 +219,157 @@ mod tests {
             connection_options("postgres://localhost/bloc", &file),
             Err(Error::Configuration)
         ));
+    }
+}
+
+/// Current credential snapshot; final transitions always recheck its version.
+#[derive(Clone)]
+pub struct Credentials {
+    pub email: String,
+    pub phc: String,
+    pub version: i64,
+    pub recovery_required: bool,
+}
+impl Storage {
+    pub async fn owner(&self) -> Result<Option<Credentials>, Error> {
+        self.compatible().await?;
+        let row = sqlx::query("SELECT * FROM bloc.owner_credentials()")
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|_| Error::Unavailable)?;
+        Ok(row.map(|r| Credentials {
+            email: r.get("email"),
+            phc: r.get("phc"),
+            version: r.get("version"),
+            recovery_required: r.get("recovery_required"),
+        }))
+    }
+    pub async fn code_usable(&self, purpose: &str, digest: &[u8; 32]) -> Result<bool, Error> {
+        self.compatible().await?;
+        sqlx::query_scalar("SELECT bloc.code_usable($1,$2)")
+            .bind(purpose)
+            .bind(digest.as_slice())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|_| Error::Unavailable)
+    }
+    pub async fn issue_recovery_code(&self, digest: &[u8; 32]) -> Result<Option<String>, Error> {
+        self.compatible().await?;
+        sqlx::query_scalar("SELECT bloc.issue_recovery_code($1)")
+            .bind(digest.as_slice())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|_| Error::Unavailable)
+    }
+    pub async fn authenticate(
+        &self,
+        digest: &[u8; 32],
+        version: i64,
+        browser: &[u8; 32],
+        token: &[u8; 32],
+        old_browser: Option<&[u8; 32]>,
+    ) -> Result<bool, Error> {
+        self.compatible().await?;
+        sqlx::query_scalar("SELECT bloc.authenticate_session($1,$2,$3,$4,$5)")
+            .bind(digest.as_slice())
+            .bind(version)
+            .bind(browser.as_slice())
+            .bind(token.as_slice())
+            .bind(old_browser.map(|v| v.as_slice()))
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|_| Error::Unavailable)
+    }
+    pub async fn authorize(&self, digest: &[u8; 32]) -> Result<Option<Credentials>, Error> {
+        self.compatible().await?;
+        let row = sqlx::query("SELECT * FROM bloc.authorize_session($1)")
+            .bind(digest.as_slice())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|_| Error::Unavailable)?;
+        Ok(row.map(|r| Credentials {
+            email: r.get("email"),
+            phc: r.get("phc"),
+            version: r.get("version"),
+            recovery_required: false,
+        }))
+    }
+    pub async fn sign_out(&self, digest: &[u8; 32]) -> Result<bool, Error> {
+        self.compatible().await?;
+        sqlx::query_scalar("SELECT bloc.sign_out($1)")
+            .bind(digest.as_slice())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|_| Error::Unavailable)
+    }
+    pub async fn replace_password(
+        &self,
+        digest: &[u8; 32],
+        version: i64,
+        phc: &str,
+        recovery: bool,
+    ) -> Result<bool, Error> {
+        self.compatible().await?;
+        sqlx::query_scalar("SELECT bloc.replace_password($1,$2,$3,$4)")
+            .bind(digest.as_slice())
+            .bind(version)
+            .bind(phc)
+            .bind(recovery)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|_| Error::Unavailable)
+    }
+    pub async fn invalidate_access(&self) -> Result<(), Error> {
+        self.compatible().await?;
+        sqlx::query("SELECT bloc.invalidate_access()")
+            .execute(&self.pool)
+            .await
+            .map_err(|_| Error::Unavailable)?;
+        Ok(())
+    }
+    pub async fn maintain_access(&self) -> Result<i32, Error> {
+        self.compatible().await?;
+        sqlx::query_scalar("SELECT bloc.maintain_access()")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|_| Error::Unavailable)
+    }
+    pub async fn reserve(&self, buckets: &[(&str, [u8; 32], i32)]) -> Result<i32, Error> {
+        self.compatible().await?;
+        let scopes: Vec<_> = buckets.iter().map(|b| b.0).collect();
+        let keys: Vec<Vec<u8>> = buckets.iter().map(|b| b.1.to_vec()).collect();
+        let units: Vec<_> = buckets.iter().map(|b| b.2).collect();
+        sqlx::query_scalar("SELECT bloc.reserve_admission($1,$2,$3)")
+            .bind(scopes)
+            .bind(keys)
+            .bind(units)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|_| Error::Unavailable)
+    }
+    pub async fn form(
+        &self,
+        browser: &[u8; 32],
+        session: Option<&[u8; 32]>,
+        token: Option<&[u8; 32]>,
+    ) -> Result<Option<Vec<u8>>, Error> {
+        self.compatible().await?;
+        sqlx::query_scalar("SELECT bloc.form_state($1,$2,$3)")
+            .bind(browser.as_slice())
+            .bind(session.map(|x| x.as_slice()))
+            .bind(token.map(|x| x.as_slice()))
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|_| Error::Unavailable)
+    }
+    pub async fn deny(&self, action: &str, reason: &str) -> Result<(), Error> {
+        self.compatible().await?;
+        sqlx::query("SELECT bloc.record_denial($1,$2)")
+            .bind(action)
+            .bind(reason)
+            .execute(&self.pool)
+            .await
+            .map_err(|_| Error::Unavailable)?;
+        Ok(())
     }
 }

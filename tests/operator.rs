@@ -71,7 +71,7 @@ fn usage_and_configuration() {
     assert_eq!(help.status.code(), Some(0));
     assert_eq!(
         String::from_utf8(help.stdout).unwrap(),
-        "Usage: bloc [--help | database migrate | admin setup-code]\n"
+        "Usage: bloc [--help | database migrate | admin setup-code | admin recovery-code | admin invalidate-access | database maintain]\n"
     );
 }
 

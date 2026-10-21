@@ -1,6 +1,6 @@
 apiVersion: v2
 name: bloc
-description: Dependency-free bloc HTTP scaffold; identity is not implemented.
+description: bloc identity service with installation administrator access; identity protocols are not implemented.
 type: application
 version: 0.0.1
 appVersion: "0.0.1"

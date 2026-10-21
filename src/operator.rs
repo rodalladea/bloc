@@ -9,7 +9,7 @@ use std::{
     path::PathBuf,
 };
 
-const HELP: &str = "Usage: bloc [--help | database migrate | admin setup-code]\n";
+const HELP: &str = "Usage: bloc [--help | database migrate | admin setup-code | admin recovery-code | admin invalidate-access | database maintain]\n";
 
 fn configuration() -> Result<(String, PathBuf), Error> {
     let url_file = env::var_os("BLOC_DATABASE_URL_FILE").ok_or(Error::Configuration)?;
@@ -40,15 +40,18 @@ pub async fn dispatch(args: Vec<String>) -> Option<i32> {
             1
         });
     }
-    let migrate = match words.as_slice() {
-        ["database", "migrate"] => true,
-        ["admin", "setup-code"] => false,
+    let operation = match words.as_slice() {
+        ["database", "migrate"] => "migrate",
+        ["database", "maintain"] => "maintain",
+        ["admin", "setup-code"] => "setup",
+        ["admin", "recovery-code"] => "recovery",
+        ["admin", "invalidate-access"] => "invalidate",
         _ => {
             eprintln!("bloc: usage error; use --help");
             return Some(2);
         }
     };
-    let result = run(migrate).await;
+    let result = run(operation).await;
     Some(match result {
         Ok(code) => code,
         Err(Error::Configuration) => {
@@ -62,19 +65,39 @@ pub async fn dispatch(args: Vec<String>) -> Option<i32> {
     })
 }
 
-async fn run(migrate: bool) -> Result<i32, Error> {
+async fn run(operation: &str) -> Result<i32, Error> {
     let (url, ca) = configuration()?;
     let storage = Storage::connect(&url, &ca).await?;
-    if migrate {
+    if operation == "migrate" {
         storage.migrate().await?;
+        return Ok(0);
+    }
+    if operation == "maintain" {
+        storage.maintain_access().await?;
+        return Ok(0);
+    }
+    if operation == "invalidate" {
+        storage.invalidate_access().await?;
         return Ok(0);
     }
     let mut bytes = [0_u8; 32];
     getrandom::fill(&mut bytes).map_err(|_| Error::Unavailable)?;
     let code = URL_SAFE_NO_PAD.encode(bytes);
     let digest: [u8; 32] = Sha256::digest(code.as_bytes()).into();
-    let Some(expiry) = storage.issue_setup_code(&digest).await? else {
-        eprintln!("bloc: setup is closed");
+    let expiry = if operation == "recovery" {
+        storage.issue_recovery_code(&digest).await?
+    } else {
+        storage.issue_setup_code(&digest).await?
+    };
+    let Some(expiry) = expiry else {
+        eprintln!(
+            "bloc: {}",
+            if operation == "setup" {
+                "setup is closed"
+            } else {
+                "recovery requires an administrator"
+            }
+        );
         return Ok(3);
     };
     let output = format!("code={code}\nexpires_at={expiry}\n");

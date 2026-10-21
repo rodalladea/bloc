@@ -11,6 +11,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .init();
+    let (config, storage) = match bloc::config::Config::environment() {
+        Ok(c) => c,
+        Err(_) => {
+            eprintln!("bloc: invalid server configuration");
+            std::process::exit(2)
+        }
+    };
+    let application = match bloc::administrator::Application::new(storage, config).await {
+        Ok(a) => a,
+        Err(_) => {
+            eprintln!("bloc: credential service unavailable");
+            std::process::exit(1)
+        }
+    };
     let address: SocketAddr = match env::var("BLOC_BIND_ADDR") {
         Ok(value) => value,
         Err(env::VarError::NotPresent) => "127.0.0.1:3000".into(),
@@ -19,9 +33,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .parse()?;
     let listener = tokio::net::TcpListener::bind(address).await?;
     tracing::info!(address = %listener.local_addr()?, "bloc listening");
-    axum::serve(listener, bloc::app())
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    axum::serve(
+        listener,
+        bloc::administrator::router(application)
+            .into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await?;
     Ok(())
 }
 

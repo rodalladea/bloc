@@ -1,3 +1,24 @@
+async fn application() -> axum::Router {
+    let path = std::env::temp_dir().join(format!(
+        "bloc-http-ca-{}.crt",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(&path, b"synthetic CA placeholder").unwrap();
+    let storage =
+        bloc::storage::Storage::lazy("postgres://127.0.0.1:1/unavailable", &path).unwrap();
+    std::fs::remove_file(path).unwrap();
+    let config =
+        bloc::config::Config::new("https://bloc.example.test", "127.0.0.1/32", [7; 32]).unwrap();
+    bloc::app(
+        bloc::administrator::Application::new(storage, config)
+            .await
+            .unwrap(),
+    )
+}
+
 use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
@@ -5,15 +26,14 @@ use axum::{
 use tower::ServiceExt;
 
 #[tokio::test]
-async fn serves_local_assets_health_and_htmx_fragment() {
+async fn serves_local_assets_and_health() {
     for (path, content_type, expected) in [
-        ("/", "text/html", "Authentication, token issuance"),
         ("/healthz", "text/plain", "ok\n"),
-        ("/fragments/status", "text/html", "role=\"status\""),
-        ("/assets/app.css", "text/css", ":root"),
+        ("/assets/admin.css", "text/css", ":root"),
         ("/assets/htmx.min.js", "text/javascript", "htmx"),
     ] {
-        let response = bloc::app()
+        let response = application()
+            .await
             .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
             .await
             .unwrap();
@@ -25,6 +45,7 @@ async fn serves_local_assets_health_and_htmx_fragment() {
                 .starts_with(content_type)
         );
         assert_eq!(response.headers()["cache-control"], "no-store");
+        assert_eq!(response.headers()["referrer-policy"], "same-origin");
         assert!(
             response.headers()["content-security-policy"]
                 .to_str()
@@ -47,7 +68,8 @@ async fn unimplemented_protocol_endpoints_are_not_exposed() {
         "/saml",
         "/missing",
     ] {
-        let response = bloc::app()
+        let response = application()
+            .await
             .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
             .await
             .unwrap();

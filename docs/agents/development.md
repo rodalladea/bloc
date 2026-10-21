@@ -7,8 +7,10 @@ provider interfaces, or fake protocol implementations.
 ## Layout
 
 - `src/main.rs`: environment configuration, tracing, listener, shutdown.
-- `src/lib.rs`: HTTP application, handlers, response policy.
-- `templates/`: HTML; currently static and embedded at compile time.
+- `src/lib.rs`: configured production assembly entry point and response policy.
+- `src/administrator.rs`: built-in administrator routes and pages.
+- `src/request_security.rs`, `src/credentials.rs`: ingress/form and credential rules.
+- `templates/`: autoescaped Askama HTML, embedded and checked at compile time.
 - `assets/`: styles and pinned third-party browser assets.
 - `tests/`: observable HTTP behavior.
 - `docs/`: architecture, roadmap, decisions, and contributor/agent guidance.

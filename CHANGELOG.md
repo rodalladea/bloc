@@ -9,7 +9,11 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 - Internal PostgreSQL setup storage, explicit migrations, restricted operator
   setup-code command, and atomic owner/audit transactions with live role and
-  concurrency tests. Browser setup and authentication remain unimplemented.
+  concurrency tests.
+- Installation administrator setup, password sign-in and sign-out, server-side
+  sessions, password changes, and operator-authorized recovery, with secure
+  request handling, accessible server-rendered screens, and restore invalidation
+  procedures. Native service capacity acceptance remains pending.
 
 ### Fixed
 

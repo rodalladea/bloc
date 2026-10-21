@@ -215,7 +215,18 @@ class ReleaseTests(unittest.TestCase):
         import re
         workflow=self.workflow()
         for action in re.findall(r'uses:\s*(\S+)',workflow):
-            self.assertRegex(action,r'^[\w/-]+@[0-9a-f]{40}$')
+            if action == './.github/workflows/administrator-service-capacity.yml':
+                local = ROOT / action[2:]
+                self.assertTrue(local.is_file())
+                contract=local.read_text()
+                self.assertIn('  workflow_call:',contract)
+                self.assertIn('      contents: read',contract)
+                self.assertNotIn('contents: write',contract)
+                self.assertNotIn('packages: write',contract)
+                for nested in re.findall(r'uses:\s*(\S+)',contract):
+                    self.assertRegex(nested,r'^[\w/-]+@[0-9a-f]{40}$')
+            else:
+                self.assertRegex(action,r'^[\w/-]+@[0-9a-f]{40}$')
         self.assertEqual(workflow.count('packages: write'),1)
         self.assertEqual(workflow.count('contents: write'),1)
         self.assertIn('GH_TOKEN: ${{ github.token }}',workflow)

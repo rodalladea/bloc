@@ -88,3 +88,19 @@ production-readiness or conformance claim is made; this ADR remains proposed.
 
 The linked behavior record distinguishes storage proofs from missing browser
 acceptance. Formal ADR acceptance follows [governance](../../GOVERNANCE.md).
+
+## HTTP integration continuation — 2026-10-19
+
+The requester approved Askama 0.16.1 for embedded compile-time checked,
+autoescaped HTML templates. Runtime-interpreted MiniJinja was considered; runtime
+theme loading is not required by the five built-in screens. Migration 0002 adds
+shared digest sessions, browser-bound synchronizer form state, atomic rolling
+admission, denial aggregates, guarded recovery/password replacement, restore fence
+and bounded maintenance. Required origin/proxy/secret-file configuration and
+separate operational chart workloads accompany the interface.
+
+This is an implementation under verification, not formal ADR acceptance. The
+[operations runbook](../administrator-access.md) governs deployment and restore.
+Native full-service capacity on both architectures and independent verification
+remain acceptance gates. The historical internal-only status above describes the
+first delivery rather than the current HTTP implementation.

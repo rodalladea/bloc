@@ -1,0 +1,48 @@
+{{- range $kind, $enabled := dict "migration" .Values.access.migrationJob "operator" .Values.access.operatorPod "maintenance" .Values.access.maintenanceJob }}
+{{- if $enabled }}
+---
+{{- if eq $kind "operator" }}
+apiVersion: v1
+kind: Pod
+{{- else if eq $kind "maintenance" }}
+apiVersion: batch/v1
+kind: CronJob
+{{- else }}
+apiVersion: batch/v1
+kind: Job
+{{- end }}
+metadata:
+  name: {{ include "bloc.name" $ }}-{{ $kind }}
+spec:
+{{- if eq $kind "maintenance" }}
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 1
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+{{- else if eq $kind "migration" }}
+  backoffLimit: 0
+  template:
+    spec:
+{{- end }}
+{{- $indent := 2 }}
+{{- if eq $kind "migration" }}{{ $indent = 6 }}{{ end }}
+{{- if eq $kind "maintenance" }}{{ $indent = 10 }}{{ end }}
+{{- $role := $kind }}
+{{- if eq $kind "migration" }}{{ $role = "migrator" }}{{ end }}
+{{- $body := dict "restartPolicy" "Never" "automountServiceAccountToken" false "securityContext" (dict "runAsNonRoot" true "runAsUser" 65532 "runAsGroup" 65532 "seccompProfile" (dict "type" "RuntimeDefault")) }}
+{{- $container := dict "name" $kind "image" (printf "%s@%s" $.Values.image.repository $.Values.image.digest) "securityContext" (dict "readOnlyRootFilesystem" true "allowPrivilegeEscalation" false "capabilities" (dict "drop" (list "ALL"))) "env" (list (dict "name" "BLOC_DATABASE_URL_FILE" "value" "/run/bloc/url") (dict "name" "BLOC_DATABASE_CA_FILE" "value" "/run/bloc/ca.crt")) "volumeMounts" (list (dict "name" "authority" "mountPath" "/run/bloc" "readOnly" true)) "resources" $.Values.resources }}
+{{- if eq $kind "operator" }}
+{{- $_ := set $container "command" (list "/bin/sleep" "infinity") }}
+{{- else }}
+{{- $_ := set $container "args" (list "database" (ternary "migrate" "maintain" (eq $kind "migration"))) }}
+{{- end }}
+{{- $_ := set $body "containers" (list $container) }}
+{{- $_ := set $body "volumes" (list (dict "name" "authority" "secret" (dict "secretName" $.Values.access.secretName "items" (list (dict "key" (printf "%s-url" $role) "path" "url") (dict "key" "ca.crt" "path" "ca.crt"))))) }}
+{{ toYaml $body | indent $indent }}
+{{- end }}
+{{- end }}
