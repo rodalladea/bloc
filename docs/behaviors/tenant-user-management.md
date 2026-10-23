@@ -1,6 +1,6 @@
 # Tenant and user management
 
-Status: implemented; author proofs passed on PostgreSQL 17 and 18. Independent verification pending.
+Status: implemented; author proofs passed on PostgreSQL 17 and 18. Independent light-profile verification passed all 64 checks; see Verification below.
 
 ## Problem and scope
 

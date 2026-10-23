@@ -237,7 +237,8 @@ class ReleaseTests(unittest.TestCase):
         notes=release.notes(self.record)
         for value in ('installation administrator access','MFA','verified TLS','linux/amd64','linux/arm64','4.3.1','1.36.5','a'*40,
                       self.record['image'], self.record['chart'],'--version 0.0.1','--values',
-                      '--rollback-on-failure','helm rollback','recovery fails'):
+                      '--rollback-on-failure','helm rollback','recovery fails',
+                      '/admin/tenants','0003_directory.sql','old and new binary/schema contracts'):
             self.assertIn(value,notes)
 
     def test_c35_no_floating_alias_or_replacement(self):

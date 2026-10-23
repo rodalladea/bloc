@@ -5,6 +5,8 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+## 0.2.0 - 2026-10-23
+
 ### Added
 
 - Administrator-only tenant and tenant-user directory management with immutable
