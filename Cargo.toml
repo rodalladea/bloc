@@ -8,7 +8,7 @@ description = "Open-source identity and access management, built with Rust and H
 repository = "https://github.com/rodalladea/bloc"
 
 [dependencies]
-base64 = "0.22"
+base64 = "0.23"
 getrandom = "0.4"
 sha2 = "0.11"
 sqlx = { version = "=0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-ring-webpki", "postgres", "migrate"] }
