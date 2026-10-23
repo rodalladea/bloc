@@ -1,8 +1,5 @@
 //! Credential validation and bounded CPU work; secrets are never diagnostic values.
-use argon2::{
-    Algorithm, Argon2, Params, PasswordHash, PasswordHasher, PasswordVerifier, Version,
-    password_hash::SaltString,
-};
+use argon2::{Algorithm, Argon2, Params, PasswordHash, PasswordHasher, PasswordVerifier, Version};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
@@ -104,11 +101,10 @@ impl PasswordWorker {
             let _permit = permit;
             let mut salt = [0u8; 16];
             getrandom::fill(&mut salt).map_err(|_| Error::Unavailable)?;
-            let salt = SaltString::encode_b64(&salt).map_err(|_| Error::Unavailable)?;
             #[cfg(test)]
             work[0].fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let result = algorithm()?
-                .hash_password(password.as_bytes(), &salt)
+                .hash_password_with_salt(password.as_bytes(), &salt)
                 .map(|h| h.to_string())
                 .map_err(|_| Error::Unavailable);
             #[cfg(test)]
