@@ -5,11 +5,20 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+## 0.2.1 - 2026-10-23
+
 ### Security
 
 - Update the transitive ctutils dependency to 0.4.4 to address
   [RUSTSEC-2026-0385](https://github.com/RustCrypto/utils/pull/1569), affecting
   constant-time mask generation and 128-bit comparisons.
+
+### Changed
+
+- Update Argon2 to 0.6.0 and base64 to 0.23.1, preserving existing
+  administrator password hashes and password parameters.
+- Reuse CI build caches, avoid repeated distribution builds and capacity checks,
+  preserve binary/schema compatibility checks, and update actions/cache to 6.1.0.
 
 ## 0.2.0 - 2026-10-23
 
