@@ -59,6 +59,31 @@ async fn password_hash_contract() {
     assert!(!worker.verify("wrong password".into(), a).await.unwrap());
 }
 
+#[tokio::test]
+async fn password_hash_legacy_compatibility() {
+    // Produced by argon2 0.5.3 with bloc's parameters and a synthetic 16-byte salt.
+    let phc = "$argon2id$v=19$m=65536,t=3,p=1$c3ludGhldGljLXNhbHQxNg$Zkyx/BYENw0KBYfrGZNKyxb+tYYdmKb7fr8+1iBG/bI";
+    let worker = PasswordWorker::new();
+    assert!(
+        worker
+            .verify("a synthetic password".into(), phc.into())
+            .await
+            .unwrap()
+    );
+    assert!(
+        !worker
+            .verify("wrong password".into(), phc.into())
+            .await
+            .unwrap()
+    );
+    assert!(
+        worker
+            .verify("a synthetic password".into(), "invalid PHC".into())
+            .await
+            .is_err()
+    );
+}
+
 mod common;
 use axum::{
     body::{Body, to_bytes},
