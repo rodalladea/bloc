@@ -44,6 +44,10 @@ cargo test --locked --all-targets
 cargo doc --locked --no-deps
 ```
 
+The test profile optimizes the Argon2 dependency to avoid repeating expensive
+unoptimized password work. Password parameters, application debug assertions,
+and release settings are unchanged.
+
 PostgreSQL integration tests use disposable Docker fixtures:
 
 ```sh

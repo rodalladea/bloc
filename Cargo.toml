@@ -26,6 +26,9 @@ url = "2.5"
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 
+[profile.test.package.argon2]
+opt-level = 3
+
 [lints.rust]
 unsafe_code = "forbid"
 
