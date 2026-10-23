@@ -4,10 +4,9 @@ Status: agreed
 
 ## Problem and scope
 
-Maintainers wait for repeated tool installation and image compilation. The
-2026-10-23 maintainer request in the Codex chat authorizes applying the reviewed
-CI recommendations on a new branch from main. Keep PostgreSQL 17/18 coverage,
-native amd64/arm64 distribution and capacity gates, and Debian slim. Application
+Maintainers need faster CI feedback without losing compatibility or release
+validation. The maintainer-approved scope retains PostgreSQL 17/18, native
+amd64/arm64 distribution and capacity gates, and Debian slim. Application
 behavior, capacity limits and publication authority remain unchanged.
 
 ## Rules and decisions
@@ -61,16 +60,23 @@ and any pull, smoke or capacity failure blocks that platform.
 
 | Scenario | Delivery / coverage | Evidence |
 | --- | --- | --- |
-| ci-efficiency-01 | Local automated coverage; hosted pending | `tests/test_ci_changes.py::ChangesTests`: `test_documentation_and_repository_metadata_skip_compilation_and_databases`, `test_runtime_and_shared_fixtures_keep_both_database_suites`, `test_distribution_and_unrelated_workflows_do_not_start_database_fixtures`, `test_mixed_or_unknown_changes_cannot_hide_runtime_validation`, `test_missing_base_runs_full_checks_without_attempting_a_diff`, `test_renaming_runtime_into_documentation_still_selects_database_checks`, `test_selection_failure_keeps_source_and_database_jobs_enabled` |
-| ci-efficiency-02 | Local automated coverage; hosted pending | `tests/test_ci_auditor.py::AuditorTests.test_correct_version_reuses_binary_and_missing_or_wrong_version_installs`; `tests/distribution/test_validation.py::ValidationTests.test_source_checks_overlap_and_every_failure_blocks_candidate_evidence` |
-| ci-efficiency-03 | Local automated coverage; native hosted pair pending | `tests/distribution/test_platform.py::PlatformTests.test_capacity_measures_the_same_digest_without_rebuilding`, `test_pull_smoke_or_capacity_failure_cannot_pass_the_platform`, `test_distribution_waits_for_both_measured_platforms` |
+| ci-efficiency-01 | Automated policy coverage | `tests/test_ci_changes.py::ChangesTests.test_runtime_and_shared_fixtures_keep_both_database_suites`, `test_mixed_or_unknown_changes_cannot_hide_runtime_validation`, `test_renaming_runtime_into_documentation_still_selects_database_checks`, `test_selection_failure_keeps_source_and_database_jobs_enabled` |
+| ci-efficiency-02 | Automated policy coverage | `tests/test_ci_auditor.py::AuditorTests.test_correct_version_reuses_binary_and_missing_or_wrong_version_installs`; `tests/distribution/test_validation.py::ValidationTests.test_source_checks_overlap_and_every_failure_blocks_candidate_evidence` |
+| ci-efficiency-03 | Automated policy coverage | `tests/distribution/test_platform.py::PlatformTests.test_capacity_measures_the_same_digest_without_rebuilding`, `test_pull_smoke_or_capacity_failure_cannot_pass_the_platform`, `test_distribution_waits_for_both_measured_platforms` |
 
-Local verification on 2026-10-23: the regression checks above, all 34 Python
-distribution tests, all 10 Python CI/runner tests, Rust formatting, Clippy, ordinary
-tests and documentation, and actionlint 1.7.12 passed. A real native ARM64 Docker
-build passed container checks C1 through C6. Rebuilding a disposable context with
-a source-only change reused the dependency layer and compiled only bloc. No
-runtime application behavior or database-suite selection for runtime changes was
-removed. Real hosted execution on both native architectures, GitHub cache
-restore/save, paired capacity measurements and full cluster/release validation
-remain pending; no elapsed-time improvement is claimed for hosted CI yet.
+Run the Python checks using the test environment in [README](../../README.md#development):
+
+```sh
+python3 -m unittest discover -s tests -p 'test_ci_*.py' -v
+python3 -m unittest discover -s tests/distribution -p 'test_*.py' -v
+```
+
+Workflow structure checks use the test-only PyYAML dependency with safe loading.
+They inspect job dependencies, matrix entries, conditions and command arguments;
+YAML indentation and mapping order are not part of the contract. They cover the
+explicit conjunctions used by these gates, not arbitrary GitHub expressions.
+
+Policy tests do not establish native capacity or hosted cache behavior. Use the
+manual Distribution workflow to verify both real platform images, paired capacity
+records, cache restore/save and cluster validation. Keep execution-specific logs,
+measurements and results in CI artifacts and the pull request description.

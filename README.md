@@ -75,6 +75,18 @@ PR title edits run only the lightweight title check.
 See the [CI behavior record](docs/behaviors/ci-efficiency.md) for selection rules
 and verification boundaries.
 
+Python CI and distribution policy tests require the pinned test-only YAML parser:
+
+```sh
+python3 -m venv /tmp/bloc-test-venv
+. /tmp/bloc-test-venv/bin/activate
+python3 -m pip install --requirement tests/requirements.txt
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+python3 -m unittest discover -s tests/distribution -p 'test_*.py' -v
+```
+
+The distribution tests also require the pinned Helm executable described below.
+
 The dependency audit runs for dependency/toolchain/auditor changes, weekly, or
 manually. The pinned auditor executable is cached and its version checked before
 reuse; the advisory audit still runs every time. Full

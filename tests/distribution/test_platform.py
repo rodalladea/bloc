@@ -1,9 +1,12 @@
 """Measure the retained image and propagate failures to the release gate."""
 from pathlib import Path
+import shlex
 import subprocess
 import sys
 import unittest
 from unittest.mock import patch
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts/distribution'))
@@ -37,15 +40,37 @@ class PlatformTests(unittest.TestCase):
                 self.assertEqual(run.call_count, failed_step + 1)
 
     def test_distribution_waits_for_both_measured_platforms(self):
-        workflow = (ROOT / '.github/workflows/distribution.yml').read_text()
-        platform = workflow.split('  platform:\n')[1].split('  validate:\n')[0]
-        validate = workflow.split('  validate:\n')[1].split('  publish:\n')[0]
-        self.assertIn('--capacity-output platform/service-capacity', platform)
-        self.assertIn('org.bloc.source-tree-sha256=$fingerprint', platform)
-        self.assertNotIn('  native-capacity:', workflow)
-        self.assertIn('needs: [prepare, platform]', validate)
-        self.assertIn("needs.platform.result == 'success'", validate)
-        self.assertIn('combine_native_service_evidence.py platforms', validate)
+        jobs = yaml.safe_load((ROOT / '.github/workflows/distribution.yml').read_text())['jobs']
+        platform, validate = jobs['platform'], jobs['validate']
+        runners = {entry['arch']: entry['runner']
+                   for entry in platform['strategy']['matrix']['include']}
+        self.assertEqual(set(runners), {'amd64', 'arm64'})
+        self.assertTrue(runners['arm64'].endswith('-arm'))
+        self.assertFalse(runners['amd64'].endswith('-arm'))
+        commands = [shlex.split(step['run'].replace('\\\n', ''))
+                    for step in platform['steps'] if 'run' in step]
+        smoke = next(command for command in commands
+                     if 'scripts/distribution/smoke_platform.py' in command)
+        output = Path(smoke[smoke.index('--capacity-output') + 1])
+        uploads = [step['with']['path'] for step in platform['steps']
+                   if step.get('uses', '').startswith('actions/upload-artifact@')
+                   and step.get('if') != 'failure()']
+        self.assertTrue(any(output.is_relative_to(Path(path)) for path in uploads))
+        build = next(command for command in commands if 'buildx' in command and 'build' in command)
+        labels = [build[index + 1] for index, token in enumerate(build) if token == '--label']
+        labels += [token.removeprefix('--label=') for token in build if token.startswith('--label=')]
+        self.assertTrue(any(label.startswith('org.bloc.source-tree-sha256=') for label in labels))
+        needs = validate['needs']
+        self.assertIn('platform', [needs] if isinstance(needs, str) else needs)
+        condition = ''.join(validate['if'].split()).replace('"', "'")
+        self.assertCountEqual(condition.removeprefix('${{').removesuffix('}}').split('&&'),
+                              ['!cancelled()', "needs.platform.result=='success'"])
+        combine = next(shlex.split(step['run']) for step in validate['steps']
+                       if 'combine_native_service_evidence.py' in step.get('run', ''))
+        downloads = [step['with']['path'] for step in validate['steps']
+                     if step.get('uses', '').startswith('actions/download-artifact@')]
+        self.assertTrue(downloads)
+        self.assertTrue(all(Path(path).is_relative_to(Path(combine[2])) for path in downloads))
 
 
 if __name__ == '__main__':

@@ -129,6 +129,8 @@ jobs:
           path: ~/.cache/bloc-tools
           key: auditor-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/ci/install-auditor.sh', 'rust-toolchain.toml') }}
       - run: bash scripts/distribution/install-tools.sh
+      - name: Install workflow test dependencies
+        run: python3 -m pip install --requirement tests/requirements.txt
       - name: Validate source and cluster suites in parallel
         run: bash scripts/distribution/validate.sh
         env:

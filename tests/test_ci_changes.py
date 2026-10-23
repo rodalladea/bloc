@@ -7,6 +7,8 @@ import sys
 import tempfile
 import unittest
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("ci_changes", ROOT / "scripts/ci/changes.py")
 changes = importlib.util.module_from_spec(SPEC)
@@ -49,11 +51,16 @@ class ChangesTests(unittest.TestCase):
                 self.assertEqual(output.read_text(), 'check=true\nintegration=true\n')
 
     def test_selection_failure_keeps_source_and_database_jobs_enabled(self):
-        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        jobs = yaml.safe_load((ROOT / '.github/workflows/ci.yml').read_text())['jobs']
         for job, output in (('check', 'check'), ('setup-storage', 'integration')):
-            section = workflow.split(f'  {job}:\n')[1]
-            self.assertIn(f"if: ${{{{ !cancelled() && needs.changes.outputs.{output} != 'false' }}}}",
-                          section.split('    steps:')[0])
+            with self.subTest(job=job):
+                needs = jobs[job]['needs']
+                self.assertIn('changes', [needs] if isinstance(needs, str) else needs)
+                condition = ''.join(jobs[job]['if'].split()).replace('"', "'")
+                terms = condition.removeprefix('${{').removesuffix('}}').split('&&')
+                self.assertCountEqual(terms, [
+                    '!cancelled()', f"needs.changes.outputs.{output}!='false'"
+                ])
 
     def test_renaming_runtime_into_documentation_still_selects_database_checks(self):
         with tempfile.TemporaryDirectory() as temporary:
