@@ -2,9 +2,9 @@ name: Dependency audit
 on:
   push:
     branches: [main]
-    paths: [Cargo.toml, Cargo.lock, .github/workflows/audit.yml]
+    paths: [Cargo.toml, Cargo.lock, .github/workflows/audit.yml, scripts/ci/install-auditor.sh, rust-toolchain.toml]
   pull_request:
-    paths: [Cargo.toml, Cargo.lock, .github/workflows/audit.yml]
+    paths: [Cargo.toml, Cargo.lock, .github/workflows/audit.yml, scripts/ci/install-auditor.sh, rust-toolchain.toml]
   schedule:
     - cron: '23 8 * * 1'
   workflow_dispatch:
@@ -19,6 +19,10 @@ jobs:
         with:
           persist-credentials: false
       - run: rustup show active-toolchain
-      - name: Install auditor
-        run: cargo install cargo-audit --version 0.22.2 --locked
+      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ~/.cache/bloc-tools
+          key: auditor-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/ci/install-auditor.sh', 'rust-toolchain.toml') }}
+      - name: Install or reuse pinned auditor
+        run: bash scripts/ci/install-auditor.sh
       - run: cargo audit

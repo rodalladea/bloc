@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
+      check: ${{ steps.paths.outputs.check }}
       integration: ${{ steps.paths.outputs.integration }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -23,19 +24,10 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD: ${{ github.sha }}
-        run: |
-          python3 - <<'PYTHON'
-          import os, subprocess
-          base = os.environ['BASE']
-          if not base or set(base) == {'0'}:
-              relevant = True
-          else:
-              paths = subprocess.check_output(['git', 'diff', '--name-only', '-z', base, os.environ['HEAD']]).decode().split('\0')
-              relevant = any(p.startswith(('src/', 'migrations/', 'templates/', 'assets/', 'tests/', 'charts/', 'deploy/', '.github/workflows/', 'scripts/')) or p in ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'Dockerfile') for p in paths)
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write(f'integration={str(relevant).lower()}\n')
-          PYTHON
+        run: python3 scripts/ci/changes.py
   check:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.check != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -48,9 +40,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: rust-${{ runner.os }}-${{ runner.arch }}-check-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ hashFiles('Cargo.toml') }}
+          key: rust-${{ runner.os }}-${{ runner.arch }}-check-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-${{ github.sha }}
           restore-keys: |
-            rust-${{ runner.os }}-${{ runner.arch }}-check-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+            rust-${{ runner.os }}-${{ runner.arch }}-check-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-
       - name: Install pinned chart verification tools
         run: bash scripts/distribution/install-tools.sh helm
       - name: Install pinned Rust toolchain
@@ -61,8 +53,8 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo test --locked --all-targets
-      - name: Fixture runner tests
-        run: python3 -m unittest discover -s tests -p 'test_storage_runner.py' -v
+      - name: CI and fixture runner tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Packaging policy tests
         run: python3 -m unittest discover -s tests/distribution -p 'test_*.py' -v
       - name: Documentation
@@ -71,7 +63,7 @@ jobs:
           RUSTDOCFLAGS: -D warnings
   setup-storage:
     needs: changes
-    if: needs.changes.outputs.integration == 'true'
+    if: ${{ !cancelled() && needs.changes.outputs.integration != 'false' }}
     strategy:
       fail-fast: false
       matrix:
@@ -88,9 +80,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: rust-${{ runner.os }}-${{ runner.arch }}-pg${{ matrix.major }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ hashFiles('Cargo.toml') }}
+          key: rust-${{ runner.os }}-${{ runner.arch }}-pg${{ matrix.major }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-${{ github.sha }}
           restore-keys: |
-            rust-${{ runner.os }}-${{ runner.arch }}-pg${{ matrix.major }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+            rust-${{ runner.os }}-${{ runner.arch }}-pg${{ matrix.major }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-
       - name: Install pinned chart verification tools
         run: bash scripts/distribution/install-tools.sh helm
       - name: Verify administrator, storage and TLS behavior

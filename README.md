@@ -61,17 +61,31 @@ only the selected images and cleans up its disposable containers. Each fixture
 has a two-CPU limit. Test output streams to the console and the per-major log
 in the output directory while tests run, including before a test completes.
 
-PR CI runs formatting, lint, ordinary tests, packaging policy tests and docs.
+PR CI runs formatting, lint, ordinary tests, packaging policy tests and docs for
+code/build changes; documentation-only changes omit compilation and database jobs.
 Database suites run on PostgreSQL 17 and 18 in parallel when runtime, tests,
 dependencies, chart or build configuration changes. Documentation-only changes
-omit database fixtures. Rust dependencies/build outputs are cached per CI lane.
+omit database fixtures. Distribution scripts/tests and unrelated workflow changes
+run source/policy checks without database fixtures. Templates, assets, chart and
+shared-fixture changes retain both database suites. Unknown paths default to full
+validation. Rust dependencies/build outputs are cached per CI lane and revision,
+restoring the latest compatible dependency/toolchain cache. GitHub manages cache
+quota and eviction; caches never substitute for executing checks.
 PR title edits run only the lightweight title check.
+See the [CI behavior record](docs/behaviors/ci-efficiency.md) for selection rules
+and verification boundaries.
 
-The dependency audit runs for dependency changes, weekly, or manually. Full
+The dependency audit runs for dependency/toolchain/auditor changes, weekly, or
+manually. The pinned auditor executable is cached and its version checked before
+reuse; the advisory audit still runs every time. Full
 multi-platform image/Kubernetes validation runs through the **Distribution**
 workflow manually or on version tags. Run it for packaging changes before merging
 or releasing. Capacity benchmarks run manually through **Administrator service
 capacity** and as part of Distribution; ordinary PRs do not build benchmark images.
+Distribution builds each native platform once, then smoke-tests and measures that
+exact image by digest. Both platform records remain required. BuildKit layers are
+cached per native architecture; Rust dependencies occupy a separate build layer,
+and each exported cache replaces its predecessor to avoid accumulating old blobs.
 
 See the [storage runbook](docs/administrator-setup-storage.md#verification) for
 fixture requirements. Previews and one-off experiments are kept outside this repository.

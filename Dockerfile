@@ -1,6 +1,10 @@
 FROM rust:1.98.1-bookworm@sha256:93ce27a88655056a51dbdd8f5f2d7ddc071c7b0070fb288a37b5a285fc83971e AS build
 WORKDIR /build
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+# Cache dependencies separately; remove the placeholder package before real sources.
+RUN mkdir src && printf 'fn main() {}\n' > src/main.rs \
+    && cargo build --locked --release \
+    && cargo clean --release --package bloc
 COPY src ./src
 COPY templates ./templates
 COPY assets ./assets
