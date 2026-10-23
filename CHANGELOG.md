@@ -5,6 +5,12 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+### Security
+
+- Update the transitive ctutils dependency to 0.4.4 to address
+  [RUSTSEC-2026-0385](https://github.com/RustCrypto/utils/pull/1569), affecting
+  constant-time mask generation and 128-bit comparisons.
+
 ## 0.2.0 - 2026-10-23
 
 ### Added
