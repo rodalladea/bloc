@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 from support import postgres as fixtures
@@ -54,6 +55,19 @@ GRANT bloc_maintenance TO maintenance_user;
 """
 
 
+def run_logged(command, output_path, *, cwd=None, env=None):
+    with output_path.open("wb") as log, subprocess.Popen(
+        command, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    ) as process:
+        while chunk := process.stdout.read1(65536):
+            log.write(chunk)
+            log.flush()
+            sys.stdout.buffer.write(chunk)
+            sys.stdout.buffer.flush()
+        returncode = process.wait()
+    return subprocess.CompletedProcess(command, returncode, stdout=output_path.read_text())
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cached-images", action="store_true", help="Use already present pinned fixture images without pulling")
@@ -73,6 +87,7 @@ def main():
     for major, image in zip((17, 18), fixtures.IMAGES):
         if args.major and args.major != major:
             continue
+        print(f"Preparing PostgreSQL {major} fixtures", flush=True)
         if not args.cached_images:
             subprocess.run(["docker", "pull", image], check=True)
         identity = json.loads(fixtures.command("docker", "image", "inspect", image))[0]
@@ -101,12 +116,12 @@ def main():
                 if not args.browser_python:
                     selection += ["--skip", "browser_", "--skip", "directory_screen_"]
                 targets = ["--test", "tenant_user_management"] if args.target else ["--lib", "--test", "setup_storage", "--test", "operator", "--test", "storage_tls", "--test", "administrator_access", "--test", "administrator_operations", "--test", "tenant_user_management"]
-                run = subprocess.run(["cargo", "test", "--locked", *targets, *([args.proof] if args.proof else []),
-                                      "--", "--ignored", "--test-threads=1", *(["--exact"] if args.proof else []), *selection],
-                                     cwd=ROOT, env=environment, capture_output=True, text=True)
-                output = run.stdout + run.stderr
-                (args.output / f"postgres-{major}.txt").write_text(output)
-                print(output, flush=True)
+                print(f"Running PostgreSQL {major} regression tests", flush=True)
+                run = run_logged(
+                    ["cargo", "test", "--locked", *targets, *([args.proof] if args.proof else []),
+                     "--", "--ignored", "--test-threads=1", *(["--exact"] if args.proof else []), *selection],
+                    args.output / f"postgres-{major}.txt", cwd=ROOT, env=environment,
+                )
                 version = fixtures.command("docker", "exec", containers[0], "psql", "-U", "probe",
                                            "-d", "probe", "-Atc", "SHOW server_version")
                 results.append({"major": major, "version": version, "image_id": identity["Id"],

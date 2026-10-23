@@ -53,7 +53,9 @@ python3 tests/run_storage.py --output /tmp/bloc-storage-new
 ```
 
 Use `--major 17` or `--major 18` to run one database version. The runner pulls
-only the selected images and cleans up its disposable containers.
+only the selected images and cleans up its disposable containers. Each fixture
+has a two-CPU limit. Test output streams to the console and the per-major log
+in the output directory while tests run, including before a test completes.
 
 PR CI runs formatting, lint, ordinary tests, packaging policy tests and docs.
 Database suites run on PostgreSQL 17 and 18 in parallel when runtime, tests,
