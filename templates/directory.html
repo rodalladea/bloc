@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true,"historyCacheSize":0,"includeIndicatorStyles":false,"historyRestoreAsHxRequest":false}'>
+<title>bloc — {{ p.title }}</title>
+<link rel="stylesheet" href="/assets/directory.css">
+<script src="/assets/htmx.min.js" defer>
+</script>
+<script src="/assets/directory.js" defer>
+</script>
+</head>
+<body>
+<header>
+<div class="header">
+<a class="wordmark" href="/admin">bloc</a>
+<nav class="nav" aria-label="Administration">
+<a href="/admin">Overview</a>
+<a href="/admin/tenants" aria-current="page">Tenants</a>
+</nav>
+<small>Installation administrator</small>
+</div>
+</header>{% include "directory_content.html" %}<footer class="footer">bloc · development and evaluation</footer>
+</body>
+</html>

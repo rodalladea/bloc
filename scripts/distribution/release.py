@@ -118,6 +118,10 @@ def notes(record):
 
 Installation administrator setup, sign-in, sessions, password changes and operator
 recovery use shared PostgreSQL. This release is for development and evaluation.
+Tenant and user directory management is available at /admin/tenants. Directory
+records do not authenticate users. Explicit migration 0003_directory.sql is
+required; coordinate rollout because old and new binary/schema contracts cannot
+serve together. See docs/tenant-user-management.md at this revision.
 MFA is required before production authentication use. Application-user identity,
 OIDC/OAuth token issuance and SAML are not implemented.
 Source revision: {record['revision']}

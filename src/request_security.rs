@@ -125,6 +125,20 @@ pub fn cookie(headers: &HeaderMap, name: &str) -> Option<String> {
     found
 }
 pub fn form(bytes: &[u8]) -> Result<BTreeMap<String, String>, StatusCode> {
+    let fields = form_fields(bytes)?;
+    if fields.keys().any(|key| {
+        !matches!(
+            key.as_str(),
+            "csrf" | "email" | "code" | "password" | "password_confirmation" | "current_password"
+        )
+    }) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    Ok(fields)
+}
+/// Decode a bounded form, rejecting malformed encoding and duplicate fields.
+/// Each caller must apply its own declared field allowlist after request protection.
+pub(crate) fn form_fields(bytes: &[u8]) -> Result<BTreeMap<String, String>, StatusCode> {
     if bytes.len() > 16384 {
         return Err(StatusCode::PAYLOAD_TOO_LARGE);
     }
@@ -166,11 +180,7 @@ pub fn form(bytes: &[u8]) -> Result<BTreeMap<String, String>, StatusCode> {
         };
         let key = decode_part(key)?;
         let value = decode_part(value)?;
-        if !matches!(
-            key.as_str(),
-            "csrf" | "email" | "code" | "password" | "password_confirmation" | "current_password"
-        ) || result.insert(key, value).is_some()
-        {
+        if result.insert(key, value).is_some() {
             return Err(StatusCode::BAD_REQUEST);
         }
     }

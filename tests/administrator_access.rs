@@ -1474,7 +1474,7 @@ async fn administration_home() {
         "<script>alert(1)</script>@example.test"
     );
     assert!(!html.contains("<script>alert"));
-    assert!(!html.contains("Tenants"));
+    assert!(html.contains("href=\"/admin/tenants\">Tenants</a>"));
 }
 #[tokio::test]
 #[ignore = "TLS fixture"]

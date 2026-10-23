@@ -32,3 +32,8 @@ setup, password change/recovery, request security and operations with source
 and integration tests. Acceptance requires source-matched native full-service
 measurements and independent verification. MFA must precede production authentication; no application-user
 identity protocol is delivered by this increment.
+
+Independent tenant/user directory management now establishes immutable tenant-bound
+identities and independent lifecycle states. It does not implement tenant-user
+credentials, authentication, delegation or identity protocols. See the
+[directory runbook](tenant-user-management.md) for its boundary.

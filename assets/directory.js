@@ -1,0 +1,10 @@
+"use strict";
+(() => {
+ const focus = () => (document.querySelector('#feedback') || document.querySelector('#confirmation') || document.querySelector('[data-focus]') || document.querySelector('main h1')).focus();
+ const finish = () => { document.querySelectorAll('main button').forEach(b=>{b.disabled=false;if(b.dataset.label)b.textContent=b.dataset.label;}); document.querySelectorAll('.working,#directory-loading').forEach(e=>e.hidden=true);document.querySelector('main')?.removeAttribute('aria-busy'); };
+ document.addEventListener('htmx:beforeRequest',e=>{const main=document.querySelector('main');main.setAttribute('aria-busy','true');if(e.detail.elt.closest('form')){document.querySelectorAll('main button').forEach(b=>{b.dataset.label=b.textContent;b.textContent='Saving…';b.disabled=true;});e.detail.elt.closest('form').querySelector('.working').hidden=false;}else{document.querySelector('#directory-loading').hidden=false;}});
+ document.addEventListener('htmx:beforeSwap',e=>{if([400,403,404,409,413,415,422,429,503].includes(e.detail.xhr.status)){e.detail.shouldSwap=true;e.detail.isError=false;}});
+ document.addEventListener('htmx:afterSwap',()=>{finish();focus();});
+ document.addEventListener('htmx:afterRequest',finish);
+ for(const name of ['htmx:sendError','htmx:timeout'])document.addEventListener(name,()=>{finish();let alert=document.querySelector('#feedback');if(!alert){alert=document.createElement('div');alert.id='feedback';alert.className='notice error';alert.tabIndex=-1;alert.setAttribute('role','alert');document.querySelector('.heading').after(alert);}alert.replaceChildren(document.createTextNode('The response was lost. Your change may have been saved. Review the current record or directory before trying again. Do not automatically resubmit. '));const link=document.createElement('a');const creating=!!document.querySelector('input[name=creation_id]');link.href=creating?location.pathname.replace(/\/new$/,''):location.pathname.replace(/\/status$/,'');link.textContent=creating?'Review directory':'Reload current record';alert.append(link);alert.focus();});
+})();

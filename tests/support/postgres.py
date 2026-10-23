@@ -45,7 +45,7 @@ def start_fixture(image, directory, name, containers):
                    "exec docker-entrypoint.sh postgres -c ssl=on "
                    "-c ssl_cert_file=/tmp/probe.crt -c ssl_key_file=/tmp/probe.key")
     container = command("docker", "create", "--publish", "127.0.0.1::5432",
-                        "--memory", "1g", "--memory-swap", "1g", "--cpus", "0.5",
+                        "--memory", "1g", "--memory-swap", "1g", "--cpus", "2",
                         "--env", "POSTGRES_USER=probe", "--env", "POSTGRES_DB=probe",
                         "--env", "POSTGRES_PASSWORD=synthetic-probe-only",
                         "--env", "PGDATA=/var/lib/postgresql/data/probe",

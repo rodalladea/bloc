@@ -8,8 +8,11 @@ Connect, OAuth authorization for third-party applications, and SAML federation.
 **Status: administrator access implemented for development and evaluation.** Server-rendered
 setup, sign-in, sessions, password change, operator recovery and administration
 home now use shared PostgreSQL. Production authentication approval remains blocked
-on full acceptance and MFA; application-user identity, provider configuration,
+on full acceptance and MFA; application-user authentication, provider configuration,
 OIDC/OAuth token issuance and SAML are not implemented.
+
+Tenant and tenant-bound user directories are managed at `/admin/tenants`; directory
+records do not authenticate users. See [directory management](docs/tenant-user-management.md).
 
 ## Run locally
 
@@ -41,6 +44,10 @@ cargo test --locked --all-targets
 cargo doc --locked --no-deps
 ```
 
+The test profile optimizes the Argon2 dependency to avoid repeating expensive
+unoptimized password work. Password parameters, application debug assertions,
+and release settings are unchanged.
+
 PostgreSQL integration tests use disposable Docker fixtures:
 
 ```sh
@@ -50,7 +57,9 @@ python3 tests/run_storage.py --output /tmp/bloc-storage-new
 ```
 
 Use `--major 17` or `--major 18` to run one database version. The runner pulls
-only the selected images and cleans up its disposable containers.
+only the selected images and cleans up its disposable containers. Each fixture
+has a two-CPU limit. Test output streams to the console and the per-major log
+in the output directory while tests run, including before a test completes.
 
 PR CI runs formatting, lint, ordinary tests, packaging policy tests and docs.
 Database suites run on PostgreSQL 17 and 18 in parallel when runtime, tests,
@@ -116,7 +125,14 @@ do not run this heavyweight proof or establish capacity acceptance.
 Live browser tests additionally require Playwright and a local pinned HTTPS proxy
 at `https://bloc.example.test:4443` forwarding to two loopback service ports31001
 and31002. Run `tests/run_storage.py` with `--browser-python <python>` and
-`--tls-spki <synthetic-SPKI-pin>` to include the five named browser checks on both
+`--tls-spki <synthetic-SPKI-pin>` to include the twelve named browser checks on both
 database majors. The fixture suite requires local Docker and does not exercise a
 production ingress certificate. Run service/browser suites serially to avoid
-colliding with their fixed test ports.
+colliding with their fixed test ports. For focused directory iteration, add
+`--target tenant_user_management`; `--proof directory_c01` selects one exact proof.
+Use `--cached-images` only when the pinned fixture images are already present and
+registry access is unavailable; the evidence still records their image IDs/digests.
+
+To check both executable/schema upgrade directions, build the current binary and
+run `python3 tests/directory_binary_compatibility.py --legacy-binary <retained-pre-directory-binary> --current-binary target/debug/bloc --output <new-external-directory>`.
+This snapshots both executables and uses disposable PostgreSQL 17/18 fixtures.

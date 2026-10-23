@@ -153,7 +153,9 @@ async fn issue_and_replace() {
             "administrator_id",
             "action",
             "outcome",
-            "request_id"
+            "request_id",
+            "tenant_id",
+            "tenant_user_id"
         ]
     );
 }
