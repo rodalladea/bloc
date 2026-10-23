@@ -1,0 +1,2 @@
+# Workflow structure checks only; not used by the Rust application or its image.
+PyYAML==6.0.3

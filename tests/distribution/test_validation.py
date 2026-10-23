@@ -15,9 +15,11 @@ class ValidationTests(unittest.TestCase):
         for failure in ['init', '', *phases, 'source-smoke']:
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temporary:
                 work = Path(temporary)
-                for directory in ('bin', 'scripts/distribution', 'tests/distribution',
+                for directory in ('bin', 'scripts/distribution', 'scripts/ci', 'tests/distribution',
                                   'platforms/amd64', 'platforms/arm64'):
                     (work/directory).mkdir(parents=True)
+                (work/'scripts/ci/install-auditor.sh').write_text(
+                    (ROOT/'scripts/ci/install-auditor.sh').read_text())
                 (work/'tests/distribution/setup-cluster.sh').write_text('exit 0\n')
                 for arch in ('amd64', 'arm64'):
                     (work/f'platforms/{arch}/smoke.log').write_text('fixture passed\n')
@@ -65,6 +67,8 @@ elif args[0] == '-':
                     executable.chmod(0o755)
                 result = subprocess.run(['bash', str(ROOT/'scripts/distribution/validate.sh')],
                     cwd=work, env={**os.environ, 'FAIL_SOURCE':failure,
+                                   'BLOC_CI_TOOLS_DIR':str(work/'tools'),
+                                   'GITHUB_PATH':str(work/'github-path'),
                                    'PATH':str(work/'bin')+os.pathsep+os.environ['PATH']},
                     text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=10)
                 self.assertEqual(result.returncode, 1 if failure else 0, result.stdout)

@@ -8,7 +8,7 @@ source_checks() {
   cargo clippy --locked --all-targets -- -D warnings 2>&1 | tee evidence/lint.log
   cargo test --locked --all-targets 2>&1 | tee evidence/test.log
   RUSTDOCFLAGS='-D warnings' cargo doc --locked --no-deps 2>&1 | tee evidence/documentation.log
-  cargo install cargo-audit --version 0.22.2 --locked
+  source scripts/ci/install-auditor.sh
   cargo audit 2>&1 | tee evidence/audit.log
   cargo test --locked --test administrator_access native_service_capacity -- --ignored --exact 2>&1 | tee evidence/native-capacity.log
 }
