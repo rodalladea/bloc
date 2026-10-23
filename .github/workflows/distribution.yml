@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/buildkit-cache
           key: buildkit-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Dockerfile', 'Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-${{ github.sha }}
@@ -115,7 +115,7 @@ jobs:
           path: platforms/arm64
       - name: Join verified native service records
         run: python3 tests/support/combine_native_service_evidence.py platforms "${RUNNER_TEMP}/native-service.json"
-      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
@@ -124,7 +124,7 @@ jobs:
           key: rust-${{ runner.os }}-${{ runner.arch }}-distribution-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-${{ github.sha }}
           restore-keys: |
             rust-${{ runner.os }}-${{ runner.arch }}-distribution-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-
-      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/bloc-tools
           key: auditor-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/ci/install-auditor.sh', 'rust-toolchain.toml') }}
