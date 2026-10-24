@@ -120,7 +120,12 @@ Verification: `python3 tests/support/mobile_menu_browser.py` passed in Chromium.
 The focused proof renders the actual sidebar template and application assets
 with synthetic values and checks mobile keyboard interaction, expanded state,
 Escape/focus, page-strip dismissal, page/header displacement, focus containment, link dismissal, desktop resizing and the
-no-JavaScript fallback.
+no-JavaScript fallback. Screenshot pixel checks verify that the navigation
+background continues behind both rounded corners without a straight color seam
+in light and dark themes at 320px, 390px and 639px. This regression check failed
+against the previous styling with a 5-level RGB jump at the navigation edge,
+then passed after extending the navigation canvas beneath the page and making
+the stationary sidebar background transparent.
 It failed before implementation because the hamburger control was missing.
 This checks the isolated shell, not authenticated service or HTMX form flows.
 Rust build, lint, ordinary tests and documentation checks could not run in the

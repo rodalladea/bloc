@@ -204,8 +204,9 @@ dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; font-size: 13px; }
 
 /* Reveal navigation beneath a page that slides aside, leaving a rounded edge. */
 @media (max-width: 639px) {
-  body.application:has(.sidebar[data-mobile-menu]) { overflow-x: clip; --mobile-menu-width: calc(100vw - 68px); }
-  .sidebar[data-mobile-menu] { padding: 0; border: 0; }
+  /* Continue the navigation canvas behind both rounded corners of the page. */
+  body.application:has(.sidebar[data-mobile-menu]) { background: var(--canvas-soft); overflow-x: clip; --mobile-menu-width: calc(100vw - 68px); }
+  .sidebar[data-mobile-menu] { padding: 0; border: 0; background: transparent; }
   .sidebar[data-mobile-menu] .sidebar-header { position: relative; z-index: 34; padding: 12px; background: var(--canvas); border-bottom: 1px solid var(--hairline); }
   .sidebar[data-menu-motion] .sidebar-header, .application:has(.sidebar[data-menu-motion]) > .workspace { transition: transform 280ms cubic-bezier(.22,.8,.25,1), border-radius 280ms, box-shadow 280ms; }
   .application:has(.sidebar[data-mobile-menu]) > .workspace { position: relative; z-index: 33; background: var(--canvas); }
