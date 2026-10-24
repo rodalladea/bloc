@@ -5,6 +5,8 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+## 0.3.0 - 2026-10-23
+
 ### Changed
 
 - Round sidebar and workspace-menu icon geometry while retaining the shared
