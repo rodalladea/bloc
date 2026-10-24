@@ -894,6 +894,15 @@ pub fn router(app: Application) -> Router {
             }),
         )
         .route(
+            "/assets/navigation.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../assets/navigation.js"),
+                )
+            }),
+        )
+        .route(
             "/assets/admin.js",
             get(|| async {
                 (

@@ -25,7 +25,7 @@ def verify():
             page = context.new_page()
             page.set_content(html)
             if scripting:
-                page.add_script_tag(path=ROOT / 'assets/admin.js')
+                page.add_script_tag(path=ROOT / 'assets/navigation.js')
                 toggle = page.get_by_role('button', name='Navigation menu')
                 nav = page.get_by_role('navigation', name='Administration')
                 expect(toggle).to_be_visible()
@@ -37,6 +37,9 @@ def verify():
                 expect(toggle).to_have_attribute('aria-expanded', 'true')
                 expect(nav).to_be_visible()
                 expect(page.get_by_role('dialog', name='Navigation')).to_be_visible()
+                page.wait_for_timeout(320)
+                assert page.locator('.workspace').bounding_box()['x'] == 307
+                assert page.locator('.sidebar-header').bounding_box()['x'] == 307
                 expect(page.locator('.mobile-menu-close')).to_be_focused()
                 assert page.locator('.workspace').evaluate('e => e.inert')
                 page.keyboard.press('Shift+Tab')
@@ -47,7 +50,7 @@ def verify():
                 expect(nav).to_be_hidden()
                 expect(toggle).to_be_focused()
                 toggle.click()
-                page.locator('.mobile-menu-backdrop').click(position={'x': 360, 'y': 400})
+                page.locator('.mobile-menu-backdrop').click(position={'x': 34, 'y': 400})
                 expect(nav).to_be_hidden()
                 toggle.click()
                 page.get_by_role('link', name='Overview', exact=True).evaluate("e => e.addEventListener('click', event => event.preventDefault())")
@@ -58,6 +61,15 @@ def verify():
                 expect(toggle).to_be_hidden()
                 page.set_viewport_size({'width': 375, 'height': 812})
                 expect(nav).to_be_hidden()
+                for width in (320, 390, 639):
+                    page.set_viewport_size({'width': width, 'height': 812})
+                    page.emulate_media(reduced_motion='reduce', color_scheme='dark')
+                    toggle.click()
+                    expect(nav).to_be_visible()
+                    assert abs(page.locator('.workspace').bounding_box()['x'] - (width - 68)) < 1
+                    expect(page.locator('.sidebar-content')).to_have_css('transition-duration', '0s')
+                    page.keyboard.press('Escape')
+                    expect(nav).to_be_hidden()
             else:
                 expect(page.get_by_role('navigation', name='Administration')).to_be_visible()
             assert page.locator('body').evaluate('e => e.scrollWidth <= innerWidth')

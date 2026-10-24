@@ -8,8 +8,8 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 ### Changed
 
 - Keep the bloc dropdown beside the mobile hamburger and open desktop-style
-  navigation in an animated left drawer with a dimmed backdrop, contained keyboard
-  focus, Escape dismissal and reduced-motion support. Navigation remains expanded
+  navigation by sliding the page aside with a rounded edge and soft shadow,
+  contained keyboard focus, Escape dismissal and reduced-motion support. Navigation remains expanded
   when JavaScript is unavailable.
 
 ## 0.3.2 - 2026-10-24
