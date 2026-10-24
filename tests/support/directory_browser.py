@@ -9,6 +9,7 @@ import sys
 from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright, expect
+from ui_browser import control_density, keyboard_focus, choose_appearance, workspace_menus
 
 MODE = sys.argv[1]
 ORIGIN = os.environ['BLOC_TEST_ORIGIN']
@@ -30,9 +31,13 @@ def capture(page, state):
         target.mkdir(parents=True, exist_ok=True)
         for width in [1280, 390]:
             page.set_viewport_size({'width': width, 'height': 1000})
+            control_density(page)
             page.evaluate('scrollTo(0, 0)')
             page.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
-            page.screenshot(path=str(target / f'{MODE}-{state}-{width}.png'), full_page=True)
+            page.screenshot(path=str(target / f'{MODE}-{state}-{width}.png'), full_page=True, animations='disabled')
+            choose_appearance(page, 'dark')
+            page.screenshot(path=str(target / f'{MODE}-{state}-dark-{width}.png'), full_page=True, animations='disabled')
+            choose_appearance(page, 'system')
         page.set_viewport_size({'width': 1280, 'height': 1000})
 
 
@@ -184,8 +189,8 @@ def saving(page):
     page.route('**/users/*', hold)
     submit(page, 'Save changes')
     expect(page.locator('main')).to_have_attribute('aria-busy', 'true')
-    expect(page.locator('form button')).to_be_disabled()
-    expect(page.locator('form button')).to_have_text('Saving…')
+    expect(page.locator('#content form button')).to_be_disabled()
+    expect(page.locator('#content form button')).to_have_text('Saving…')
     feedback = page.locator('form .working[role=status]')
     expect(feedback).to_be_visible()
     expect(feedback).to_have_text('Saving… Wait for a result before submitting again.')
@@ -193,26 +198,24 @@ def saving(page):
     assert len(waiting) == 1
     waiting.pop().continue_()
     page.wait_for_load_state('networkidle')
-    expect(page.locator('form button')).to_be_enabled()
+    expect(page.locator('#content form button')).to_be_enabled()
     expect(page.locator('main')).not_to_have_attribute('aria-busy', 'true')
     page.unroute('**/users/*', hold)
 
 
 def arrangement(page):
-    expect(page.locator('header')).to_have_count(1)
-    expect(page.locator('footer')).to_have_count(1)
+    workspace_menus(page)
+    expect(page.get_by_role('navigation', name='Administration', exact=True)).to_have_count(1)
+    expect(page.locator('.sidebar [aria-current=page]')).to_have_text('Tenants')
     for width in [1280, 390]:
         page.set_viewport_size({'width': width, 'height': 1000})
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         if page.locator('.grid').count():
-            assert page.locator('.grid').evaluate('e=>getComputedStyle(e).display') == ('block' if width == 390 else 'grid')
+            expect(page.locator('.grid')).to_have_css('display', 'grid')
             first = page.locator('.grid>div').bounding_box()
             aside = page.locator('.grid>aside').bounding_box()
             assert first and aside
-            if width == 390:
-                assert aside['y'] >= first['y'] + first['height']
-            else:
-                assert aside['x'] > first['x'] + first['width']
+            assert aside['y'] >= first['y'] + first['height']
         if page.locator('.table-wrap').count():
             expect(page.locator('.table-wrap')).to_have_attribute('tabindex', '0')
             expect(page.locator('.table-wrap')).to_have_css('overflow-x', 'auto')
@@ -221,12 +224,11 @@ def arrangement(page):
 
 def keyboard(page):
     page.reload()
-    controls = page.locator('a[href],input:not([type="hidden"]),button,[tabindex="0"]').all()
+    controls = page.locator('a[href],summary,input:not([type="hidden"]),button,select,[tabindex="0"]').all()
     for control in controls:
         if control.is_visible() and control.is_enabled():
             page.keyboard.press('Tab')
-            expect(control).to_be_focused()
-            assert control.evaluate("e=>e.matches(':focus-visible') && getComputedStyle(e).outlineWidth==='2px' && getComputedStyle(e).outlineStyle==='solid'")
+            keyboard_focus(control)
 
 
 def loading(page):
@@ -331,7 +333,8 @@ with sync_playwright() as playwright:
         expect(page.locator('h1')).to_have_text('Acme')
         expect(page.locator('[name=version]')).to_have_value('2')
         expect(page.locator('.grid>div h2')).to_have_text(['Profile', 'Tenant status'])
-        expect(page.locator('.grid>aside h2')).to_have_text(['Record', 'Directory'])
+        expect(page.locator('.grid>aside h2')).to_have_text(['Record'])
+        expect(page.locator('.heading').get_by_role('link', name='View users', exact=True)).to_have_attribute('href', urlparse(target).path + '/users')
         record(page, 'tenant', target.rsplit('/', 1)[1])
         capture(page, 'default')
         page.get_by_role('link', name='Suspend tenant', exact=True).click()
@@ -524,7 +527,7 @@ with sync_playwright() as playwright:
         nojs.close()
         page.get_by_role('link', name='Administration', exact=True).click()
         expect(page.locator('link[rel=stylesheet][href="/assets/admin.css"]')).to_have_count(1)
-        expect(page.locator('main')).to_have_class('home')
+        expect(page.locator('main')).to_have_class('dashboard')
         page.get_by_role('link', name='Tenants', exact=True).click()
         expect(page.locator('link[rel=stylesheet][href="/assets/directory.css"]')).to_have_count(1)
         page.goto(target)

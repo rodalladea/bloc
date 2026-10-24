@@ -89,8 +89,8 @@ impl Page {
                 "",
             ),
             "/admin" | "/admin/logout" => (
-                "Administration",
-                "Your installation and administrator account.",
+                "Overview",
+                "Manage your installation and its directories.",
                 "Sign out",
                 vec![],
                 "",
@@ -822,6 +822,24 @@ async fn setup_or_recover(
 /// Production assembly; callers provide validated configuration and shared storage.
 pub fn router(app: Application) -> Router {
     Router::new()
+        .route(
+            "/assets/ui.css",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+                    include_str!("../assets/ui.css"),
+                )
+            }),
+        )
+        .route(
+            "/assets/ui.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../assets/ui.js"),
+                )
+            }),
+        )
         .route("/", get(|| async { Redirect::to("/admin/login") }))
         .route("/healthz", get(|| async { "ok\n" }))
         .route(

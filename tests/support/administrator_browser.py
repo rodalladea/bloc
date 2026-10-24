@@ -4,7 +4,9 @@ Requires Playwright, a synthetic TLS proxy, BLOC_TEST_ORIGIN and BLOC_TEST_SPKI.
 Never treat this synthetic ingress as production certificate acceptance.
 """
 import json, os, subprocess, sys
+from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
+from ui_browser import appearance, control_density, keyboard_focus, choose_appearance, workspace_menus
 
 mode=sys.argv[1]
 origin=os.environ['BLOC_TEST_ORIGIN']
@@ -36,11 +38,11 @@ def validation_result(page, enhanced):
     if enhanced: expect(page.locator('#feedback')).to_be_focused()
 
 def keyboard_order(page):
-    controls=page.locator('a[href],input:not([type="hidden"]),button').all()
+    page.reload()
+    controls=[c for c in page.locator('a[href],summary,input:not([type="hidden"]),button,select').all() if c.is_visible() and c.is_enabled()]
     for control in controls:
         page.keyboard.press('Tab')
-        expect(control).to_be_focused()
-        assert control.evaluate("e=>e.matches(':focus-visible') && getComputedStyle(e).outlineWidth==='2px' && getComputedStyle(e).outlineStyle==='solid'")
+        keyboard_focus(control)
 
 with sync_playwright() as p:
     browser=p.chromium.launch(headless=True,executable_path=os.environ.get("BLOC_BROWSER_EXECUTABLE",p.chromium.executable_path),args=['--no-proxy-server','--host-resolver-rules=MAP bloc.example.test 127.0.0.1','--ignore-certificate-errors-spki-list='+os.environ['BLOC_TEST_SPKI']])
@@ -64,15 +66,15 @@ with sync_playwright() as p:
             submit(page,'Create administrator')
             validation_result(page,True)
     if mode=='preview':
+        appearance(page, browser, origin)
         for width in [375,639,640,1280]:
             page.set_viewport_size({'width':width,'height':1000})
             assert page.locator('form .field input').evaluate_all('(els)=>els.map(e=>e.name)')==['code','email','password','password_confirmation']
             assert page.locator('header').bounding_box()['height']==64
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
-            for control in page.locator('input:not([type="hidden"]),button,.button').all():assert control.bounding_box()['height']>=44
+            control_density(page)
             if width==1280:
-                assert page.locator('main').evaluate('e=>e.clientWidth-parseFloat(getComputedStyle(e).paddingLeft)-parseFloat(getComputedStyle(e).paddingRight)')==480
-            page.goto(origin+'/admin/setup')
+                assert page.locator('main').evaluate('e=>e.clientWidth-parseFloat(getComputedStyle(e).paddingLeft)-parseFloat(getComputedStyle(e).paddingRight)')==432
             keyboard_order(page)
         page.set_viewport_size({'width':1280,'height':1000})
     fill(page,{'code':setup,'email':'Owner@EXAMPLE.test','password':'a synthetic password','password_confirmation':'a synthetic password'})
@@ -85,7 +87,7 @@ with sync_playwright() as p:
         submit(page,'Sign in')
         validation_result(page,mode=='validation')
     login(page)
-    expect(page.get_by_text('Owner@example.test',exact=True)).to_be_visible()
+    expect(page.locator('.account-email')).to_have_text('Owner@example.test')
     expect(page.get_by_text('Installation administrator',exact=True)).to_be_visible()
     if mode=='validation':
         config=json.loads(page.locator('meta[name="htmx-config"]').get_attribute('content'))
@@ -116,7 +118,7 @@ with sync_playwright() as p:
         page.route('**/admin/password',lambda route: pending.append(route))
         submit(page,'Change password')
         expect(page.get_by_role('button',name='Working…',exact=True)).to_be_disabled()
-        expect(page.locator('form')).to_have_attribute('aria-busy','true')
+        expect(page.locator('#content form')).to_have_attribute('aria-busy','true')
         assert len(pending)==1
         expect(page.get_by_role('link',name='Back to administration',exact=True)).to_be_enabled()
         assert not page.get_by_role('link',name='Back to administration',exact=True).get_attribute('aria-disabled')
@@ -128,7 +130,7 @@ with sync_playwright() as p:
         assert len(pending)==1
     elif mode=='session_expiry':
         page.goto(origin+'/admin/password')
-        other=context.new_page();other.goto(origin+'/admin');submit(other,'Sign out');other.wait_for_url(origin+'/admin/login')
+        other=context.new_page();other.goto(origin+'/admin/tenants');other.get_by_label('Workspace menu',exact=True).click();submit(other,'Log out');other.wait_for_url(origin+'/admin/login')
         fill(page,{'current_password':'a synthetic password','password':'the replacement password','password_confirmation':'the replacement password'})
         submit(page,'Change password')
         page.wait_for_url(origin+'/admin/login?expired=1')
@@ -137,20 +139,48 @@ with sync_playwright() as p:
     elif mode=='preview':
         for width in [375,639,640,1280]:
             page.set_viewport_size({'width':width,'height':1000})
-            for path,title,names in [('/admin','Administration',[]),('/admin/password','Change password',['current_password','password','password_confirmation']),('/admin/login','Sign in to bloc',['email','password']),('/admin/recovery','Recover administrator access',['code','password','password_confirmation']),('/admin/setup','Setup is complete',[])]:
+            for path,title,names in [('/admin','Overview',[]),('/admin/password','Change password',['current_password','password','password_confirmation']),('/admin/login','Sign in to bloc',['email','password']),('/admin/recovery','Recover administrator access',['code','password','password_confirmation']),('/admin/setup','Setup is complete',[])]:
                 page.goto(origin+path)
                 expect(page.get_by_role('heading',name=title,exact=True)).to_be_visible()
-                assert page.locator('header').bounding_box()['height']==64
+                assert page.locator('header').count() == (0 if path in ('/admin','/admin/password') else 1)
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
-                assert page.locator('form .field input').evaluate_all('(els)=>els.map(e=>e.name)')==names
-                for control in page.locator('input:not([type="hidden"]),button,.button').all():assert control.bounding_box()['height']>=44
+                actual=page.locator('form .field input').evaluate_all('(els)=>els.map(e=>e.name)')
+                assert actual==names, (path, width, actual, page.locator('main').inner_text())
+                control_density(page)
+                if path in ('/admin','/admin/password'):
+                    workspace_menus(page)
+                    nav=page.get_by_role('navigation',name='Administration',exact=True)
+                    expect(nav.locator('[aria-current=page]')).to_have_text('Overview' if path=='/admin' else 'Account security')
+                    expect(nav.get_by_role('link',name='Tenants',exact=True)).to_be_visible()
+                    expect(page.locator('.app-rail')).to_have_count(0)
+                    expect(page.get_by_role('navigation',name='Administration',exact=True)).to_have_count(1)
+                    shell=page.locator('.sidebar').bounding_box()
+                    content=page.locator('main').bounding_box()
+                    assert shell['y']+shell['height']<=content['y'] if width<640 else shell['x']+shell['width']<=content['x']
+                else:
+                    expect(page.locator('.sidebar')).to_have_count(0)
+                    assert page.locator('main').evaluate('e=>e.clientWidth-parseFloat(getComputedStyle(e).paddingLeft)-parseFloat(getComputedStyle(e).paddingRight)')<=480
                 if path=='/admin':
-                    panels=page.locator('.grid .panel').all()
+                    expect(page.get_by_role('link',name='Create tenant',exact=True)).to_be_visible()
+                    expect(page.get_by_role('link',name='Browse tenants',exact=True)).to_be_visible()
+                    expect(page.get_by_role('button',name='Sign out',exact=True)).to_be_visible()
+                    panels=page.locator('.overview-grid>div,.overview-grid>.installation-panel').all()
                     a,b=[panel.bounding_box() for panel in panels]
-                    assert (b['y']>a['y']) if width<640 else (b['x']>a['x'] and b['y']==a['y'])
-                content_width=page.locator('main').evaluate('e=>e.clientWidth-parseFloat(getComputedStyle(e).paddingLeft)-parseFloat(getComputedStyle(e).paddingRight)')
-                assert content_width<= (960 if path=='/admin' else 480)
-                if width==1280: assert content_width==(960 if path=='/admin' else 480)
+                    assert (b['y']>=a['y']+a['height']) if width<=1100 else b['x']>=a['x']+a['width']
+                evidence=os.environ.get('BLOC_DIRECTORY_BROWSER_EVIDENCE')
+                if evidence and width in (375,1280):
+                    target=Path(evidence)
+                    target.mkdir(parents=True,exist_ok=True)
+                    page.screenshot(path=str(target / f"admin-{path.rsplit('/',1)[-1]}-{width}.png"),full_page=True,animations='disabled')
+                    choose_appearance(page, 'dark')
+                    page.screenshot(path=str(target / f"admin-{path.rsplit('/',1)[-1]}-dark-{width}.png"),full_page=True,animations='disabled')
+                    if path == '/admin/password':
+                        page.locator('[name="current_password"]').focus()
+                        page.screenshot(path=str(target / f"admin-password-focus-dark-{width}.png"),full_page=True,animations='disabled')
+                    choose_appearance(page, 'system')
+                    if path == '/admin/password':
+                        page.locator('[name="current_password"]').focus()
+                        page.screenshot(path=str(target / f"admin-password-focus-{width}.png"),full_page=True,animations='disabled')
                 keyboard_order(page)
                 if names:
                     page.locator('[name="'+names[0]+'"]').focus()
@@ -164,7 +194,8 @@ with sync_playwright() as p:
         fill(page,{'current_password':'a synthetic password','password':'the replacement password','password_confirmation':'the replacement password'})
         submit(page,'Change password');page.wait_for_url(origin+'/admin/login')
         login(page,'the replacement password')
-        submit(page,'Sign out');page.wait_for_url(origin+'/admin/login')
+        page.get_by_label('Workspace menu',exact=True).click()
+        submit(page,'Log out');page.wait_for_url(origin+'/admin/login')
         recovery=code('recovery')
         page.goto(origin+'/admin/recovery')
         fill(page,{'code':recovery,'password':'short','password_confirmation':'different'})

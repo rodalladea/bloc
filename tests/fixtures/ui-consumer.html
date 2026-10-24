@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Independent UI consumer</title>
+<link rel="stylesheet" href="/assets/ui.css">
+<script src="/assets/ui.js"></script>
+</head>
+<body>
+<button id="outside" type="button">Host control</button>
+<section class="ui" id="kit" aria-label="Independent consumer">
+<label class="ui-theme" data-ui-theme-picker hidden><span>Appearance</span><select aria-label="Appearance" data-ui-theme-control><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+<div class="ui-panel"><h1>Example workspace</h1><label class="ui-field">Name<input name="example" value="Synthetic workspace"></label><button type="button">Save example</button><a class="ui-button ui-button--secondary" href="#kit">Cancel</a></div>
+</section>
+</body>
+</html>

@@ -27,6 +27,7 @@ struct Page {
     record: Record,
     rows: Vec<Record>,
     csrf: String,
+    email: String,
     creation: String,
     version: String,
     next: String,
@@ -56,6 +57,7 @@ impl Page {
             record: Record::default(),
             rows: vec![],
             csrf: String::new(),
+            email: String::new(),
             creation: String::new(),
             version: String::new(),
             next: String::new(),
@@ -293,13 +295,14 @@ async fn handle(app: &Application, request: Request) -> Response {
     let Some(session) = sec::cookie(&headers, "__Host-bloc-admin").map(|v| sec::digest(&v)) else {
         return expired(hx);
     };
-    match app.storage.authorize(&session).await {
-        Ok(Some(_)) => {}
+    let owner = match app.storage.authorize(&session).await {
+        Ok(Some(owner)) => owner,
         Ok(None) => return expired(hx),
         Err(_) => return failure(&path, StatusCode::SERVICE_UNAVAILABLE, hx),
     };
     let parts: Vec<_> = path.trim_start_matches('/').split('/').collect();
     let mut p = Page::new();
+    p.email = owner.email;
     p.user = parts.get(3) == Some(&"users");
     let status_route = parts.last() == Some(&"status");
     let tenant_id = parts

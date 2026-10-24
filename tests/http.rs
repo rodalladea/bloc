@@ -29,7 +29,9 @@ use tower::ServiceExt;
 async fn serves_local_assets_and_health() {
     for (path, content_type, expected) in [
         ("/healthz", "text/plain", "ok\n"),
-        ("/assets/admin.css", "text/css", ":root"),
+        ("/assets/admin.css", "text/css", ".workspace"),
+        ("/assets/ui.css", "text/css", "--ui-accent"),
+        ("/assets/ui.js", "text/javascript", "data-ui-theme-control"),
         ("/assets/htmx.min.js", "text/javascript", "htmx"),
     ] {
         let response = application()

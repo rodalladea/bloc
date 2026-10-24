@@ -1484,10 +1484,10 @@ async fn administration_home() {
         assert!(html.contains(value))
     }
     let cell = html
-        .split("<dd>")
+        .split("<p class=\"account-email\">")
         .nth(1)
         .unwrap()
-        .split("</dd>")
+        .split("</p>")
         .next()
         .unwrap();
     assert!(!cell.contains('<'));
@@ -1499,7 +1499,8 @@ async fn administration_home() {
         "<script>alert(1)</script>@example.test"
     );
     assert!(!html.contains("<script>alert"));
-    assert!(html.contains("href=\"/admin/tenants\">Tenants</a>"));
+    assert!(html.contains("href=\"/admin/tenants\""));
+    assert!(html.contains("aria-label=\"Administration\""));
 }
 #[tokio::test]
 #[ignore = "TLS fixture"]
