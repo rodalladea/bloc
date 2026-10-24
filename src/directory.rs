@@ -723,6 +723,8 @@ fn tenant_creation_has_one_entry_per_list_state() {
             p.rows.push(Record::default());
         }
         let html = Full { p: &p }.render().unwrap();
-        assert_eq!(html.matches("href=\"/admin/tenants/new\"").count(), 1);
+        assert_eq!(html.matches("href=\"/admin/tenants/new\"").count(), 2);
+        let fragment = Fragment { p: &p }.render().unwrap();
+        assert_eq!(fragment.matches("href=\"/admin/tenants/new\"").count(), 1);
     }
 }

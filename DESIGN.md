@@ -240,6 +240,5 @@ include concise placeholders alongside their persistent visible labels.
 Overview and directories share a 1200px content container and
 40px/32px desktop padding; account security uses a narrower 960px container
 with 48px/40px desktop padding. Page headers have no bottom divider; tables stay within those gutters. Sidebar links have
-6px vertical separation and workspace dropdowns fit the sidebar width. Tenant
-creation belongs to the Tenants list (header or empty state), not the overview
-or workspace menu.
+6px vertical separation and workspace dropdowns fit the sidebar width. The workspace dropdown offers Create tenant directly. Manage tenants lives
+under Settings in the sidebar; the list retains its contextual creation action.

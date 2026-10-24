@@ -46,7 +46,13 @@ fn dashboard_navigation_and_actions() {
     let html = Full { page: &page }.render().unwrap();
     assert!(html.contains("aria-label=\"Administration\""));
     assert!(html.contains("href=\"/admin\" aria-current=\"page\""));
-    assert!(!html.contains("href=\"/admin/tenants/new\""));
+    assert!(html.contains("href=\"/admin/tenants/new\""));
+    let menu = html.split("<nav class=\"sidebar-nav\"").next().unwrap();
+    assert!(!menu.contains("href=\"/admin/tenants\""));
+    let nav = html.split("<nav class=\"sidebar-nav\"").nth(1).unwrap();
+    let settings = nav.find(">Settings</p>").unwrap();
+    let tenants = nav.find(">Manage tenants</a>").unwrap();
+    assert!(settings < tenants);
     assert!(html.contains("href=\"/admin/tenants\""));
     assert!(html.contains("href=\"/admin/password\""));
     assert!(html.contains("Owner@example.test"));

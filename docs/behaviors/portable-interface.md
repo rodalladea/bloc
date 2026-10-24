@@ -359,3 +359,24 @@ all screens. Account security returns to its narrower 960px container with
 48px/40px desktop padding; directory/overview widths remain unchanged. This
 supersedes the shared width rule for account security in interface-07. Spacing
 continues to separate headings and content; internal form dividers remain.
+
+### Follow-up: tenant creation and administration navigation
+
+Requester decision: the workspace dropdown offers Create tenant directly, without
+routing through the full list. Move the list navigation from Workspace to Settings
+as Manage tenants; preserve the existing directory administration routes and
+contextual list actions. This supersedes interface-07's dropdown creation exclusion.
+
+Given the administrator opens the workspace dropdown
+When they select Create tenant
+Then they reach `/admin/tenants/new` directly.
+
+Given the administrator uses the sidebar
+When they look for directory administration
+Then Manage tenants appears under Settings, with the existing active state
+And Workspace contains Overview without a Tenants list item.
+
+Coverage: `dashboard_navigation_and_actions` verifies the direct dropdown action,
+absence of the list link in the dropdown, and Settings placement;
+`tenant_creation_has_one_entry_per_list_state` verifies one contextual list action
+in addition to the persistent dropdown action for both list states.

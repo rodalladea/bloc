@@ -7,6 +7,9 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ### Fixed
 
+- Offer tenant creation directly in the workspace dropdown and move Manage tenants
+  into the sidebar Settings group.
+
 - Remove page-heading dividers and restore the narrower Account security layout.
 
 - Add placeholders to editable fields and remove field dividers from login and
