@@ -144,7 +144,7 @@ impl Browser {
     }
 }
 
-const TENANT: &str = "11111111-1111-4111-8111-111111111111";
+const REALM: &str = "11111111-1111-4111-8111-111111111111";
 const OTHER: &str = "33333333-3333-4333-8333-333333333333";
 const USER: &str = "22222222-2222-4222-8222-222222222222";
 async fn signed(name: &str) -> (Fixture, Browser) {
@@ -154,27 +154,27 @@ async fn signed(name: &str) -> (Fixture, Browser) {
     b.login().await;
     (f, b)
 }
-async fn create_tenant(b: &mut Browser, id: &str, name: &str) {
-    let csrf = b.token("/admin/tenants/new").await;
+async fn create_realm(b: &mut Browser, id: &str, name: &str) {
+    let csrf = b.token("/admin/realms/new").await;
     let (s, h, r) = b
         .request(
             "POST",
-            "/admin/tenants",
+            "/admin/realms",
             &[("csrf", &csrf), ("creation_id", id), ("name", name)],
         )
         .await;
     assert_eq!(s, 303, "{h}");
-    assert_eq!(r["location"], format!("/admin/tenants/{id}"));
+    assert_eq!(r["location"], format!("/admin/realms/{id}"));
 }
 #[tokio::test]
 #[ignore = "TLS fixture"]
 async fn directory_c01() {
     let (f, mut b) = signed("directoryc01").await;
-    let (s, h, _) = b.request("GET", "/admin/tenants", &[]).await;
+    let (s, h, _) = b.request("GET", "/admin/realms", &[]).await;
     assert_eq!(s, 200, "{h}");
-    assert!(h.contains("No tenants yet"));
-    assert!(h.contains("Create tenant"));
-    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM bloc.tenant")
+    assert!(h.contains("No realms yet"));
+    assert!(h.contains("Create realm"));
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM bloc.realm")
         .fetch_one(&f.admin)
         .await
         .unwrap();
@@ -185,18 +185,18 @@ async fn directory_c01() {
 async fn directory_c02() {
     let (f, mut b) = signed("directoryc02").await;
     let lower = database_time(&f).await;
-    create_tenant(&mut b, TENANT, " Acme ").await;
+    create_realm(&mut b, REALM, " Acme ").await;
     let (s, h, _) = b
-        .request("GET", &format!("/admin/tenants/{TENANT}"), &[])
+        .request("GET", &format!("/admin/realms/{REALM}"), &[])
         .await;
     assert_eq!(s, 200);
     assert!(h.contains("Acme"));
-    assert!(h.contains(TENANT));
+    assert!(h.contains(REALM));
     assert!(h.contains("Active"));
     let row: (String, String, i64, bool) = sqlx::query_as(
-        "SELECT name,status,version,created_at=updated_at FROM bloc.tenant WHERE id=$1::text::uuid",
+        "SELECT name,status,version,created_at=updated_at FROM bloc.realm WHERE id=$1::text::uuid",
     )
-    .bind(TENANT)
+    .bind(REALM)
     .fetch_one(&f.admin)
     .await
     .unwrap();
@@ -205,12 +205,12 @@ async fn directory_c02() {
 }
 async fn user(
     b: &mut Browser,
-    tenant: &str,
+    realm: &str,
     id: &str,
     email: &str,
     name: &str,
 ) -> (StatusCode, String, axum::http::HeaderMap) {
-    let path = format!("/admin/tenants/{tenant}/users");
+    let path = format!("/admin/realms/{realm}/users");
     let csrf = b.token(&format!("{path}/new")).await;
     b.request(
         "POST",
@@ -239,28 +239,28 @@ async fn edit(
     result
 }
 async fn events(f: &Fixture) -> i64 {
-    sqlx::query_scalar("SELECT count(*) FROM bloc.security_audit_event WHERE action LIKE 'tenant%'")
+    sqlx::query_scalar("SELECT count(*) FROM bloc.security_audit_event WHERE action LIKE 'realm%'")
         .fetch_one(&f.admin)
         .await
         .unwrap()
 }
-async fn tenant_row(f: &Fixture) -> (String, String, i64, String) {
+async fn realm_row(f: &Fixture) -> (String, String, i64, String) {
     sqlx::query_as(
-        "SELECT name,status,version,updated_at::text FROM bloc.tenant WHERE id=$1::text::uuid",
+        "SELECT name,status,version,updated_at::text FROM bloc.realm WHERE id=$1::text::uuid",
     )
-    .bind(TENANT)
+    .bind(REALM)
     .fetch_one(&f.admin)
     .await
     .unwrap()
 }
 async fn user_row(f: &Fixture) -> (String, Option<String>, String, i64, String) {
-    sqlx::query_as("SELECT email,display_name,status,version,updated_at::text FROM bloc.tenant_user WHERE id=$1::text::uuid").bind(USER).fetch_one(&f.admin).await.unwrap()
+    sqlx::query_as("SELECT email,display_name,status,version,updated_at::text FROM bloc.realm_user WHERE id=$1::text::uuid").bind(USER).fetch_one(&f.admin).await.unwrap()
 }
-fn tenant_path() -> String {
-    format!("/admin/tenants/{TENANT}")
+fn realm_path() -> String {
+    format!("/admin/realms/{REALM}")
 }
 fn user_path() -> String {
-    format!("/admin/tenants/{TENANT}/users/{USER}")
+    format!("/admin/realms/{REALM}/users/{USER}")
 }
 
 async fn database_time(f: &Fixture) -> i64 {
@@ -279,8 +279,8 @@ fn record_value<'a>(html: &'a str, label: &str) -> &'a str {
         .unwrap()
 }
 async fn metadata(f: &Fixture, html: &str, user: bool, lower: i64, initial: bool) {
-    let table = if user { "tenant_user" } else { "tenant" };
-    let id = if user { USER } else { TENANT };
+    let table = if user { "realm_user" } else { "realm" };
+    let id = if user { USER } else { REALM };
     let sql = format!(
         "SELECT version,(extract(epoch FROM created_at)*1000000)::bigint,(extract(epoch FROM updated_at)*1000000)::bigint,to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'),to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') FROM bloc.{table} WHERE id=$1::text::uuid"
     );
@@ -330,19 +330,19 @@ macro_rules! check {
     };
 }
 check!(directory_c03, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    create_tenant(&mut b, OTHER, "Acme").await;
-    let (_, h, _) = b.request("GET", "/admin/tenants", &[]).await;
-    assert!(h.contains(TENANT) && h.contains(OTHER));
+    create_realm(&mut b, REALM, "Acme").await;
+    create_realm(&mut b, OTHER, "Acme").await;
+    let (_, h, _) = b.request("GET", "/admin/realms", &[]).await;
+    assert!(h.contains(REALM) && h.contains(OTHER));
     assert_eq!(events(&f).await, 2);
 });
 check!(directory_c04, f, b, {
-    let csrf = b.token("/admin/tenants/new").await;
+    let csrf = b.token("/admin/realms/new").await;
     let (status, _, _) = b
         .request(
             "POST",
-            "/admin/tenants",
-            &[("csrf", &csrf), ("creation_id", TENANT)],
+            "/admin/realms",
+            &[("csrf", &csrf), ("creation_id", REALM)],
         )
         .await;
     assert_eq!(status, 422);
@@ -356,8 +356,8 @@ check!(directory_c04, f, b, {
         let (s, h, _) = b
             .request(
                 "POST",
-                "/admin/tenants",
-                &[("csrf", &csrf), ("creation_id", TENANT), ("name", &name)],
+                "/admin/realms",
+                &[("csrf", &csrf), ("creation_id", REALM), ("name", &name)],
             )
             .await;
         assert_eq!(s, 422, "{h}");
@@ -368,53 +368,50 @@ check!(directory_c04, f, b, {
     }
     assert_eq!(events(&f).await, 0);
     assert_eq!(
-        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM bloc.tenant")
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM bloc.realm")
             .fetch_one(&f.admin)
             .await
             .unwrap(),
         0
     );
-    create_tenant(&mut b, TENANT, &"😀".repeat(128)).await;
+    create_realm(&mut b, REALM, &"😀".repeat(128)).await;
 });
 check!(directory_c05, f, b, {
-    let csrf = b.token("/admin/tenants/new").await;
+    let csrf = b.token("/admin/realms/new").await;
     let mut c = Browser::new(&f).await;
     c.cookies = b.cookies.clone();
     let fields = [
         ("csrf", csrf.as_str()),
-        ("creation_id", TENANT),
+        ("creation_id", REALM),
         ("name", "Acme"),
     ];
     let (a, z) = tokio::join!(
-        b.request("POST", "/admin/tenants", &fields),
-        c.request("POST", "/admin/tenants", &fields)
+        b.request("POST", "/admin/realms", &fields),
+        c.request("POST", "/admin/realms", &fields)
     );
     let mut codes = [a.0.as_u16(), z.0.as_u16()];
     codes.sort();
     assert_eq!(codes, [303, 409]);
-    assert!((a.1 + &z.1).contains("Review existing tenant"));
+    assert!((a.1 + &z.1).contains("Review existing realm"));
     assert_eq!(events(&f).await, 1);
-    let original = tenant_row(&f).await;
+    let original = realm_row(&f).await;
     assert_eq!((original.0.as_str(), original.2), ("Acme", 1));
     let (s, h, _) = b
         .request(
             "POST",
-            "/admin/tenants",
+            "/admin/realms",
             &[
                 ("csrf", &csrf),
-                ("creation_id", TENANT),
+                ("creation_id", REALM),
                 ("name", "Replacement"),
             ],
         )
         .await;
     assert_eq!(s, 409);
-    assert!(h.contains(&format!(
-        "href=\"{}\">Review existing tenant",
-        tenant_path()
-    )));
-    assert_eq!(tenant_row(&f).await, original);
+    assert!(h.contains(&format!("href=\"{}\">Review existing realm", realm_path())));
+    assert_eq!(realm_row(&f).await, original);
     assert_eq!(
-        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM bloc.tenant")
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM bloc.realm")
             .fetch_one(&f.admin)
             .await
             .unwrap(),
@@ -423,42 +420,42 @@ check!(directory_c05, f, b, {
     assert_eq!(events(&f).await, 1);
 });
 check!(directory_c06, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
+    create_realm(&mut b, REALM, "Acme").await;
     assert_eq!(
-        user(&mut b, TENANT, USER, "Alice@example.com", "").await.0,
+        user(&mut b, REALM, USER, "Alice@example.com", "").await.0,
         303
     );
-    let old = tenant_row(&f).await;
+    let old = realm_row(&f).await;
     let lower = database_time(&f).await;
     assert_eq!(
         edit(
             &mut b,
-            &tenant_path(),
+            &realm_path(),
             &[("name", "Renamed"), ("version", "1")]
         )
         .await
         .0,
         303
     );
-    let new = tenant_row(&f).await;
+    let new = realm_row(&f).await;
     assert_eq!((new.0, new.2), ("Renamed".into(), 2));
     assert_ne!(old.3, new.3);
-    let parent: String = sqlx::query_scalar("SELECT tenant_id::text FROM bloc.tenant_user")
+    let parent: String = sqlx::query_scalar("SELECT realm_id::text FROM bloc.realm_user")
         .fetch_one(&f.admin)
         .await
         .unwrap();
-    assert_eq!(parent, TENANT);
-    let (_, html, _) = b.request("GET", &tenant_path(), &[]).await;
+    assert_eq!(parent, REALM);
+    let (_, html, _) = b.request("GET", &realm_path(), &[]).await;
     metadata(&f, &html, false, lower, false).await;
 });
 check!(directory_c07, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
+    create_realm(&mut b, REALM, "Acme").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
     let old = user_row(&f).await;
     assert_eq!(
         edit(
             &mut b,
-            &format!("{}/status", tenant_path()),
+            &format!("{}/status", realm_path()),
             &[("status", "suspended"), ("version", "1")]
         )
         .await
@@ -466,14 +463,14 @@ check!(directory_c07, f, b, {
         303
     );
     assert_eq!(user_row(&f).await, old);
-    assert_eq!(tenant_row(&f).await.1, "suspended");
-    let (_, h, _) = b.request("GET", &tenant_path(), &[]).await;
+    assert_eq!(realm_row(&f).await.1, "suspended");
+    let (_, h, _) = b.request("GET", &realm_path(), &[]).await;
     assert!(h.contains("user statuses"));
     assert!(h.contains(">Suspended</span>"));
 });
 check!(directory_c08, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
+    create_realm(&mut b, REALM, "Acme").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
     assert_eq!(
         edit(
             &mut b,
@@ -488,7 +485,7 @@ check!(directory_c08, f, b, {
         assert_eq!(
             edit(
                 &mut b,
-                &format!("{}/status", tenant_path()),
+                &format!("{}/status", realm_path()),
                 &[("status", s), ("version", v)]
             )
             .await
@@ -496,22 +493,22 @@ check!(directory_c08, f, b, {
             303
         );
     }
-    assert_eq!(tenant_row(&f).await.1, "active");
+    assert_eq!(realm_row(&f).await.1, "active");
     assert_eq!(user_row(&f).await.2, "suspended");
-    let (s, h, _) = b.request("GET", &tenant_path(), &[]).await;
+    let (s, h, _) = b.request("GET", &realm_path(), &[]).await;
     assert_eq!(s, 200);
     assert!(h.contains(">Active</span>"));
 });
 check!(directory_c09, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
+    create_realm(&mut b, REALM, "Acme").await;
     edit(
         &mut b,
-        &format!("{}/status", tenant_path()),
+        &format!("{}/status", realm_path()),
         &[("status", "suspended"), ("version", "1")],
     )
     .await;
     assert_eq!(
-        user(&mut b, TENANT, USER, "Alice@example.com", "").await.0,
+        user(&mut b, REALM, USER, "Alice@example.com", "").await.0,
         303
     );
     assert_eq!(
@@ -537,7 +534,7 @@ check!(directory_c09, f, b, {
     assert_eq!(
         edit(
             &mut b,
-            &tenant_path(),
+            &realm_path(),
             &[("name", "Renamed"), ("version", "2")]
         )
         .await
@@ -545,28 +542,28 @@ check!(directory_c09, f, b, {
         303
     );
     let (_, h, _) = b.request("GET", &user_path(), &[]).await;
-    assert!(h.contains("This tenant is suspended"));
-    assert_eq!(tenant_row(&f).await.1, "suspended");
-    let (s, h, _) = b.request("GET", "/admin/tenants", &[]).await;
+    assert!(h.contains("This realm is suspended"));
+    assert_eq!(realm_row(&f).await.1, "suspended");
+    let (s, h, _) = b.request("GET", "/admin/realms", &[]).await;
     assert_eq!(s, 200);
-    assert!(h.contains(TENANT));
+    assert!(h.contains(REALM));
     assert!(h.contains("Renamed"));
     assert!(h.contains("Suspended"));
 });
 check!(directory_c10, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    let csrf = b.token(&tenant_path()).await;
+    create_realm(&mut b, REALM, "Acme").await;
+    let csrf = b.token(&realm_path()).await;
     let mut c = Browser::new(&f).await;
     c.cookies = b.cookies.clone();
     let a = [("csrf", csrf.as_str()), ("name", "One"), ("version", "1")];
     let z = [("csrf", csrf.as_str()), ("name", "Two"), ("version", "1")];
-    let path = tenant_path();
+    let path = realm_path();
     let (a, z) = tokio::join!(b.request("POST", &path, &a), c.request("POST", &path, &z));
     let mut codes = [a.0.as_u16(), z.0.as_u16()];
     codes.sort();
     assert_eq!(codes, [303, 409]);
     let winner = if a.0 == 303 { "One" } else { "Two" };
-    let snapshot = tenant_row(&f).await;
+    let snapshot = realm_row(&f).await;
     assert_eq!(
         (snapshot.0.as_str(), snapshot.1.as_str(), snapshot.2),
         (winner, "active", 2)
@@ -575,7 +572,7 @@ check!(directory_c10, f, b, {
     assert_eq!(
         edit(
             &mut b,
-            &format!("{}/status", tenant_path()),
+            &format!("{}/status", realm_path()),
             &[("status", "suspended"), ("version", "1")]
         )
         .await
@@ -583,15 +580,15 @@ check!(directory_c10, f, b, {
         409
     );
     assert_eq!(events(&f).await, 2);
-    assert_eq!(tenant_row(&f).await, snapshot);
+    assert_eq!(realm_row(&f).await, snapshot);
 });
 check!(directory_c11, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    let old = tenant_row(&f).await;
+    create_realm(&mut b, REALM, "Acme").await;
+    let old = realm_row(&f).await;
     assert_eq!(
         edit(
             &mut b,
-            &tenant_path(),
+            &realm_path(),
             &[("name", " Acme "), ("version", "1")]
         )
         .await
@@ -601,36 +598,36 @@ check!(directory_c11, f, b, {
     assert_eq!(
         edit(
             &mut b,
-            &format!("{}/status", tenant_path()),
+            &format!("{}/status", realm_path()),
             &[("status", "active"), ("version", "1")]
         )
         .await
         .0,
         303
     );
-    assert_eq!(old, tenant_row(&f).await);
+    assert_eq!(old, realm_row(&f).await);
     assert_eq!(events(&f).await, 1);
 });
 check!(directory_c12, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
+    create_realm(&mut b, REALM, "Acme").await;
     edit(
         &mut b,
-        &tenant_path(),
+        &realm_path(),
         &[("name", "Renamed"), ("version", "1")],
     )
     .await;
     let mut c = Browser::new(&f).await;
     c.cookies = b.cookies.clone();
-    let (s, h, _) = c.request("GET", &tenant_path(), &[]).await;
+    let (s, h, _) = c.request("GET", &realm_path(), &[]).await;
     assert_eq!(s, 200);
     assert!(h.contains("Renamed"));
-    assert!(h.contains(TENANT));
+    assert!(h.contains(REALM));
     assert!(h.contains(">2<"));
     assert!(h.contains(">Active</span>"));
     let mut processes = services(&f).await;
     let request = format!(
         "GET {} HTTP/1.1\r\nHost: bloc.example.test:4443\r\nX-Forwarded-Proto: https\r\nX-Forwarded-For: 192.0.2.4\r\nCookie: __Host-bloc-admin={}\r\nConnection: close\r\n\r\n",
-        tenant_path(),
+        realm_path(),
         b.cookies["__Host-bloc-admin"]
     );
     let read = |request: &str| {
@@ -660,13 +657,13 @@ check!(directory_c12, f, b, {
     let restarted = read(&request);
     assert!(restarted.starts_with("HTTP/1.1 200"));
     assert!(restarted.contains("Renamed"));
-    assert!(restarted.contains(TENANT));
+    assert!(restarted.contains(REALM));
     assert!(restarted.contains(">2<"));
     assert!(restarted.contains(">Active</span>"));
 });
-async fn seed_tenants(b: &mut Browser, n: usize) {
+async fn seed_realms(b: &mut Browser, n: usize) {
     for i in 1..=n {
-        create_tenant(b, &format!("00000000-0000-4000-8000-{i:012}"), "Repeated").await;
+        create_realm(b, &format!("00000000-0000-4000-8000-{i:012}"), "Repeated").await;
     }
 }
 fn next(html: &str) -> String {
@@ -679,12 +676,12 @@ fn next(html: &str) -> String {
         .replace("&amp;", "&")
 }
 check!(directory_c13, f, b, {
-    seed_tenants(&mut b, 51).await;
-    sqlx::query("UPDATE bloc.tenant SET created_at='2026-01-01T00:00:00Z'")
+    seed_realms(&mut b, 51).await;
+    sqlx::query("UPDATE bloc.realm SET created_at='2026-01-01T00:00:00Z'")
         .execute(&f.admin)
         .await
         .unwrap();
-    let (_, h, _) = b.request("GET", "/admin/tenants", &[]).await;
+    let (_, h, _) = b.request("GET", "/admin/realms", &[]).await;
     assert_eq!(h.matches("<tr data-record=").count(), 50);
     let (_, last, _) = b.request("GET", &next(&h), &[]).await;
     assert_eq!(last.matches("<tr data-record=").count(), 1);
@@ -704,13 +701,13 @@ check!(directory_c13, f, b, {
             .map(|i| format!("00000000-0000-4000-8000-{i:012}"))
             .collect::<Vec<_>>()
     );
-    sqlx::query("UPDATE bloc.tenant SET created_at='2026-01-01T00:00:00Z'::timestamptz + (substring(id::text,25)::bigint % 7)*interval '1 second'").execute(&f.admin).await.unwrap();
+    sqlx::query("UPDATE bloc.realm SET created_at='2026-01-01T00:00:00Z'::timestamptz + (substring(id::text,25)::bigint % 7)*interval '1 second'").execute(&f.admin).await.unwrap();
     let expected: Vec<String> =
-        sqlx::query_scalar("SELECT id::text FROM bloc.tenant ORDER BY created_at,id")
+        sqlx::query_scalar("SELECT id::text FROM bloc.realm ORDER BY created_at,id")
             .fetch_all(&f.admin)
             .await
             .unwrap();
-    let (_, first, _) = b.request("GET", "/admin/tenants", &[]).await;
+    let (_, first, _) = b.request("GET", "/admin/realms", &[]).await;
     let (_, last, _) = b.request("GET", &next(&first), &[]).await;
     assert_eq!(row_ids(&first), expected[..50]);
     assert_eq!(row_ids(&last), expected[50..]);
@@ -718,37 +715,37 @@ check!(directory_c13, f, b, {
     no_extra_list_controls(&last);
 });
 check!(directory_c14, f, b, {
-    let (_, h, _) = b.request("GET", "/admin/tenants/new", &[]).await;
+    let (_, h, _) = b.request("GET", "/admin/realms/new", &[]).await;
     assert!(h.contains(">Cancel</a>"));
     assert_eq!(events(&f).await, 0);
-    create_tenant(&mut b, TENANT, "Acme").await;
+    create_realm(&mut b, REALM, "Acme").await;
     let (_, h, _) = b
         .request(
             "GET",
-            &format!("{}/status?status=suspended&version=1", tenant_path()),
+            &format!("{}/status?status=suspended&version=1", realm_path()),
             &[],
         )
         .await;
-    assert!(h.contains("Suspend this tenant?"));
-    assert!(h.contains(TENANT));
+    assert!(h.contains("Suspend this realm?"));
+    assert!(h.contains(REALM));
     assert!(h.contains("name=\"version\" value=\"1\""));
     assert_eq!(events(&f).await, 1);
 });
 check!(directory_c15, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
+    create_realm(&mut b, REALM, "Acme").await;
     let (s, h, _) = b
-        .request("GET", &format!("{}/users", tenant_path()), &[])
+        .request("GET", &format!("{}/users", realm_path()), &[])
         .await;
     assert_eq!(s, 200);
-    for text in ["No users yet", "Create user", "Acme", TENANT] {
+    for text in ["No users yet", "Create user", "Acme", REALM] {
         assert!(h.contains(text));
     }
     assert_eq!(events(&f).await, 1);
 });
 check!(directory_c16, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
+    create_realm(&mut b, REALM, "Acme").await;
     let lower = database_time(&f).await;
-    let (s, h, r) = user(&mut b, TENANT, USER, " Alice@EXAMPLE.com ", " Alice ").await;
+    let (s, h, r) = user(&mut b, REALM, USER, " Alice@EXAMPLE.com ", " Alice ").await;
     assert_eq!(s, 303, "{h}");
     assert_eq!(r["location"], user_path());
     let row = user_row(&f).await;
@@ -762,10 +759,10 @@ check!(directory_c16, f, b, {
         )
     );
     let (_, h, _) = b.request("GET", &user_path(), &[]).await;
-    for text in [USER, TENANT, "Unverified", "This user cannot sign in"] {
+    for text in [USER, REALM, "Unverified", "This user cannot sign in"] {
         assert!(h.contains(text));
     }
-    let equal: bool = sqlx::query_scalar("SELECT created_at=updated_at FROM bloc.tenant_user")
+    let equal: bool = sqlx::query_scalar("SELECT created_at=updated_at FROM bloc.realm_user")
         .fetch_one(&f.admin)
         .await
         .unwrap();
@@ -782,9 +779,9 @@ check!(directory_c16, f, b, {
     metadata(&f, &h, true, lower, true).await;
 });
 check!(directory_c17, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    create_tenant(&mut b, OTHER, "Contoso").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
+    create_realm(&mut b, REALM, "Acme").await;
+    create_realm(&mut b, OTHER, "Contoso").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
     assert_eq!(
         user(&mut b, OTHER, OTHER, "Alice@example.com", "").await.0,
         303
@@ -799,14 +796,14 @@ check!(directory_c17, f, b, {
     assert_eq!(changed.2["location"], user_path());
     assert_eq!(user_row(&f).await.0, "Bob@example.com");
     let other_name: Option<String> =
-        sqlx::query_scalar("SELECT display_name FROM bloc.tenant_user WHERE id=$1::text::uuid")
+        sqlx::query_scalar("SELECT display_name FROM bloc.realm_user WHERE id=$1::text::uuid")
             .bind(OTHER)
             .fetch_one(&f.admin)
             .await
             .unwrap();
     assert_eq!(other_name, None);
     let row: (String, i64, String) =
-        sqlx::query_as("SELECT email,version,status FROM bloc.tenant_user WHERE id=$1::text::uuid")
+        sqlx::query_as("SELECT email,version,status FROM bloc.realm_user WHERE id=$1::text::uuid")
             .bind(OTHER)
             .fetch_one(&f.admin)
             .await
@@ -814,8 +811,8 @@ check!(directory_c17, f, b, {
     assert_eq!(row, ("Alice@example.com".into(), 1, "active".into()));
 });
 check!(directory_c18, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
+    create_realm(&mut b, REALM, "Acme").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
     edit(
         &mut b,
         &format!("{}/status", user_path()),
@@ -823,16 +820,16 @@ check!(directory_c18, f, b, {
     )
     .await;
     for email in ["Alice@EXAMPLE.com", " Alice@example.com "] {
-        assert_eq!(user(&mut b, TENANT, OTHER, email, "").await.0, 409);
+        assert_eq!(user(&mut b, REALM, OTHER, email, "").await.0, 409);
     }
     assert_eq!(
-        user(&mut b, TENANT, OTHER, "alice@example.com", "").await.0,
+        user(&mut b, REALM, OTHER, "alice@example.com", "").await.0,
         303
     );
     assert_eq!(events(&f).await, 4);
 });
 check!(directory_c19, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
+    create_realm(&mut b, REALM, "Acme").await;
     for email in [
         "Alice@",
         "é@example.com",
@@ -840,7 +837,7 @@ check!(directory_c19, f, b, {
         "a..b@example.com",
     ] {
         assert!(bloc::credentials::normalize_email(email).is_err());
-        assert_eq!(user(&mut b, TENANT, USER, email, "").await.0, 422);
+        assert_eq!(user(&mut b, REALM, USER, email, "").await.0, 422);
     }
     for email in [
         format!("{}@example.com", "a".repeat(65)),
@@ -859,11 +856,11 @@ check!(directory_c19, f, b, {
         ),
     ] {
         assert!(bloc::credentials::normalize_email(&email).is_err());
-        assert_eq!(user(&mut b, TENANT, USER, &email, "").await.0, 422);
+        assert_eq!(user(&mut b, REALM, USER, &email, "").await.0, 422);
     }
     assert_eq!(events(&f).await, 1);
     assert_eq!(
-        user(&mut b, TENANT, USER, "Alice+tag@EXAMPLE.com", "")
+        user(&mut b, REALM, USER, "Alice+tag@EXAMPLE.com", "")
             .await
             .0,
         303
@@ -877,7 +874,7 @@ check!(directory_c19, f, b, {
         "d".repeat(61)
     );
     assert_eq!(maximum.len(), 254);
-    assert_eq!(user(&mut b, TENANT, OTHER, &maximum, "").await.0, 303);
+    assert_eq!(user(&mut b, REALM, OTHER, &maximum, "").await.0, 303);
     let old = user_row(&f).await;
     let n = events(&f).await;
     let (status, html, _) = edit(
@@ -893,9 +890,9 @@ check!(directory_c19, f, b, {
     assert_eq!(events(&f).await, n);
 });
 check!(directory_c20, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
+    create_realm(&mut b, REALM, "Acme").await;
     for name in ["bad\nname".into(), "a".repeat(129), "😀".repeat(129)] {
-        let (s, h, _) = user(&mut b, TENANT, USER, "Alice@example.com", &name).await;
+        let (s, h, _) = user(&mut b, REALM, USER, "Alice@example.com", &name).await;
         assert_eq!(s, 422);
         assert!(h.contains("Control characters"));
         if !name.contains('\n') {
@@ -904,9 +901,7 @@ check!(directory_c20, f, b, {
     }
     assert_eq!(events(&f).await, 1);
     assert_eq!(
-        user(&mut b, TENANT, USER, "Alice@example.com", "  ")
-            .await
-            .0,
+        user(&mut b, REALM, USER, "Alice@example.com", "  ").await.0,
         303
     );
     assert_eq!(user_row(&f).await.1, None);
@@ -928,11 +923,11 @@ check!(directory_c20, f, b, {
     assert_eq!(user_row(&f).await.1, Some(maximum));
 });
 check!(directory_c21, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "Alice").await;
+    create_realm(&mut b, REALM, "Acme").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "Alice").await;
     let old = user_row(&f).await;
     let original_targets: Vec<(String, Option<String>, Option<String>)> = sqlx::query_as(
-        "SELECT id::text,tenant_id::text,tenant_user_id::text FROM bloc.security_audit_event ORDER BY id",
+        "SELECT id::text,realm_id::text,realm_user_id::text FROM bloc.security_audit_event ORDER BY id",
     )
     .fetch_all(&f.admin)
     .await
@@ -980,21 +975,21 @@ check!(directory_c21, f, b, {
         )
     );
     let parent: String =
-        sqlx::query_scalar("SELECT tenant_id::text FROM bloc.tenant_user WHERE id=$1::text::uuid")
+        sqlx::query_scalar("SELECT realm_id::text FROM bloc.realm_user WHERE id=$1::text::uuid")
             .bind(USER)
             .fetch_one(&f.admin)
             .await
             .unwrap();
-    assert_eq!(parent, TENANT);
-    let preserved:Vec<(String,Option<String>,Option<String>)>=sqlx::query_as("SELECT id::text,tenant_id::text,tenant_user_id::text FROM bloc.security_audit_event WHERE id::text=ANY($1) ORDER BY id").bind(original_targets.iter().map(|r|r.0.clone()).collect::<Vec<_>>()).fetch_all(&f.admin).await.unwrap();
+    assert_eq!(parent, REALM);
+    let preserved:Vec<(String,Option<String>,Option<String>)>=sqlx::query_as("SELECT id::text,realm_id::text,realm_user_id::text FROM bloc.security_audit_event WHERE id::text=ANY($1) ORDER BY id").bind(original_targets.iter().map(|r|r.0.clone()).collect::<Vec<_>>()).fetch_all(&f.admin).await.unwrap();
     assert_eq!(preserved, original_targets);
     let (_, h, _) = b.request("GET", &user_path(), &[]).await;
     metadata(&f, &h, true, lower, false).await;
 });
 check!(directory_c22, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
-    let parent = tenant_row(&f).await;
+    create_realm(&mut b, REALM, "Acme").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
+    let parent = realm_row(&f).await;
     for (v, s) in [("1", "suspended"), ("2", "active"), ("3", "active")] {
         let before = user_row(&f).await;
         assert_eq!(
@@ -1019,15 +1014,15 @@ check!(directory_c22, f, b, {
     }
     assert_eq!(user_row(&f).await.3, 3);
     assert_eq!(events(&f).await, 4);
-    assert_eq!(parent, tenant_row(&f).await);
+    assert_eq!(parent, realm_row(&f).await);
 });
 check!(directory_c23, _f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
+    create_realm(&mut b, REALM, "Acme").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
     for (tv, uv, text) in [
         ("1", "1", "Active"),
-        ("1", "1", "Tenant suspended"),
-        ("2", "1", "Tenant suspended and user suspended"),
+        ("1", "1", "Realm suspended"),
+        ("2", "1", "Realm suspended and user suspended"),
     ] {
         let (_, h, _) = b.request("GET", &user_path(), &[]).await;
         assert!(h.contains("Combined directory status"));
@@ -1036,11 +1031,11 @@ check!(directory_c23, _f, b, {
         if tv == "1" && uv == "1" && text == "Active" {
             edit(
                 &mut b,
-                &format!("{}/status", tenant_path()),
+                &format!("{}/status", realm_path()),
                 &[("version", tv), ("status", "suspended")],
             )
             .await;
-        } else if text == "Tenant suspended" {
+        } else if text == "Realm suspended" {
             assert!(h.contains(text));
             edit(
                 &mut b,
@@ -1055,7 +1050,7 @@ check!(directory_c23, _f, b, {
     assert_eq!(
         edit(
             &mut b,
-            &format!("{}/status", tenant_path()),
+            &format!("{}/status", realm_path()),
             &[("version", "2"), ("status", "active")]
         )
         .await
@@ -1063,7 +1058,7 @@ check!(directory_c23, _f, b, {
         303
     );
     let (_, h, _) = b.request("GET", &user_path(), &[]).await;
-    assert_eq!(record_value(&h, "Tenant status"), "Active");
+    assert_eq!(record_value(&h, "Realm status"), "Active");
     assert_eq!(
         record_value(&h, "Combined directory status"),
         "User suspended"
@@ -1071,9 +1066,9 @@ check!(directory_c23, _f, b, {
     assert!(h.contains("This user cannot sign in"));
 });
 check!(directory_c24, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
-    for field in ["tenant_id", "roles", "verified", "password"] {
+    create_realm(&mut b, REALM, "Acme").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
+    for field in ["realm_id", "roles", "verified", "password"] {
         assert_eq!(
             edit(
                 &mut b,
@@ -1091,10 +1086,10 @@ check!(directory_c24, f, b, {
     }
     let csrf = b.token(&user_path()).await;
     for path in [
-        "/admin/tenants".into(),
-        tenant_path(),
-        format!("{}/status", tenant_path()),
-        format!("{}/users", tenant_path()),
+        "/admin/realms".into(),
+        realm_path(),
+        format!("{}/status", realm_path()),
+        format!("{}/users", realm_path()),
         user_path(),
         format!("{}/status", user_path()),
     ] {
@@ -1119,12 +1114,12 @@ check!(directory_c24, f, b, {
     assert_eq!(events(&f).await, 2);
 });
 check!(directory_c25, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    create_tenant(&mut b, OTHER, "Contoso").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
+    create_realm(&mut b, REALM, "Acme").await;
+    create_realm(&mut b, OTHER, "Contoso").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
     let csrf = b.token(&user_path()).await;
     for target in [USER, OTHER] {
-        let path = format!("/admin/tenants/{OTHER}/users/{target}");
+        let path = format!("/admin/realms/{OTHER}/users/{target}");
         for (method, suffix, fields) in [
             ("GET", "", vec![]),
             (
@@ -1153,8 +1148,8 @@ check!(directory_c25, f, b, {
     }
     let pool = f.pool("runtime_user").await;
     let mut connection = pool.acquire().await.unwrap();
-    sqlx::query("SELECT set_config('bloc.tenant_id',$1,false)")
-        .bind(TENANT)
+    sqlx::query("SELECT set_config('bloc.realm_id',$1,false)")
+        .bind(REALM)
         .execute(&mut *connection)
         .await
         .unwrap();
@@ -1182,8 +1177,8 @@ check!(directory_c25, f, b, {
                 ("status", "suspended"),
             ])
             .finish();
-        let a = format!("/admin/tenants/{OTHER}/users/{USER}{suffix}");
-        let z = format!("/admin/tenants/{OTHER}/users/{OTHER}{suffix}");
+        let a = format!("/admin/realms/{OTHER}/users/{USER}{suffix}");
+        let z = format!("/admin/realms/{OTHER}/users/{OTHER}{suffix}");
         let (ac, ah, _) = raw(&b, method, &a, body.clone(), &[("hx-request", "true")]).await;
         let (zc, zh, _) = raw(&b, method, &z, body, &[("hx-request", "true")]).await;
         assert_eq!(ac, 404);
@@ -1194,8 +1189,8 @@ check!(directory_c25, f, b, {
     assert_eq!(events(&f).await, 3);
 });
 check!(directory_c26, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    let csrf = b.token(&format!("{}/users/new", tenant_path())).await;
+    create_realm(&mut b, REALM, "Acme").await;
+    let csrf = b.token(&format!("{}/users/new", realm_path())).await;
     let mut c = Browser::new(&f).await;
     c.cookies = b.cookies.clone();
     let a = [
@@ -1208,24 +1203,24 @@ check!(directory_c26, f, b, {
         ("creation_id", OTHER),
         ("email", " Alice@example.com "),
     ];
-    let path = format!("{}/users", tenant_path());
+    let path = format!("{}/users", realm_path());
     let (a, z) = tokio::join!(b.request("POST", &path, &a), c.request("POST", &path, &z));
     let mut codes = [a.0.as_u16(), z.0.as_u16()];
     codes.sort();
     assert_eq!(codes, [303, 409]);
-    let first: String = sqlx::query_scalar("SELECT id::text FROM bloc.tenant_user")
+    let first: String = sqlx::query_scalar("SELECT id::text FROM bloc.realm_user")
         .fetch_one(&f.admin)
         .await
         .unwrap();
     let second = "44444444-4444-4444-8444-444444444444";
     assert_eq!(
-        user(&mut b, TENANT, second, "Second@example.com", "")
+        user(&mut b, REALM, second, "Second@example.com", "")
             .await
             .0,
         303
     );
-    let left = format!("{}/users/{first}", tenant_path());
-    let right = format!("{}/users/{second}", tenant_path());
+    let left = format!("{}/users/{first}", realm_path());
+    let right = format!("{}/users/{second}", realm_path());
     let csrf = b.token(&left).await;
     c.cookies = b.cookies.clone();
     let a = [
@@ -1245,17 +1240,17 @@ check!(directory_c26, f, b, {
     assert_eq!(events(&f).await, 4);
 });
 check!(directory_c27, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    create_tenant(&mut b, OTHER, "Contoso").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
+    create_realm(&mut b, REALM, "Acme").await;
+    create_realm(&mut b, OTHER, "Contoso").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
     let original = user_row(&f).await;
-    let (s, h, _) = user(&mut b, TENANT, USER, "Bob@example.com", "Replacement").await;
+    let (s, h, _) = user(&mut b, REALM, USER, "Bob@example.com", "Replacement").await;
     assert_eq!(s, 409);
     assert!(h.contains("Review existing user"));
     assert!(h.contains(&format!("href=\"{}\">Review existing user", user_path())));
     assert_eq!(user_row(&f).await, original);
     assert_eq!(
-        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM bloc.tenant_user")
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM bloc.realm_user")
             .fetch_one(&f.admin)
             .await
             .unwrap(),
@@ -1269,8 +1264,8 @@ check!(directory_c27, f, b, {
     assert_eq!(events(&f).await, 3);
 });
 check!(directory_c28, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
+    create_realm(&mut b, REALM, "Acme").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
     let csrf = b.token(&user_path()).await;
     let mut c = Browser::new(&f).await;
     c.cookies = b.cookies.clone();
@@ -1293,14 +1288,14 @@ check!(directory_c28, f, b, {
     assert_eq!(events(&f).await, 3);
 });
 check!(directory_c29, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    create_tenant(&mut b, OTHER, "Contoso").await;
+    create_realm(&mut b, REALM, "Acme").await;
+    create_realm(&mut b, OTHER, "Contoso").await;
     user(&mut b, OTHER, OTHER, "Other@example.com", "").await;
     for i in 1..=51 {
         assert_eq!(
             user(
                 &mut b,
-                TENANT,
+                REALM,
                 &format!("00000000-0000-4000-8000-{i:012}"),
                 &format!("User{i}@example.com"),
                 ""
@@ -1310,15 +1305,21 @@ check!(directory_c29, f, b, {
             303
         );
     }
-    let path = format!("{}/users", tenant_path());
+    let path = format!("{}/users", realm_path());
     let (_, h, _) = b.request("GET", &path, &[]).await;
     assert_eq!(h.matches("<tr data-record=").count(), 50);
     assert!(!h.contains("Other@example.com"));
     let (_, last, _) = b.request("GET", &next(&h), &[]).await;
     assert_eq!(last.matches("<tr data-record=").count(), 1);
     assert_eq!(events(&f).await, 54);
-    sqlx::query("UPDATE bloc.tenant_user SET created_at='2026-01-01T00:00:00Z'::timestamptz + (substring(id::text,25)::bigint % 7)*interval '1 second' WHERE tenant_id=$1::text::uuid").bind(TENANT).execute(&f.admin).await.unwrap();
-    let expected:Vec<String>=sqlx::query_scalar("SELECT id::text FROM bloc.tenant_user WHERE tenant_id=$1::text::uuid ORDER BY created_at,id").bind(TENANT).fetch_all(&f.admin).await.unwrap();
+    sqlx::query("UPDATE bloc.realm_user SET created_at='2026-01-01T00:00:00Z'::timestamptz + (substring(id::text,25)::bigint % 7)*interval '1 second' WHERE realm_id=$1::text::uuid").bind(REALM).execute(&f.admin).await.unwrap();
+    let expected: Vec<String> = sqlx::query_scalar(
+        "SELECT id::text FROM bloc.realm_user WHERE realm_id=$1::text::uuid ORDER BY created_at,id",
+    )
+    .bind(REALM)
+    .fetch_all(&f.admin)
+    .await
+    .unwrap();
     let (_, first, _) = b.request("GET", &path, &[]).await;
     let (_, last, _) = b.request("GET", &next(&first), &[]).await;
     assert_eq!(row_ids(&first), expected[..50]);
@@ -1330,16 +1331,16 @@ check!(directory_c29, f, b, {
     no_extra_list_controls(&last);
 });
 check!(directory_c30, f, b, {
-    create_tenant(&mut b, TENANT, "Private").await;
-    user(&mut b, TENANT, USER, "Private@example.com", "").await;
+    create_realm(&mut b, REALM, "Private").await;
+    user(&mut b, REALM, USER, "Private@example.com", "").await;
     let mut unauth = Browser::new(&f).await;
     for path in [
-        "/admin/tenants".into(),
-        "/admin/tenants/new".into(),
-        tenant_path(),
-        format!("{}/status", tenant_path()),
-        format!("{}/users", tenant_path()),
-        format!("{}/users/new", tenant_path()),
+        "/admin/realms".into(),
+        "/admin/realms/new".into(),
+        realm_path(),
+        format!("{}/status", realm_path()),
+        format!("{}/users", realm_path()),
+        format!("{}/users/new", realm_path()),
         user_path(),
         format!("{}/status", user_path()),
     ] {
@@ -1351,12 +1352,12 @@ check!(directory_c30, f, b, {
         }
     }
     for path in [
-        "/admin/tenants".into(),
-        "/admin/tenants/new".into(),
-        tenant_path(),
-        format!("{}/status", tenant_path()),
-        format!("{}/users", tenant_path()),
-        format!("{}/users/new", tenant_path()),
+        "/admin/realms".into(),
+        "/admin/realms/new".into(),
+        realm_path(),
+        format!("{}/status", realm_path()),
+        format!("{}/users", realm_path()),
+        format!("{}/users/new", realm_path()),
         user_path(),
         format!("{}/status", user_path()),
     ] {
@@ -1397,7 +1398,7 @@ check!(directory_c30, f, b, {
     assert_eq!(events(&f).await, n);
     b.login().await;
     f.operator.invalidate_access().await.unwrap();
-    let (s, h, _) = b.request("GET", &tenant_path(), &[]).await;
+    let (s, h, _) = b.request("GET", &realm_path(), &[]).await;
     assert_eq!(s, 303);
     assert!(!h.contains("Private"));
 });
@@ -1426,7 +1427,7 @@ async fn directory_c31() {
                 .unwrap();
             let runtime = f.pool("runtime_user").await;
             if before {
-                let outcome:String=sqlx::query_scalar("SELECT bloc.directory_mutate($1,'tenant_create',$2::text::uuid,NULL,0,'Acme',NULL,NULL)").bind(&[9u8;32][..]).bind(TENANT).fetch_one(&mut *lock).await.unwrap();
+                let outcome:String=sqlx::query_scalar("SELECT bloc.directory_mutate($1,'realm_create',$2::text::uuid,NULL,0,'Acme',NULL,NULL)").bind(&[9u8;32][..]).bind(REALM).fetch_one(&mut *lock).await.unwrap();
                 assert_eq!(outcome, "ok");
             }
             let revoke = match mode {
@@ -1447,7 +1448,7 @@ async fn directory_c31() {
                     .unwrap();
             }
             let job = tokio::spawn(async move {
-                sqlx::query_scalar::<_,String>("SELECT bloc.directory_mutate($1,'tenant_create',$2::text::uuid,NULL,0,'Wrong',NULL,NULL)").bind(&[9u8;32][..]).bind(OTHER).fetch_one(&runtime).await
+                sqlx::query_scalar::<_,String>("SELECT bloc.directory_mutate($1,'realm_create',$2::text::uuid,NULL,0,'Wrong',NULL,NULL)").bind(&[9u8;32][..]).bind(OTHER).fetch_one(&runtime).await
             });
             tokio::time::sleep(std::time::Duration::from_millis(30)).await;
             assert!(!job.is_finished());
@@ -1462,15 +1463,15 @@ async fn directory_c31() {
     }
 }
 check!(directory_c32, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
-    let csrf = b.token(&tenant_path()).await;
+    create_realm(&mut b, REALM, "Acme").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
+    let csrf = b.token(&realm_path()).await;
     let valid = format!("csrf={csrf}&name=Wrong&version=1");
     let routes = [
-        "/admin/tenants".into(),
-        tenant_path(),
-        format!("{}/status", tenant_path()),
-        format!("{}/users", tenant_path()),
+        "/admin/realms".into(),
+        realm_path(),
+        format!("{}/status", realm_path()),
+        format!("{}/users", realm_path()),
         user_path(),
         format!("{}/status", user_path()),
     ];
@@ -1498,12 +1499,12 @@ check!(directory_c32, f, b, {
     let (s, _, _) = b
         .request(
             "POST",
-            &tenant_path(),
+            &realm_path(),
             &[("csrf", "wrong"), ("name", "Wrong"), ("version", "1")],
         )
         .await;
     assert_eq!(s, 403);
-    let csrf = b.token(&tenant_path()).await;
+    let csrf = b.token(&realm_path()).await;
     let second_session = sec::encode(&[12; 32]);
     let second_browser = sec::encode(&[13; 32]);
     assert!(
@@ -1526,7 +1527,7 @@ check!(directory_c32, f, b, {
         raw(
             &b,
             "POST",
-            &tenant_path(),
+            &realm_path(),
             format!("csrf={csrf}&name=Wrong&version=1"),
             &[("cookie", &wrong_session)]
         )
@@ -1542,7 +1543,7 @@ check!(directory_c32, f, b, {
         raw(
             &b,
             "POST",
-            &tenant_path(),
+            &realm_path(),
             format!("csrf={csrf}&name=Wrong&version=1"),
             &[("cookie", &wrong_browser)]
         )
@@ -1554,7 +1555,7 @@ check!(directory_c32, f, b, {
     assert_eq!(
         b.request(
             "POST",
-            &tenant_path(),
+            &realm_path(),
             &[("csrf", &csrf), ("name", "Wrong"), ("version", "1")]
         )
         .await
@@ -1571,7 +1572,7 @@ check!(directory_c32, f, b, {
             raw(
                 &b,
                 "GET",
-                "/admin/tenants/new",
+                "/admin/realms/new",
                 String::new(),
                 &[("cookie", &cookie)]
             )
@@ -1583,7 +1584,7 @@ check!(directory_c32, f, b, {
     let (status, html, headers) = raw(
         &b,
         "GET",
-        "/admin/tenants/new",
+        "/admin/realms/new",
         String::new(),
         &[("cookie", &cookie)],
     )
@@ -1606,7 +1607,7 @@ check!(directory_c32, f, b, {
         .unwrap();
     let head = format!(
         "POST {} HTTP/1.1\r\nHost: bloc.example.test:4443\r\nX-Forwarded-Proto: https\r\nX-Forwarded-For: 192.0.2.4\r\nOrigin: https://bloc.example.test:4443\r\nContent-Type: application/x-www-form-urlencoded\r\nCookie: __Host-bloc-admin={}\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n",
-        tenant_path(),
+        realm_path(),
         b.cookies["__Host-bloc-admin"]
     );
     socket.write_all(head.as_bytes()).unwrap();
@@ -1624,21 +1625,21 @@ check!(directory_c32, f, b, {
     assert_eq!(events(&f).await, 2);
 });
 check!(directory_c33, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
+    create_realm(&mut b, REALM, "Acme").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
     let original = user_row(&f).await;
-    let csrf = b.token(&tenant_path()).await;
+    let csrf = b.token(&realm_path()).await;
     f.fail_audit(true).await;
     let (s, h, _) = b
         .request(
             "POST",
-            &tenant_path(),
+            &realm_path(),
             &[("csrf", &csrf), ("name", "Wrong"), ("version", "1")],
         )
         .await;
     assert_eq!(s, 503);
     assert!(!h.contains("Acme"));
-    assert_eq!(tenant_row(&f).await.0, "Acme");
+    assert_eq!(realm_row(&f).await.0, "Acme");
     assert_eq!(
         edit(
             &mut b,
@@ -1660,11 +1661,11 @@ check!(directory_c33, f, b, {
         503
     );
     assert_eq!(
-        user(&mut b, TENANT, OTHER, "New@example.com", "").await.0,
+        user(&mut b, REALM, OTHER, "New@example.com", "").await.0,
         503
     );
     assert_eq!(user_row(&f).await, original);
-    let users: i64 = sqlx::query_scalar("SELECT count(*) FROM bloc.tenant_user")
+    let users: i64 = sqlx::query_scalar("SELECT count(*) FROM bloc.realm_user")
         .fetch_one(&f.admin)
         .await
         .unwrap();
@@ -1688,7 +1689,7 @@ check!(directory_c33, f, b, {
         let (status, h, _) = b
             .request(
                 method,
-                &tenant_path(),
+                &realm_path(),
                 &[
                     ("csrf", &csrf),
                     ("name", "Unavailable change"),
@@ -1697,7 +1698,7 @@ check!(directory_c33, f, b, {
             )
             .await;
         assert_eq!(status, 503);
-        assert!(!h.contains("No tenants yet"));
+        assert!(!h.contains("No realms yet"));
         assert!(!h.contains("Acme"));
     }
     sqlx::query(sqlx::AssertSqlSafe(format!(
@@ -1707,24 +1708,24 @@ check!(directory_c33, f, b, {
     .execute(&root)
     .await
     .unwrap();
-    assert_eq!(tenant_row(&f).await.0, "Acme");
+    assert_eq!(realm_row(&f).await.0, "Acme");
     assert_eq!(user_row(&f).await, original);
     assert_eq!(events(&f).await, 2);
     sqlx::query("UPDATE public._sqlx_migrations SET checksum='invalid'::bytea WHERE version=3")
         .execute(&f.admin)
         .await
         .unwrap();
-    let (s, h, _) = b.request("GET", "/admin/tenants", &[]).await;
+    let (s, h, _) = b.request("GET", "/admin/realms", &[]).await;
     assert_eq!(s, 503);
-    assert!(!h.contains("No tenants yet"));
+    assert!(!h.contains("No realms yet"));
 });
 check!(directory_c34, f, b, {
     let lower = database_time(&f).await;
-    create_tenant(&mut b, TENANT, "Acme").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
+    create_realm(&mut b, REALM, "Acme").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
     edit(
         &mut b,
-        &tenant_path(),
+        &realm_path(),
         &[("name", "Renamed"), ("version", "1")],
     )
     .await;
@@ -1737,7 +1738,7 @@ check!(directory_c34, f, b, {
     for (v, s) in [("2", "suspended"), ("3", "active")] {
         edit(
             &mut b,
-            &format!("{}/status", tenant_path()),
+            &format!("{}/status", realm_path()),
             &[("status", s), ("version", v)],
         )
         .await;
@@ -1748,32 +1749,32 @@ check!(directory_c34, f, b, {
         )
         .await;
     }
-    let rows:Vec<(String,String,Option<String>,bool)>=sqlx::query_as("SELECT action,tenant_id::text,tenant_user_id::text,administrator_id IS NOT NULL AND request_id IS NOT NULL AND occurred_at<=clock_timestamp() FROM bloc.security_audit_event WHERE action LIKE 'tenant%' ORDER BY occurred_at").fetch_all(&f.admin).await.unwrap();
+    let rows:Vec<(String,String,Option<String>,bool)>=sqlx::query_as("SELECT action,realm_id::text,realm_user_id::text,administrator_id IS NOT NULL AND request_id IS NOT NULL AND occurred_at<=clock_timestamp() FROM bloc.security_audit_event WHERE action LIKE 'realm%' ORDER BY occurred_at").fetch_all(&f.admin).await.unwrap();
     assert_eq!(rows.len(), 8);
     let mut actual = rows.iter().map(|r| r.0.as_str()).collect::<Vec<_>>();
     actual.sort();
     assert_eq!(
         actual,
         vec![
-            "tenant_create",
-            "tenant_reactivate",
-            "tenant_suspend",
-            "tenant_update",
-            "tenant_user_create",
-            "tenant_user_reactivate",
-            "tenant_user_suspend",
-            "tenant_user_update"
+            "realm_create",
+            "realm_reactivate",
+            "realm_suspend",
+            "realm_update",
+            "realm_user_create",
+            "realm_user_reactivate",
+            "realm_user_suspend",
+            "realm_user_update"
         ]
     );
-    let valid:bool=sqlx::query_scalar("SELECT bool_and(administrator_id=(SELECT id FROM bloc.installation_administrator) AND (extract(epoch FROM occurred_at)*1000000)::bigint BETWEEN $1 AND (extract(epoch FROM clock_timestamp())*1000000)::bigint AND request_id::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') FROM bloc.security_audit_event WHERE action LIKE 'tenant%'").bind(lower).fetch_one(&f.admin).await.unwrap();
+    let valid:bool=sqlx::query_scalar("SELECT bool_and(administrator_id=(SELECT id FROM bloc.installation_administrator) AND (extract(epoch FROM occurred_at)*1000000)::bigint BETWEEN $1 AND (extract(epoch FROM clock_timestamp())*1000000)::bigint AND request_id::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') FROM bloc.security_audit_event WHERE action LIKE 'realm%'").bind(lower).fetch_one(&f.admin).await.unwrap();
     assert!(valid);
-    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(DISTINCT request_id) FROM bloc.security_audit_event WHERE action LIKE 'tenant%'").fetch_one(&f.admin).await.unwrap(),8);
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(DISTINCT request_id) FROM bloc.security_audit_event WHERE action LIKE 'realm%'").fetch_one(&f.admin).await.unwrap(),8);
     for (action, t, u, valid) in rows {
-        assert_eq!(t, TENANT);
+        assert_eq!(t, REALM);
         assert!(valid);
         assert_eq!(
             u,
-            if action.starts_with("tenant_user_") {
+            if action.starts_with("realm_user_") {
                 Some(USER.into())
             } else {
                 None
@@ -1783,7 +1784,7 @@ check!(directory_c34, f, b, {
     assert_eq!(
         edit(
             &mut b,
-            &tenant_path(),
+            &realm_path(),
             &[("name", "Renamed"), ("version", "4")]
         )
         .await
@@ -1791,29 +1792,23 @@ check!(directory_c34, f, b, {
         303
     );
     assert_eq!(events(&f).await, 8);
-    let csrf = b.token("/admin/tenants/new").await;
+    let csrf = b.token("/admin/realms/new").await;
     assert_eq!(
         b.request(
             "POST",
-            "/admin/tenants",
-            &[
-                ("csrf", &csrf),
-                ("creation_id", TENANT),
-                ("name", "Replace")
-            ]
+            "/admin/realms",
+            &[("csrf", &csrf), ("creation_id", REALM), ("name", "Replace")]
         )
         .await
         .0,
         409
     );
     assert_eq!(
-        user(&mut b, TENANT, USER, "Replace@example.com", "")
-            .await
-            .0,
+        user(&mut b, REALM, USER, "Replace@example.com", "").await.0,
         409
     );
     assert_eq!(
-        edit(&mut b, &tenant_path(), &[("name", ""), ("version", "4")])
+        edit(&mut b, &realm_path(), &[("name", ""), ("version", "4")])
             .await
             .0,
         422
@@ -1821,7 +1816,7 @@ check!(directory_c34, f, b, {
     assert_eq!(
         edit(
             &mut b,
-            &format!("{}/status", tenant_path()),
+            &format!("{}/status", realm_path()),
             &[("status", "suspended"), ("version", "1")]
         )
         .await
@@ -1857,8 +1852,8 @@ check!(directory_c34, f, b, {
     assert_eq!(events(&f).await, 8);
 });
 check!(directory_c35, f, b, {
-    create_tenant(&mut b, TENANT, "Secret name").await;
-    user(&mut b, TENANT, USER, "Secret@example.com", "Secret display").await;
+    create_realm(&mut b, REALM, "Secret name").await;
+    user(&mut b, REALM, USER, "Secret@example.com", "Secret display").await;
     let rows: Vec<String> =
         sqlx::query_scalar("SELECT row_to_json(e)::text FROM bloc.security_audit_event e")
             .fetch_all(&f.admin)
@@ -1877,29 +1872,29 @@ check!(directory_c35, f, b, {
             assert!(!row.contains(value));
         }
     }
-    let _ = b.request("POST", &tenant_path(), &[]).await;
+    let _ = b.request("POST", &realm_path(), &[]).await;
     assert_eq!(
         b.request("POST", &user_path(), &[("csrf", "invalid")])
             .await
             .0,
         403
     );
-    let actions:Vec<String>=sqlx::query_scalar("SELECT DISTINCT action FROM bloc.administrator_denial_aggregate WHERE action LIKE 'tenant%' ORDER BY action").fetch_all(&f.admin).await.unwrap();
-    assert_eq!(actions, vec!["tenant_management", "tenant_user_management"]);
+    let actions:Vec<String>=sqlx::query_scalar("SELECT DISTINCT action FROM bloc.administrator_denial_aggregate WHERE action LIKE 'realm%' ORDER BY action").fetch_all(&f.admin).await.unwrap();
+    assert_eq!(actions, vec!["realm_management", "realm_user_management"]);
 });
 check!(directory_c36, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
-    user(&mut b, TENANT, USER, "Alice@example.com", "").await;
-    sqlx::query("UPDATE bloc.security_audit_event SET occurred_at=clock_timestamp()-interval '91 days' WHERE action LIKE 'tenant%'").execute(&f.admin).await.unwrap();
+    create_realm(&mut b, REALM, "Acme").await;
+    user(&mut b, REALM, USER, "Alice@example.com", "").await;
+    sqlx::query("UPDATE bloc.security_audit_event SET occurred_at=clock_timestamp()-interval '91 days' WHERE action LIKE 'realm%'").execute(&f.admin).await.unwrap();
     let maintenance = bloc::storage::Storage::connect(&f.url("maintenance_user"), &f.ca)
         .await
         .unwrap();
     assert_eq!(maintenance.maintain_access().await.unwrap(), 2);
-    sqlx::query("INSERT INTO bloc.security_audit_event(installation_id,administrator_id,action,outcome,tenant_id,tenant_user_id,occurred_at) SELECT 1,(SELECT id FROM bloc.installation_administrator),CASE WHEN n%2=0 THEN 'tenant_user_update' ELSE 'tenant_update' END,'success',$1::text::uuid,CASE WHEN n%2=0 THEN $2::text::uuid ELSE NULL END,clock_timestamp()-interval '91 days' FROM generate_series(1,1001)n").bind(TENANT).bind(USER).execute(&f.admin).await.unwrap();
-    sqlx::query("INSERT INTO bloc.administrator_denial_aggregate(minute,action,reason,count) SELECT clock_timestamp()-interval '8 days'-n*interval '1 minute','tenant_management','malformed',1 FROM generate_series(1,1001)n").execute(&f.admin).await.unwrap();
+    sqlx::query("INSERT INTO bloc.security_audit_event(installation_id,administrator_id,action,outcome,realm_id,realm_user_id,occurred_at) SELECT 1,(SELECT id FROM bloc.installation_administrator),CASE WHEN n%2=0 THEN 'realm_user_update' ELSE 'realm_update' END,'success',$1::text::uuid,CASE WHEN n%2=0 THEN $2::text::uuid ELSE NULL END,clock_timestamp()-interval '91 days' FROM generate_series(1,1001)n").bind(REALM).bind(USER).execute(&f.admin).await.unwrap();
+    sqlx::query("INSERT INTO bloc.administrator_denial_aggregate(minute,action,reason,count) SELECT clock_timestamp()-interval '8 days'-n*interval '1 minute','realm_management','malformed',1 FROM generate_series(1,1001)n").execute(&f.admin).await.unwrap();
     assert_eq!(maintenance.maintain_access().await.unwrap(), 2000);
     let successes: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM bloc.security_audit_event WHERE action LIKE 'tenant%'",
+        "SELECT count(*) FROM bloc.security_audit_event WHERE action LIKE 'realm%'",
     )
     .fetch_one(&f.admin)
     .await
@@ -1908,7 +1903,7 @@ check!(directory_c36, f, b, {
     let denials:i64=sqlx::query_scalar("SELECT count(*) FROM bloc.administrator_denial_aggregate WHERE minute<clock_timestamp()-interval '7 days'").fetch_one(&f.admin).await.unwrap();
     assert_eq!(denials, 1);
     assert_eq!(maintenance.maintain_access().await.unwrap(), 2);
-    let nulls:bool=sqlx::query_scalar("SELECT bool_and(tenant_id IS NULL AND tenant_user_id IS NULL) FROM bloc.security_audit_event").fetch_one(&f.admin).await.unwrap();
+    let nulls:bool=sqlx::query_scalar("SELECT bool_and(realm_id IS NULL AND realm_user_id IS NULL) FROM bloc.security_audit_event").fetch_one(&f.admin).await.unwrap();
     assert!(nulls);
     assert_eq!(b.request("GET", "/admin", &[]).await.0, 200);
     let csrf = b.token("/admin").await;
@@ -1968,7 +1963,7 @@ check!(directory_c37, f, _b, {
         "public_user",
     ] {
         let pool = f.pool(role).await;
-        for table in ["tenant", "tenant_user"] {
+        for table in ["realm", "realm_user"] {
             let query = format!("SELECT * FROM bloc.{table}");
             assert!(
                 sqlx::query(sqlx::AssertSqlSafe(query))
@@ -1979,7 +1974,7 @@ check!(directory_c37, f, _b, {
         }
         if role != "runtime_user" {
             assert!(
-                sqlx::query("SELECT * FROM bloc.directory_tenants($1,NULL,NULL,NULL)")
+                sqlx::query("SELECT * FROM bloc.directory_realms($1,NULL,NULL,NULL)")
                     .bind(&[0u8; 32][..])
                     .fetch_all(&pool)
                     .await
@@ -1990,20 +1985,20 @@ check!(directory_c37, f, _b, {
     let pool = f.pool("runtime_user").await;
     let session = sec::digest(&_b.cookies["__Host-bloc-admin"]);
     let outcome: String = sqlx::query_scalar(
-        "SELECT bloc.directory_mutate($1,'tenant_create',$2::text::uuid,NULL,0,'Acme',NULL,NULL)",
+        "SELECT bloc.directory_mutate($1,'realm_create',$2::text::uuid,NULL,0,'Acme',NULL,NULL)",
     )
     .bind(session.as_slice())
-    .bind(TENANT)
+    .bind(REALM)
     .fetch_one(&pool)
     .await
     .unwrap();
     assert_eq!(outcome, "ok");
     for expected in [None, Some(0), Some(-1)] {
-        let outcome:String=sqlx::query_scalar("SELECT bloc.directory_mutate($1,'tenant_update',$2::text::uuid,NULL,$3,'Wrong',NULL,NULL)").bind(session.as_slice()).bind(TENANT).bind(expected).fetch_one(&pool).await.unwrap();
+        let outcome:String=sqlx::query_scalar("SELECT bloc.directory_mutate($1,'realm_update',$2::text::uuid,NULL,$3,'Wrong',NULL,NULL)").bind(session.as_slice()).bind(REALM).bind(expected).fetch_one(&pool).await.unwrap();
         assert_eq!(outcome, "stale");
     }
     for query in [
-        "SELECT * FROM bloc.directory_tenants($1,NULL,NULL,NULL)",
+        "SELECT * FROM bloc.directory_realms($1,NULL,NULL,NULL)",
         "SELECT * FROM bloc.directory_users($1,NULL,NULL,NULL,NULL)",
     ] {
         let e = sqlx::query(query)
@@ -2024,12 +2019,12 @@ check!(directory_c37, f, _b, {
     ] {
         let pool = f.pool(role).await;
         for query in [
-            "INSERT INTO bloc.tenant(id,name,created_at,updated_at) VALUES(gen_random_uuid(),'Wrong',clock_timestamp(),clock_timestamp())",
-            "UPDATE bloc.tenant SET name='Wrong'",
-            "DELETE FROM bloc.tenant",
-            "INSERT INTO bloc.tenant_user(id,tenant_id,email,created_at,updated_at) VALUES(gen_random_uuid(),gen_random_uuid(),'Wrong@example.com',clock_timestamp(),clock_timestamp())",
-            "UPDATE bloc.tenant_user SET tenant_id=gen_random_uuid()",
-            "DELETE FROM bloc.tenant_user",
+            "INSERT INTO bloc.realm(id,name,created_at,updated_at) VALUES(gen_random_uuid(),'Wrong',clock_timestamp(),clock_timestamp())",
+            "UPDATE bloc.realm SET name='Wrong'",
+            "DELETE FROM bloc.realm",
+            "INSERT INTO bloc.realm_user(id,realm_id,email,created_at,updated_at) VALUES(gen_random_uuid(),gen_random_uuid(),'Wrong@example.com',clock_timestamp(),clock_timestamp())",
+            "UPDATE bloc.realm_user SET realm_id=gen_random_uuid()",
+            "DELETE FROM bloc.realm_user",
         ] {
             let e = sqlx::query(query).execute(&pool).await.unwrap_err();
             assert_eq!(
@@ -2038,7 +2033,7 @@ check!(directory_c37, f, _b, {
             );
         }
         for signature in [
-            "bloc.directory_tenants(bytea,uuid,bigint,uuid)",
+            "bloc.directory_realms(bytea,uuid,bigint,uuid)",
             "bloc.directory_users(bytea,uuid,uuid,bigint,uuid)",
             "bloc.directory_mutate(bytea,text,uuid,uuid,bigint,text,text,text)",
             "bloc.directory_authority(bytea)",
@@ -2060,8 +2055,8 @@ check!(directory_c37, f, _b, {
         .fetch_one(&f.admin)
         .await
         .unwrap();
-    assert_eq!(n, 3);
-    sqlx::query("DELETE FROM public._sqlx_migrations WHERE version=3")
+    assert_eq!(n, 4);
+    sqlx::query("DELETE FROM public._sqlx_migrations WHERE version=4")
         .execute(&f.admin)
         .await
         .unwrap();
@@ -2085,7 +2080,7 @@ check!(directory_c37, f, _b, {
         .fetch_one(&f.admin)
         .await
         .unwrap();
-    assert_eq!(count, 2);
+    assert_eq!(count, 3);
     // Rebuild a coherent legacy database through its original checksum migrations, then upgrade.
     sqlx::raw_sql("DROP SCHEMA bloc CASCADE; DROP TABLE public._sqlx_migrations")
         .execute(&f.admin)
@@ -2129,30 +2124,30 @@ check!(directory_c37, f, _b, {
         .unwrap();
     f.migrator.migrate().await.unwrap();
     f.runtime.compatible().await.unwrap();
-    let nulls:bool=sqlx::query_scalar("SELECT bool_and(tenant_id IS NULL AND tenant_user_id IS NULL) FROM bloc.security_audit_event").fetch_one(&f.admin).await.unwrap();
+    let nulls:bool=sqlx::query_scalar("SELECT bool_and(realm_id IS NULL AND realm_user_id IS NULL) FROM bloc.security_audit_event").fetch_one(&f.admin).await.unwrap();
     assert!(nulls);
     assert_eq!(f.count("installation_administrator").await, 1);
 });
 check!(directory_input_refusals, f, b, {
-    create_tenant(&mut b, TENANT, "Acme").await;
+    create_realm(&mut b, REALM, "Acme").await;
     for path in [
-        "/admin/tenants/new/users",
-        "/admin/tenants/new/status",
-        &format!("{}/users/new/status", tenant_path()),
+        "/admin/realms/new/users",
+        "/admin/realms/new/status",
+        &format!("{}/users/new/status", realm_path()),
     ] {
         assert_eq!(b.request("GET", path, &[]).await.0, 404, "{path}");
     }
     assert_eq!(
-        b.request("GET", "/admin/tenants/not-a-uuid", &[]).await.0,
+        b.request("GET", "/admin/realms/not-a-uuid", &[]).await.0,
         404
     );
     assert_eq!(
-        b.request("GET", "/admin/tenants?cursor=bad", &[]).await.0,
+        b.request("GET", "/admin/realms?cursor=bad", &[]).await.0,
         422
     );
     for v in ["0", "-1", "bad", "9223372036854775808"] {
         assert_eq!(
-            edit(&mut b, &tenant_path(), &[("name", "Wrong"), ("version", v)])
+            edit(&mut b, &realm_path(), &[("name", "Wrong"), ("version", v)])
                 .await
                 .0,
             422
@@ -2161,18 +2156,18 @@ check!(directory_input_refusals, f, b, {
     assert_eq!(
         edit(
             &mut b,
-            &format!("{}/status", tenant_path()),
+            &format!("{}/status", realm_path()),
             &[("status", "unknown"), ("version", "1")]
         )
         .await
         .0,
         422
     );
-    let csrf = b.token(&tenant_path()).await;
+    let csrf = b.token(&realm_path()).await;
     let body = url::form_urlencoded::Serializer::new(String::new())
         .extend_pairs([("csrf", csrf.as_str()), ("name", "Wrong"), ("version", "1")])
         .finish();
-    assert_eq!(raw(&b, "HEAD", &tenant_path(), body, &[]).await.0, 200);
+    assert_eq!(raw(&b, "HEAD", &realm_path(), body, &[]).await.0, 200);
     let body = url::form_urlencoded::Serializer::new(String::new())
         .extend_pairs([
             ("csrf", csrf.as_str()),
@@ -2184,7 +2179,7 @@ check!(directory_input_refusals, f, b, {
         raw(
             &b,
             "HEAD",
-            &format!("{}/status?status=suspended&version=1", tenant_path()),
+            &format!("{}/status?status=suspended&version=1", realm_path()),
             body,
             &[]
         )
@@ -2192,23 +2187,23 @@ check!(directory_input_refusals, f, b, {
         .0,
         200
     );
-    assert_eq!(tenant_row(&f).await.1, "active");
-    assert_eq!(tenant_row(&f).await.0, "Acme");
+    assert_eq!(realm_row(&f).await.1, "active");
+    assert_eq!(realm_row(&f).await.0, "Acme");
     assert_eq!(events(&f).await, 1);
     for path in [
-        format!("{}/users/not-a-uuid", tenant_path()),
-        format!("/admin/tenants/not-a-uuid/users/{USER}"),
-        format!("{}/users/not-a-uuid/status", tenant_path()),
+        format!("{}/users/not-a-uuid", realm_path()),
+        format!("/admin/realms/not-a-uuid/users/{USER}"),
+        format!("{}/users/not-a-uuid/status", realm_path()),
     ] {
         for method in ["GET", "POST"] {
             assert_eq!(b.request(method, &path, &[]).await.0, 404);
         }
     }
-    let csrf = b.token("/admin/tenants/new").await;
+    let csrf = b.token("/admin/realms/new").await;
     let (status, h, _) = b
         .request(
             "POST",
-            "/admin/tenants",
+            "/admin/realms",
             &[
                 ("csrf", &csrf),
                 ("creation_id", "invalid-uuid"),
@@ -2219,26 +2214,26 @@ check!(directory_input_refusals, f, b, {
     assert_eq!(status, 422);
     assert!(h.contains("Safe name"));
     assert!(h.contains("Reload"));
-    let (status, h, _) = user(&mut b, TENANT, "invalid-uuid", "Safe@example.com", "").await;
+    let (status, h, _) = user(&mut b, REALM, "invalid-uuid", "Safe@example.com", "").await;
     assert_eq!(status, 422);
     assert!(h.contains("Safe@example.com"));
     assert!(h.contains("Reload"));
     let (status, h, _) = b
         .request(
             "GET",
-            &format!("{}/users?cursor=invalid", tenant_path()),
+            &format!("{}/users?cursor=invalid", realm_path()),
             &[],
         )
         .await;
     assert_eq!(status, 422);
     assert!(h.contains("First page"));
-    assert!(h.contains("href=\"/admin/tenants/"));
-    assert_eq!(tenant_row(&f).await.0, "Acme");
+    assert!(h.contains("href=\"/admin/realms/"));
+    assert_eq!(realm_row(&f).await.0, "Acme");
     assert_eq!(events(&f).await, 1);
 });
 check!(directory_response_policy, _f, b, {
-    create_tenant(&mut b, TENANT, "<script>name</script>").await;
-    let (_, h, r) = b.request("GET", &tenant_path(), &[]).await;
+    create_realm(&mut b, REALM, "<script>name</script>").await;
+    let (_, h, r) = b.request("GET", &realm_path(), &[]).await;
     let csp = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
     assert_eq!(r["content-security-policy"], csp);
     let config = h
@@ -2255,7 +2250,7 @@ check!(directory_response_policy, _f, b, {
     assert_eq!(
         user(
             &mut b,
-            TENANT,
+            REALM,
             USER,
             "Alice@example.com",
             "<script>user</script>"
@@ -2293,11 +2288,11 @@ check!(directory_response_policy, _f, b, {
     assert_eq!(r["cache-control"], "no-store");
     assert!(r.contains_key("content-security-policy"));
     let pages = [
-        "/admin/tenants".into(),
-        "/admin/tenants/new".into(),
-        tenant_path(),
-        format!("{}/users", tenant_path()),
-        format!("{}/users/new", tenant_path()),
+        "/admin/realms".into(),
+        "/admin/realms/new".into(),
+        realm_path(),
+        format!("{}/users", realm_path()),
+        format!("{}/users/new", realm_path()),
         user_path(),
     ];
     for path in pages {
@@ -2318,8 +2313,8 @@ check!(directory_response_policy, _f, b, {
         assert_eq!(headers["content-security-policy"], csp);
         assert!(!html.contains("<script"));
         assert!(!html.contains("htmx-config"));
-        if path == tenant_path() || path == user_path() {
-            let payload = if path == tenant_path() {
+        if path == realm_path() || path == user_path() {
+            let payload = if path == realm_path() {
                 "<script>name</script>"
             } else {
                 "<script>user</script>"
@@ -2333,7 +2328,7 @@ check!(directory_response_policy, _f, b, {
             assert!(decoded.contains(payload));
         }
     }
-    let csrf = b.token(&tenant_path()).await;
+    let csrf = b.token(&realm_path()).await;
     let body = url::form_urlencoded::Serializer::new(String::new())
         .extend_pairs([
             ("csrf", csrf.as_str()),
@@ -2342,16 +2337,16 @@ check!(directory_response_policy, _f, b, {
         ])
         .finish();
     let (status, _, headers) =
-        raw(&b, "POST", &tenant_path(), body, &[("hx-request", "true")]).await;
+        raw(&b, "POST", &realm_path(), body, &[("hx-request", "true")]).await;
     assert_eq!(status, 200);
-    assert_eq!(headers["hx-redirect"], tenant_path());
+    assert_eq!(headers["hx-redirect"], realm_path());
     assert_eq!(headers["vary"], "HX-Request");
     let body = url::form_urlencoded::Serializer::new(String::new())
         .extend_pairs([("csrf", csrf.as_str()), ("version", "2"), ("name", "Again")])
         .finish();
-    let (status, _, headers) = raw(&b, "POST", &tenant_path(), body, &[]).await;
+    let (status, _, headers) = raw(&b, "POST", &realm_path(), body, &[]).await;
     assert_eq!(status, 303);
-    assert_eq!(headers["location"], tenant_path());
+    assert_eq!(headers["location"], realm_path());
     assert_eq!(headers["vary"], "HX-Request");
 });
 
@@ -2522,4 +2517,75 @@ async fn raw(
     )
     .unwrap();
     (status, html, headers)
+}
+
+#[tokio::test]
+#[ignore = "TLS fixture"]
+async fn directory_realm_upgrade() {
+    let f = Fixture::new("realm_upgrade").await;
+    sqlx::raw_sql("DROP SCHEMA bloc CASCADE; DROP TABLE public._sqlx_migrations")
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let old = sqlx::migrate::Migrator {
+        migrations: [
+            (1, "setup", include_str!("../migrations/0001_setup.sql")),
+            (2, "access", include_str!("../migrations/0002_access.sql")),
+            (
+                3,
+                "directory",
+                include_str!("../migrations/0003_directory.sql"),
+            ),
+        ]
+        .into_iter()
+        .map(|(version, description, sql)| {
+            sqlx::migrate::Migration::new(
+                version,
+                description.into(),
+                sqlx::migrate::MigrationType::Simple,
+                sqlx::SqlStr::from_static(sql),
+                false,
+            )
+        })
+        .collect::<Vec<_>>()
+        .into(),
+        ..sqlx::migrate::Migrator::DEFAULT
+    };
+    old.run(&f.pool("migrator_user").await).await.unwrap();
+    sqlx::raw_sql("INSERT INTO bloc.tenant(id,name,status,version,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Acme','suspended',7,'2026-10-20Z','2026-10-21Z');
+        INSERT INTO bloc.tenant_user(id,tenant_id,email,display_name,version,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000001','user@example.test','Synthetic user',3,'2026-10-20Z','2026-10-21Z');
+        INSERT INTO bloc.security_audit_event(installation_id,action,outcome,tenant_id,tenant_user_id) VALUES(1,'tenant_user_create','success','00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002');")
+        .execute(&f.admin).await.unwrap();
+    let before: String = sqlx::query_scalar("SELECT row_to_json(t)::text FROM bloc.tenant t")
+        .fetch_one(&f.admin)
+        .await
+        .unwrap();
+    let user_before: String =
+        sqlx::query_scalar("SELECT row_to_json(u)::text FROM bloc.tenant_user u")
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
+    assert!(f.runtime.compatible().await.is_err());
+    f.migrator.migrate().await.unwrap();
+    f.runtime.compatible().await.unwrap();
+    let after: String = sqlx::query_scalar("SELECT row_to_json(t)::text FROM bloc.realm t")
+        .fetch_one(&f.admin)
+        .await
+        .unwrap();
+    let user_after: String =
+        sqlx::query_scalar("SELECT row_to_json(u)::text FROM bloc.realm_user u")
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
+    assert_eq!(before, after);
+    assert_eq!(user_before.replace("tenant_id", "realm_id"), user_after);
+    let targets: (String,String,String) = sqlx::query_as("SELECT action,realm_id::text,realm_user_id::text FROM bloc.security_audit_event WHERE action='tenant_user_create'").fetch_one(&f.admin).await.unwrap();
+    assert_eq!(
+        targets,
+        (
+            "tenant_user_create".into(),
+            "00000000-0000-4000-8000-000000000001".into(),
+            "00000000-0000-4000-8000-000000000002".into()
+        )
+    );
 }

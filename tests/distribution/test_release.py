@@ -241,7 +241,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotIn('Future change', notes)
         self.assertNotIn('Older change', notes)
         self.assertNotIn('installation administrator access', notes)
-        self.assertNotIn('/admin/tenants', notes)
+        self.assertNotIn('/admin/realms', notes)
 
     def test_release_notes_reject_missing_empty_and_duplicate_versions(self):
         path = self.root/'CHANGELOG.md'

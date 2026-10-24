@@ -10,7 +10,7 @@ missing coverage and unresolved decisions are explicit. Check the decision sourc
 and related ADRs; do not equate a proposed feature with an accepted one. Changes
 without behavioral impact may state that instead of adding scenarios.
 
-For identity changes, review failure behavior and cross-tenant access as carefully
+For identity changes, review failure behavior and cross-realm access as carefully
 as the successful path. Check documentation against actual implementation.
 
 Review code against the [design and dependency guidance](development.md#code-design-and-patterns):

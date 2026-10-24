@@ -183,8 +183,8 @@ roomier mobile rows and bottom utility controls. Tapping the page strip or press
 content is inert, and reduced-motion preferences disable animation. Desktop navigation remains visible.
 Without JavaScript, the labeled navigation stays expanded and usable.
 Use the plain `bloc` name with an installation descriptor in the workspace menu.
-Tenant navigation opens the existing directory; it does not change administrator
-authority or introduce tenant-bound sessions. Feedback opens the project issue
+Realm navigation opens the existing directory; it does not change administrator
+authority or introduce realm-bound sessions. Feedback opens the project issue
 form and help opens its README. Icon controls have hover/focus labels. Menus close
 on Escape and outside clicks with JavaScript; native disclosure works without it. Navigation and
 appearance stay outside the HTMX replacement target. Breadcrumbs appear only in
@@ -246,5 +246,5 @@ include concise placeholders alongside their persistent visible labels.
 Overview and directories share a 1200px content container and
 40px/32px desktop padding; account security uses a narrower 960px container
 with 48px/40px desktop padding. Page headers have no bottom divider; tables stay within those gutters. Sidebar links have
-6px vertical separation and workspace dropdowns fit the sidebar width. The workspace dropdown offers Create tenant directly. Manage tenants lives
+6px vertical separation and workspace dropdowns fit the sidebar width. The workspace dropdown offers Create realm directly. Manage realms lives
 under Settings in the sidebar; the list retains its contextual creation action.

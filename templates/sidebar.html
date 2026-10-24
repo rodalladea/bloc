@@ -6,7 +6,7 @@
 <div class="shell-menu-panel workspace-menu-panel">
 <p class="menu-label">Workspace</p>
 <a href="/admin"><span class="workspace-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="14" rx="3"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M4 12h16"/></svg></span><span>bloc installation</span><span class="menu-check" aria-hidden="true">✓</span></a>
-<a href="/admin/tenants/new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Create tenant</a>
+<a href="/admin/realms/new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Create realm</a>
 <div class="menu-account"><p class="menu-label">Account</p><p class="menu-identity">{{ shell_email }}</p><a href="/admin/password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6z"/></svg>Account security</a>
 {% if !shell_csrf.is_empty() %}<form method="post" action="/admin/logout"><input type="hidden" name="csrf" value="{{ shell_csrf }}"><button type="submit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M14 7l5 5-5 5M9 12h10"/></svg>Log out</button></form>{% endif %}</div>
 </div>
@@ -19,7 +19,7 @@
 <p class="nav-label">Workspace</p>
 <a href="/admin" {% if active == "overview" %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Overview</a>
 <p class="nav-label account-label">Settings</p>
-<a href="/admin/tenants" {% if active == "tenants" %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8h-6a2 2 0 0 1-1.6-.8l-1.8-2.4A2 2 0 0 0 8 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2H3"/></svg>Manage tenants</a>
+<a href="/admin/realms" {% if active == "realms" %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8h-6a2 2 0 0 1-1.6-.8l-1.8-2.4A2 2 0 0 0 8 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2H3"/></svg>Manage realms</a>
 <a href="/admin/password" {% if active == "account" %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></svg>Account security</a>
 </nav>
 <div class="sidebar-footer">

@@ -62,10 +62,10 @@ def setup(page):
     page.wait_for_url(ORIGIN + '/admin')
 
 
-def tenant(page, name='Acme'):
-    page.goto(ORIGIN + '/admin/tenants/new')
+def realm(page, name='Acme'):
+    page.goto(ORIGIN + '/admin/realms/new')
     page.locator('[name=name]').fill(name)
-    submit(page, 'Create tenant')
+    submit(page, 'Create realm')
     page.wait_for_url(UUID)
     return page.url
 
@@ -82,10 +82,10 @@ def user(page, parent, email='Alice@example.com'):
 
 def record(page, table, identity, parent=None):
     data = json.loads(sql(f"SELECT json_build_object('id',id::text,'version',version,'created',to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'),'updated',to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')) FROM bloc.{table} WHERE id='{identity}'"))
-    labels = ['Tenant ID' if parent is None else 'User ID']
+    labels = ['Realm ID' if parent is None else 'User ID']
     values = [identity]
     if parent:
-        labels += ['Tenant ID · immutable']
+        labels += ['Realm ID · immutable']
         values += [parent.rsplit('/', 1)[1]]
     labels += ['Version', 'Created', 'Updated']
     values += [str(data['version']), data['created'], data['updated']]
@@ -98,8 +98,8 @@ def record(page, table, identity, parent=None):
         assert re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z', value)
 
 
-def tenant_context(page, parent, name, status='Active'):
-    expect(page.locator('.context strong')).to_have_text('Tenant: ' + name)
+def realm_context(page, parent, name, status='Active'):
+    expect(page.locator('.context strong')).to_have_text('Realm: ' + name)
     expect(page.locator('.context .mono')).to_have_text(parent.rsplit('/', 1)[1])
     expect(page.locator('.context .badge')).to_have_text(status)
     assert page.locator('.context').bounding_box()['y'] < page.locator('.heading').bounding_box()['y']
@@ -114,7 +114,7 @@ def profile_form(page, user):
     expect(page.locator('.form input:not([type=hidden])')).to_have_count(len(fields))
     assert page.locator('.form input:not([type=hidden])').evaluate_all('es=>es.map(e=>e.name)') == fields
     actions = page.locator('.form .actions')
-    expect(actions.locator('button,a')).to_have_text(['Create user' if user else 'Create tenant', 'Cancel'])
+    expect(actions.locator('button,a')).to_have_text(['Create user' if user else 'Create realm', 'Cancel'])
     assert actions.locator('button').bounding_box()['x'] < actions.locator('a').bounding_box()['x']
     if user:
         context = page.locator('.context').bounding_box()
@@ -129,14 +129,14 @@ def profile_form(page, user):
 
 def continuation(page, table, parent=None):
     if parent:
-        tenant_id = parent.rsplit('/', 1)[1]
-        sql(f"INSERT INTO bloc.tenant_user(id,tenant_id,email,created_at,updated_at) SELECT gen_random_uuid(),'{tenant_id}','Continuation'||n||'@example.com','2026-01-01'::timestamptz+n*interval '1 second','2026-01-01'::timestamptz+n*interval '1 second' FROM generate_series(1,50)n")
-        where = f"WHERE tenant_id='{tenant_id}'"
+        realm_id = parent.rsplit('/', 1)[1]
+        sql(f"INSERT INTO bloc.realm_user(id,realm_id,email,created_at,updated_at) SELECT gen_random_uuid(),'{realm_id}','Continuation'||n||'@example.com','2026-01-01'::timestamptz+n*interval '1 second','2026-01-01'::timestamptz+n*interval '1 second' FROM generate_series(1,50)n")
+        where = f"WHERE realm_id='{realm_id}'"
         destination = parent + '/users'
     else:
-        sql("INSERT INTO bloc.tenant(id,name,created_at,updated_at) SELECT gen_random_uuid(),'Continuation','2026-01-01'::timestamptz+n*interval '1 second','2026-01-01'::timestamptz+n*interval '1 second' FROM generate_series(1,49)n")
+        sql("INSERT INTO bloc.realm(id,name,created_at,updated_at) SELECT gen_random_uuid(),'Continuation','2026-01-01'::timestamptz+n*interval '1 second','2026-01-01'::timestamptz+n*interval '1 second' FROM generate_series(1,49)n")
         where = ''
-        destination = ORIGIN + '/admin/tenants'
+        destination = ORIGIN + '/admin/realms'
     expected = json.loads(sql(f"SELECT json_agg(id::text ORDER BY created_at,id) FROM bloc.{table} {where}"))
     page.goto(destination)
     first = page.locator('tbody tr').evaluate_all('es=>es.map(e=>e.dataset.record)')
@@ -148,14 +148,14 @@ def continuation(page, table, parent=None):
     assert len(set(first + last)) == 51
     expect(page.locator('a[rel=next]')).to_have_count(0)
     if parent:
-        tenant_context(page, parent, 'A' * 128)
+        realm_context(page, parent, 'A' * 128)
     page.goto(destination)
 
 
 def cancelled_forms(page, parent, target):
-    snapshot = sql("SELECT json_build_object('tenants',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM bloc.tenant t),'users',(SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM bloc.tenant_user u),'events',(SELECT count(*) FROM bloc.security_audit_event))")
+    snapshot = sql("SELECT json_build_object('realms',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM bloc.realm t),'users',(SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM bloc.realm_user u),'events',(SELECT count(*) FROM bloc.security_audit_event))")
     for path, field, value, destination in [
-        (ORIGIN + '/admin/tenants/new', 'name', 'Abandoned tenant', ORIGIN + '/admin/tenants'),
+        (ORIGIN + '/admin/realms/new', 'name', 'Abandoned realm', ORIGIN + '/admin/realms'),
         (parent, 'name', 'Abandoned rename', parent),
         (parent + '/users/new', 'email', 'Abandoned@example.com', parent + '/users'),
         (target, 'display_name', 'Abandoned profile', target),
@@ -164,18 +164,18 @@ def cancelled_forms(page, parent, target):
         page.locator(f'[name={field}]').fill(value)
         page.locator('form .actions').get_by_role('link', name='Cancel', exact=True).click()
         page.wait_for_url(destination)
-        assert sql("SELECT json_build_object('tenants',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM bloc.tenant t),'users',(SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM bloc.tenant_user u),'events',(SELECT count(*) FROM bloc.security_audit_event))") == snapshot
+        assert sql("SELECT json_build_object('realms',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM bloc.realm t),'users',(SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM bloc.realm_user u),'events',(SELECT count(*) FROM bloc.security_audit_event))") == snapshot
         page.goto(path)
         page.locator(f'[name={field}]').fill(value)
-        page.locator('.breadcrumbs a[href="/admin/tenants"]').click()
-        page.wait_for_url(ORIGIN + '/admin/tenants')
-        assert sql("SELECT json_build_object('tenants',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM bloc.tenant t),'users',(SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM bloc.tenant_user u),'events',(SELECT count(*) FROM bloc.security_audit_event))") == snapshot
-    for path, label in [(parent, 'Suspend tenant'), (target, 'Suspend user')]:
+        page.locator('.breadcrumbs a[href="/admin/realms"]').click()
+        page.wait_for_url(ORIGIN + '/admin/realms')
+        assert sql("SELECT json_build_object('realms',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM bloc.realm t),'users',(SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM bloc.realm_user u),'events',(SELECT count(*) FROM bloc.security_audit_event))") == snapshot
+    for path, label in [(parent, 'Suspend realm'), (target, 'Suspend user')]:
         page.goto(path)
         page.get_by_role('link', name=label, exact=True).click()
         page.locator('#confirmation').get_by_role('link', name='Cancel', exact=True).click()
         expect(page.locator('#status-action')).to_be_focused()
-        assert sql("SELECT json_build_object('tenants',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM bloc.tenant t),'users',(SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM bloc.tenant_user u),'events',(SELECT count(*) FROM bloc.security_audit_event))") == snapshot
+        assert sql("SELECT json_build_object('realms',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM bloc.realm t),'users',(SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM bloc.realm_user u),'events',(SELECT count(*) FROM bloc.security_audit_event))") == snapshot
     page.goto(target)
 
 
@@ -206,7 +206,7 @@ def saving(page):
 def arrangement(page):
     workspace_menus(page)
     expect(page.get_by_role('navigation', name='Administration', exact=True)).to_have_count(1)
-    expect(page.locator('.sidebar [aria-current=page]')).to_have_text('Tenants')
+    expect(page.locator('.sidebar [aria-current=page]')).to_have_text('Realms')
     for width in [1280, 390]:
         page.set_viewport_size({'width': width, 'height': 1000})
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
@@ -241,16 +241,16 @@ def loading(page):
         else:
             route.continue_()
 
-    page.route('**/admin/tenants', hold)
-    page.locator('.breadcrumbs a[href="/admin/tenants"]').click()
+    page.route('**/admin/realms', hold)
+    page.locator('.breadcrumbs a[href="/admin/realms"]').click()
     expect(page.locator('main')).to_have_attribute('aria-busy', 'true')
     expect(page.locator('#directory-loading')).to_be_visible()
     capture(page, 'loading')
     assert len(waiting) == 1
     waiting.pop().continue_()
-    expect(page.get_by_role('heading', name='Tenants', exact=True)).to_be_visible()
+    expect(page.get_by_role('heading', name='Realms', exact=True)).to_be_visible()
     expect(page.locator('h1')).to_be_focused()
-    page.unroute('**/admin/tenants', hold)
+    page.unroute('**/admin/realms', hold)
     page.goto(current)
 
 
@@ -263,7 +263,7 @@ def unavailable(page):
         response = page.goto(current)
         assert response.status == 503
         expect(page.locator('main')).to_contain_text('bloc cannot access the information needed for this request. Try again shortly.')
-        for value in ['Acme', 'Alice@example.com', 'No tenants yet', 'No users yet'] + secret_values:
+        for value in ['Acme', 'Alice@example.com', 'No realms yet', 'No users yet'] + secret_values:
             expect(page.locator('main')).not_to_contain_text(value)
         expect(page.get_by_role('link', name='Try again', exact=True)).to_have_attribute('href', urlparse(current).path)
         capture(page, 'unavailable')
@@ -291,53 +291,53 @@ with sync_playwright() as playwright:
     page.set_default_timeout(10000)
     setup(page)
     if MODE == 't1':
-        page.goto(ORIGIN + '/admin/tenants')
-        expect(page.get_by_role('heading', name='No tenants yet')).to_be_visible()
+        page.goto(ORIGIN + '/admin/realms')
+        expect(page.get_by_role('heading', name='No realms yet')).to_be_visible()
         capture(page, 'empty')
-        first = tenant(page)
-        second = tenant(page)
+        first = realm(page)
+        second = realm(page)
         assert first != second
-        page.goto(ORIGIN + '/admin/tenants')
-        expect(page.locator('th')).to_have_text(['Name / tenant ID', 'Status', 'Created (UTC)'])
+        page.goto(ORIGIN + '/admin/realms')
+        expect(page.locator('th')).to_have_text(['Name / realm ID', 'Status', 'Created (UTC)'])
         expect(page.locator('tbody tr')).to_have_count(2)
-        expect(page.locator('.heading h1')).to_have_text('Tenants')
-        expect(page.locator('.heading .button')).to_have_text('Create tenant')
+        expect(page.locator('.heading h1')).to_have_text('Realms')
+        expect(page.locator('.heading .button')).to_have_text('Create realm')
         assert page.locator('.heading h1').bounding_box()['x'] < page.locator('.heading .button').bounding_box()['x']
         expect(page.locator('tbody .badge')).to_have_text(['Active', 'Active'])
         for value in page.locator('tbody tr td:last-child').all_text_contents():
             assert re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z', value.strip())
         for target in [first, second]:
             expect(page.locator('main')).to_contain_text(target.rsplit('/', 1)[1])
-        continuation(page, 'tenant')
+        continuation(page, 'realm')
     elif MODE == 't2':
-        page.goto(ORIGIN + '/admin/tenants/new')
-        expect(page.get_by_role('heading', name='Tenant profile')).to_be_visible()
+        page.goto(ORIGIN + '/admin/realms/new')
+        expect(page.get_by_role('heading', name='Realm profile')).to_be_visible()
         expect(page.locator('.form')).to_have_css('max-width', '680px')
         profile_form(page, False)
-        expect(page.locator('main')).to_contain_text('Created tenants start active. Duplicate names create independent directories.')
+        expect(page.locator('main')).to_contain_text('Created realms start active. Duplicate names create independent directories.')
         capture(page, 'default')
-        submit(page, 'Create tenant')
+        submit(page, 'Create realm')
         expect(page.locator('#feedback')).to_be_focused()
         expect(page.locator('[name=name]')).to_have_attribute('aria-invalid', 'true')
         page.locator('form .actions').get_by_role('link', name='Cancel', exact=True).click()
-        page.wait_for_url(ORIGIN + '/admin/tenants')
-        expect(page.get_by_role('heading', name='No tenants yet')).to_be_visible()
-        page.get_by_role('link', name='Create tenant', exact=True).click()
+        page.wait_for_url(ORIGIN + '/admin/realms')
+        expect(page.get_by_role('heading', name='No realms yet')).to_be_visible()
+        page.get_by_role('link', name='Create realm', exact=True).click()
         expect(page.locator('[name=name]')).to_have_value('')
     elif MODE == 't3':
-        target = tenant(page, '<script>name</script>')
+        target = realm(page, '<script>name</script>')
         expect(page.locator('h1')).to_have_text('<script>name</script>')
         expect(page.locator('main script')).to_have_count(0)
         page.locator('[name=name]').fill('Acme')
         submit(page, 'Save changes')
         expect(page.locator('h1')).to_have_text('Acme')
         expect(page.locator('[name=version]')).to_have_value('2')
-        expect(page.locator('.grid>div h2')).to_have_text(['Profile', 'Tenant status'])
+        expect(page.locator('.grid>div h2')).to_have_text(['Profile', 'Realm status'])
         expect(page.locator('.grid>aside h2')).to_have_text(['Record'])
         expect(page.locator('.heading').get_by_role('link', name='View users', exact=True)).to_have_attribute('href', urlparse(target).path + '/users')
-        record(page, 'tenant', target.rsplit('/', 1)[1])
+        record(page, 'realm', target.rsplit('/', 1)[1])
         capture(page, 'default')
-        page.get_by_role('link', name='Suspend tenant', exact=True).click()
+        page.get_by_role('link', name='Suspend realm', exact=True).click()
         expect(page.locator('#confirmation')).to_be_focused()
         expect(page.locator('#confirmation [name=version]')).to_have_value('2')
         expect(page.locator('#confirmation')).to_contain_text('Individual user statuses will remain unchanged.')
@@ -345,24 +345,24 @@ with sync_playwright() as playwright:
         page.locator('#confirmation').get_by_role('link', name='Cancel').click()
         expect(page.locator('#status-action')).to_be_focused()
     elif MODE == 'u1':
-        parent = tenant(page, 'A' * 128)
+        parent = realm(page, 'A' * 128)
         page.goto(parent + '/users')
         expect(page.get_by_role('heading', name='No users yet')).to_be_visible()
-        expect(page.locator('.context')).to_contain_text('Tenant: ' + 'A' * 128)
-        tenant_context(page, parent, 'A' * 128)
+        expect(page.locator('.context')).to_contain_text('Realm: ' + 'A' * 128)
+        realm_context(page, parent, 'A' * 128)
         capture(page, 'empty')
         user(page, parent)
         page.goto(parent + '/users')
         expect(page.locator('th')).to_have_text(['Email / user ID', 'Display name', 'User status', 'Created (UTC)'])
-        tenant_context(page, parent, 'A' * 128)
-        expect(page.locator('.intro')).to_have_text('Independent users belonging to this tenant. Directory records do not authenticate anyone.')
-        continuation(page, 'tenant_user', parent)
+        realm_context(page, parent, 'A' * 128)
+        expect(page.locator('.intro')).to_have_text('Independent users belonging to this realm. Directory records do not authenticate anyone.')
+        continuation(page, 'realm_user', parent)
     elif MODE == 'u2':
-        parent = tenant(page, 'A' * 128)
+        parent = realm(page, 'A' * 128)
         page.goto(parent + '/users/new')
         expect(page.locator('.context')).to_be_visible()
         expect(page.get_by_role('heading', name='User profile')).to_be_visible()
-        tenant_context(page, parent, 'A' * 128)
+        realm_context(page, parent, 'A' * 128)
         profile_form(page, True)
         expect(page.locator('main')).to_contain_text('No verification email is sent and no credentials are created.')
         capture(page, 'default')
@@ -376,7 +376,7 @@ with sync_playwright() as playwright:
         page.get_by_role('link', name='Create user', exact=True).click()
         expect(page.locator('[name=email]')).to_have_value('')
     elif MODE == 'u3':
-        parent = tenant(page)
+        parent = realm(page)
         target = user(page, parent)
         capture(page, 'default')
         page.goto(parent)
@@ -389,14 +389,14 @@ with sync_playwright() as playwright:
         expect(page.locator('[name=version]')).to_have_value('2')
         expect(page.locator('.grid>div h2')).to_have_text(['Profile', 'User status'])
         expect(page.locator('.grid>aside h2')).to_have_text(['Record'])
-        tenant_context(page, parent, 'A' * 128)
-        record(page, 'tenant_user', target.rsplit('/', 1)[1], parent)
+        realm_context(page, parent, 'A' * 128)
+        record(page, 'realm_user', target.rsplit('/', 1)[1], parent)
         expect(page.locator('.grid>div>section').nth(1).locator('.badge')).to_have_text('Active')
         expect(page.locator('.grid>div>section').nth(1).locator('dd')).to_have_text(['Active', 'Active'])
-        for status_path, action, tenant_state, user_state, combined in [
-            (parent, 'Suspend tenant', 'Suspended', 'Active', 'Tenant suspended'),
-            (target, 'Suspend user', 'Suspended', 'Suspended', 'Tenant suspended and user suspended'),
-            (parent, 'Reactivate tenant', 'Active', 'Suspended', 'User suspended'),
+        for status_path, action, realm_state, user_state, combined in [
+            (parent, 'Suspend realm', 'Suspended', 'Active', 'Realm suspended'),
+            (target, 'Suspend user', 'Suspended', 'Suspended', 'Realm suspended and user suspended'),
+            (parent, 'Reactivate realm', 'Active', 'Suspended', 'User suspended'),
         ]:
             page.goto(status_path)
             page.get_by_role('link', name=action, exact=True).click()
@@ -405,14 +405,14 @@ with sync_playwright() as playwright:
             expect(page.locator('#status-action')).to_have_text(opposite)
             page.wait_for_url(status_path)
             page.goto(target)
-            tenant_context(page, parent, 'A' * 128, tenant_state)
+            realm_context(page, parent, 'A' * 128, realm_state)
             expect(page.locator('.grid>div>section').nth(1).locator('.badge')).to_have_text(user_state)
-            expect(page.locator('.grid>div>section').nth(1).locator('dd')).to_have_text([tenant_state, combined])
-            record(page, 'tenant_user', target.rsplit('/', 1)[1], parent)
+            expect(page.locator('.grid>div>section').nth(1).locator('dd')).to_have_text([realm_state, combined])
+            record(page, 'realm_user', target.rsplit('/', 1)[1], parent)
         for text in ['Combined directory status', 'Unverified', 'This user cannot sign in.']:
             expect(page.locator('main')).to_contain_text(text)
     else:
-        parent = tenant(page)
+        parent = realm(page)
         target = user(page, parent)
         cancelled_forms(page, parent, target)
         saving(page)
@@ -510,25 +510,25 @@ with sync_playwright() as playwright:
         submit(plain, 'Reactivate user')
         expect(plain.locator('[name=version]')).to_have_value('4')
         plain.goto(parent)
-        plain.locator('[name=name]').fill('Nojs tenant')
+        plain.locator('[name=name]').fill('Nojs realm')
         submit(plain, 'Save changes')
         expect(plain.locator('[name=version]')).to_have_value('2')
-        plain.get_by_role('link', name='Suspend tenant', exact=True).click()
-        submit(plain, 'Suspend tenant')
-        expect(plain.get_by_role('link', name='Reactivate tenant', exact=True)).to_be_visible()
-        plain.get_by_role('link', name='Reactivate tenant', exact=True).click()
+        plain.get_by_role('link', name='Suspend realm', exact=True).click()
+        submit(plain, 'Suspend realm')
+        expect(plain.get_by_role('link', name='Reactivate realm', exact=True)).to_be_visible()
+        plain.get_by_role('link', name='Reactivate realm', exact=True).click()
         plain.locator('#confirmation').get_by_role('link', name='Cancel').click()
         expect(plain.locator('[name=version]')).to_have_value('3')
-        plain.goto(ORIGIN + '/admin/tenants/new')
+        plain.goto(ORIGIN + '/admin/realms/new')
         plain.locator('[name=name]').fill('Nojs independent')
-        submit(plain, 'Create tenant')
+        submit(plain, 'Create realm')
         plain.wait_for_url(UUID)
         expect(plain.locator('h1')).to_have_text('Nojs independent')
         nojs.close()
         page.get_by_role('link', name='Administration', exact=True).click()
         expect(page.locator('link[rel=stylesheet][href="/assets/admin.css"]')).to_have_count(1)
         expect(page.locator('main')).to_have_class('dashboard')
-        page.get_by_role('link', name='Tenants', exact=True).click()
+        page.get_by_role('link', name='Realms', exact=True).click()
         expect(page.locator('link[rel=stylesheet][href="/assets/directory.css"]')).to_have_count(1)
         page.goto(target)
     if MODE in ('t1', 'u1'):
@@ -538,7 +538,7 @@ with sync_playwright() as playwright:
         expect(page.locator('#feedback')).to_contain_text('This page link is invalid. Return to the first page.')
         expect(page.locator('tbody tr')).to_have_count(0)
         if MODE == 'u1':
-            expect(page.locator('.context')).to_contain_text('Tenant: ' + 'A' * 128)
+            expect(page.locator('.context')).to_contain_text('Realm: ' + 'A' * 128)
         capture(page, 'invalid-cursor')
         page.get_by_role('link', name='First page', exact=True).click()
         expect(page.locator('tbody tr')).not_to_have_count(0)

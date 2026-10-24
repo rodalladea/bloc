@@ -10,7 +10,7 @@ before treating a milestone as an implementation task.
    policies, architecture and security requirements. Initial container/Helm
    distribution is tracked by [issue #2](https://github.com/rodalladea/bloc/issues/2);
    public availability depends on its release verification and GHCR bootstrap.
-2. **Identity core:** storage ADR and migrations, tenant isolation, user lifecycle,
+2. **Identity core:** storage ADR and migrations, realm isolation, user lifecycle,
    password hashing, verified recovery, sessions, audit events, admin permissions.
 3. **OIDC/OAuth issuer:** client registration and exact redirect validation,
    discovery/JWKS, authorization code with PKCE, consent/scopes, token validation,
@@ -33,7 +33,7 @@ and integration tests. Acceptance requires source-matched native full-service
 measurements and independent verification. MFA must precede production authentication; no application-user
 identity protocol is delivered by this increment.
 
-Independent tenant/user directory management now establishes immutable tenant-bound
-identities and independent lifecycle states. It does not implement tenant-user
+Independent realm/user directory management now establishes immutable realm-bound
+identities and independent lifecycle states. It does not implement realm-user
 credentials, authentication, delegation or identity protocols. See the
-[directory runbook](tenant-user-management.md) for its boundary.
+[directory runbook](realm-user-management.md) for its boundary.
