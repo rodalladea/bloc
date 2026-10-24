@@ -56,6 +56,7 @@ def publish(record, image, chart, image_registry, chart_registry, anonymous_imag
     expected = {'image':record['image'],'chart':record['chart'],'revision':record['revision'],'version':record['version']}
     if existing_release is not None and existing_release != expected:
         raise ValueError('completed release identity conflict; use a new version')
+    body = notes(record) if existing_release is None else None
     targets = [(image_registry,image,tag),(chart_registry,chart,record['version'])]
     missing = []
     for registry, layout, ref in targets:
@@ -78,7 +79,7 @@ def publish(record, image, chart, image_registry, chart_registry, anonymous_imag
     if consume:
         consume(record, chart)
     if existing_release is None:
-        completion.create(tag,expected,notes(record))
+        completion.create(tag,expected,body)
     return expected
 
 
@@ -112,18 +113,25 @@ def anonymous_consumption(record, chart):
             raise ValueError('anonymous Helm package digest disagreement')
 
 
-def notes(record):
-    version=record['version']
-    return f'''bloc {version} — installation administrator access
+def changelog_notes(version, path):
+    sections = re.split(r'^##[ \t]+', path.read_text(encoding='utf-8'), flags=re.M)
+    matches = []
+    for section in sections[1:]:
+        heading, _, body = section.partition('\n')
+        if re.fullmatch(re.escape(version) + r' - \d{4}-\d{2}-\d{2}', heading.strip()):
+            matches.append(body.strip())
+    if len(matches) != 1 or not matches[0]:
+        raise ValueError(f'expected one non-empty dated CHANGELOG.md section for {version}')
+    return matches[0]
 
-Installation administrator setup, sign-in, sessions, password changes and operator
-recovery use shared PostgreSQL. This release is for development and evaluation.
-Tenant and user directory management is available at /admin/tenants. Directory
-records do not authenticate users. Explicit migration 0003_directory.sql is
-required; coordinate rollout because old and new binary/schema contracts cannot
-serve together. See docs/tenant-user-management.md at this revision.
-MFA is required before production authentication use. Application-user identity,
-OIDC/OAuth token issuance and SAML are not implemented.
+
+def notes(record, changelog=Path(__file__).resolve().parents[2]/'CHANGELOG.md'):
+    version=record['version']
+    changes=changelog_notes(version, changelog)
+    return f'''{changes}
+
+## Distribution
+
 Source revision: {record['revision']}
 Platforms: linux/amd64, linux/arm64
 Tested Helm: {record['helm']}; Kubernetes: {record['kubernetes']}
@@ -176,7 +184,7 @@ class GitHubCompletion:
         with tempfile.NamedTemporaryFile(mode='w',suffix='.md') as file:
             file.write(body+'\n<!-- bloc-identities '+json.dumps(identities,sort_keys=True)+' -->\n')
             file.flush()
-            run('gh','release','create',tag,'--repo',self.repository,'--verify-tag','--title',f'bloc {tag} — installation administrator access','--notes-file',file.name)
+            run('gh','release','create',tag,'--repo',self.repository,'--verify-tag','--title',f'bloc {tag}','--notes-file',file.name)
 
 
 if __name__ == '__main__':

@@ -233,27 +233,66 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn('GH_TOKEN: ${{ github.token }}',workflow)
         self.assertNotIn('secrets.',workflow)
 
+    def test_release_notes_select_only_matching_changelog_section(self):
+        path = self.root/'CHANGELOG.md'
+        path.write_text('## Unreleased\n\n- Future change\n\n## 0.0.1 - 2026-10-15\n\n### Added\n\n- First release\n\n## 0.0.0 - 2026-10-14\n\n- Older change\n')
+        notes = release.notes(self.record, path)
+        self.assertIn('### Added\n\n- First release', notes)
+        self.assertNotIn('Future change', notes)
+        self.assertNotIn('Older change', notes)
+        self.assertNotIn('installation administrator access', notes)
+        self.assertNotIn('/admin/tenants', notes)
+
+    def test_release_notes_reject_missing_empty_and_duplicate_versions(self):
+        path = self.root/'CHANGELOG.md'
+        for content in ('## Unreleased\n- Future change',
+                        '## 0.0.1 - 2026-10-15\n\n',
+                        '## 0.0.1 - 2026-10-15\n- A\n## 0.0.1 - 2026-10-16\n- B'):
+            with self.subTest(content=content):
+                path.write_text(content)
+                with self.assertRaises(ValueError):
+                    release.notes(self.record, path)
+
+    def test_missing_changelog_stops_before_artifact_upload(self):
+        self.record = dict(self.record, version='99.0.0')
+        with self.assertRaises(ValueError):
+            self.publish()
+        self.assertEqual(self.images.writes, 0)
+        self.assertEqual(self.charts.writes, 0)
+        self.assertEqual(self.completion.writes, 0)
+
+    def test_release_title_and_identity_evidence(self):
+        captured = {}
+        def command(*args):
+            captured['args'] = args
+            captured['body'] = Path(args[-1]).read_text()
+        with patch.object(release, 'run', side_effect=command):
+            release.GitHubCompletion('rodalladea/bloc').create('v0.0.1', {'version':'0.0.1'}, 'First release')
+        args = captured['args']
+        self.assertEqual(args[args.index('--title') + 1], 'bloc v0.0.1')
+        self.assertIn('First release', captured['body'])
+        self.assertIn('<!-- bloc-identities {"version": "0.0.1"} -->', captured['body'])
+
     def test_c34_notes_contain_identities_and_recovery(self):
         notes=release.notes(self.record)
-        for value in ('installation administrator access','MFA','verified TLS','linux/amd64','linux/arm64','4.3.1','1.36.5','a'*40,
+        for value in ('verified TLS','linux/amd64','linux/arm64','4.3.1','1.36.5','a'*40,
                       self.record['image'], self.record['chart'],'--version 0.0.1','--values',
-                      '--rollback-on-failure','helm rollback','recovery fails',
-                      '/admin/tenants','0003_directory.sql','old and new binary/schema contracts'):
+                      '--rollback-on-failure','helm rollback','recovery fails'):
             self.assertIn(value,notes)
 
     def test_c35_no_floating_alias_or_replacement(self):
         self.publish()
         original_image=self.images.entries['v0.0.1']
         original_chart=self.charts.entries['0.0.1']
-        self.record=dict(self.record,version='0.0.2')
+        self.record=dict(self.record,version='0.2.0')
         self.assertEqual(self.images.writes,1)
         self.assertEqual(self.charts.writes,1)
         self.publish()
-        self.assertEqual(set(self.images.entries), {'v0.0.1','v0.0.2'})
-        self.assertEqual(set(self.charts.entries), {'0.0.1','0.0.2'})
+        self.assertEqual(set(self.images.entries), {'v0.0.1','v0.2.0'})
+        self.assertEqual(set(self.charts.entries), {'0.0.1','0.2.0'})
         self.assertEqual(self.images.entries['v0.0.1'],original_image)
         self.assertEqual(self.charts.entries['0.0.1'],original_chart)
-        self.assertEqual(set(self.completion.records), {'v0.0.1','v0.0.2'})
+        self.assertEqual(set(self.completion.records), {'v0.0.1','v0.2.0'})
         source=(ROOT/'scripts/distribution/release.py').read_text()
         self.assertNotIn("publish(layout,'latest')",source)
         self.assertNotIn("'DELETE'",source)

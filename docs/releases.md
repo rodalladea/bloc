@@ -50,7 +50,10 @@ This repository change does not itself publish a release or confirm package acce
    evaluation under accepted ADR 0004. MFA remains required before production
    authentication use.
 2. Set all version fields together and move appropriate Unreleased changelog notes
-   into a dated release section. Review the PR. For packaging changes, manually
+   into a dated release section. The GitHub title is `bloc vX.Y.Z`; its notes
+   use only that version’s changelog section, followed by distribution identities
+   and installation/recovery instructions. Missing, empty or duplicate version
+   sections stop publication before uploads. Review the PR. For packaging changes, manually
    run Distribution on the branch and review its image/cluster evidence.
 3. Merge the reviewed source. The maintainer explicitly creates and pushes its
    numeric version tag. Never create a fake public release to test upgrades.
