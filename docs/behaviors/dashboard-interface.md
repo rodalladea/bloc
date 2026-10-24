@@ -94,3 +94,42 @@ Evidence under `projects/bloc/.design/dashboard-interface-2026-10-23/`:
 - `ordinary.txt` — [ordinary test results](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=77136c186bfda06485a1765915fb53aded475c3f9fe212ab).
 - `postgres-17.txt` — [PostgreSQL 17 results](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=de7f97279b3997aeda9bc81ed24423203459561103889e77).
 - `postgres-18.txt` — [PostgreSQL 18 results](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=e30357e6e08d249a0a3f7be2e53f83b1d426d8abf7cc9901).
+
+## Mobile menu refinement — 2026-10-24
+
+Decision source: the requester asked to replace the dashboard mobile menu with a
+hamburger icon that opens the menu. No route, authority, or dependency changes.
+
+### dashboard-04: open mobile navigation
+
+Given an administrator on a viewport narrower than 640px with JavaScript enabled
+When they activate the hamburger button using a pointer or keyboard
+Then the page and header slide right to reveal the desktop navigation groups
+on the left, leaving a rounded page edge and shadow as in the supplied reference
+and utility controls, while the bloc dropdown sits beside the hamburger in the header
+And tapping the exposed page strip dismisses the menu
+And keyboard focus stays inside the drawer and background content is inert
+And reduced-motion preferences disable animation
+And the button exposes whether navigation is expanded
+And Escape closes navigation and returns focus to the button
+And clicking outside closes navigation
+And desktop navigation is always visible, with the hamburger hidden
+And without JavaScript the navigation remains expanded and usable.
+
+Verification: `python3 tests/support/mobile_menu_browser.py` passed in Chromium.
+The focused proof renders the actual sidebar template and application assets
+with synthetic values and checks mobile keyboard interaction, expanded state,
+Escape/focus, page-strip dismissal, page/header displacement, focus containment, link dismissal, desktop resizing and the
+no-JavaScript fallback. Screenshot pixel checks verify that the navigation
+background continues behind both rounded corners without a straight color seam
+in light and dark themes at 320px, 390px and 639px. This regression check failed
+against the previous styling with a 5-level RGB jump at the navigation edge,
+then passed after extending the navigation canvas beneath the page and making
+the stationary sidebar background transparent.
+It failed before implementation because the hamburger control was missing.
+This checks the isolated shell, not authenticated service or HTMX form flows.
+Rust build, lint, ordinary tests and documentation checks could not run in the
+editing environment because the Rust toolchain is unavailable.
+
+The mobile shell script is shared by overview, account and directory templates,
+so the same navigation behavior applies when managing tenants and users.

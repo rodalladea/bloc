@@ -173,9 +173,15 @@ both full pages and fragments.
 
 Desktop: one full-height 240px sidebar, with a workspace/account menu at the top
 and appearance, feedback and help icons at the bottom. No horizontal workspace header. The sidebar
-narrows to 192px at 900px. Below 640px the same navigation becomes a wrapping row
-above the content; the workspace menu and utility icons remain available. All
-destinations remain labeled and usable without JavaScript.
+narrows to 192px at 900px. Below 640px a compact header keeps the hamburger beside the bloc workspace
+dropdown. Following the supplied ChatGPT mobile reference, the button reveals navigation
+on the left while the header and page slide right, leaving a 68px page strip
+with rounded top and bottom corners and one continuous shadow. The navigation
+canvas extends behind the exposed corners; the stationary sidebar is transparent
+so its background cannot introduce a straight seam under the shadow. Retain desktop navigation groups,
+roomier mobile rows and bottom utility controls. Tapping the page strip or pressing Escape dismisses navigation. Keyboard focus stays inside the open drawer, background
+content is inert, and reduced-motion preferences disable animation. Desktop navigation remains visible.
+Without JavaScript, the labeled navigation stays expanded and usable.
 Use the plain `bloc` name with an installation descriptor in the workspace menu.
 Realm navigation opens the existing directory; it does not change administrator
 authority or introduce realm-bound sessions. Feedback opens the project issue

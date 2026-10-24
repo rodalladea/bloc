@@ -171,3 +171,69 @@ dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; font-size: 13px; }
 
 .ui .access-form--plain .ui-field { border-bottom: 0; padding: 0; margin-bottom: 24px; }
 .ui .access-form--plain .ui-field + .actions { padding-top: 0; }
+
+/* Desktop navigation and its mobile drawer share the same content. */
+.sidebar-header { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sidebar-header .workspace-menu { flex: 1; min-width: 0; }
+.sidebar-content { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+.mobile-menu-toggle, .mobile-menu-backdrop, .drawer-heading { display: none; }
+@media (max-width: 639px) {
+  .sidebar { display: block; }
+  .sidebar-content { display: flex; }
+  .sidebar-nav { display: block; padding-top: 24px; }
+  .sidebar-nav a { justify-content: flex-start; min-height: 44px; }
+  .nav-label { display: block; }
+  .sidebar-footer { padding-top: 24px; }
+  .sidebar[data-mobile-menu] .mobile-menu-toggle { display: grid; padding: 0; border: 0; background: transparent; box-shadow: none; flex-shrink: 0; }
+  .sidebar[data-mobile-menu] .sidebar-content { position: fixed; z-index: 32; inset: 0 auto 0 0; width: min(288px, calc(100vw - 48px)); height: 100dvh; padding: 16px 12px; background: var(--canvas); border-right: 1px solid var(--hairline); transform: translateX(-100%); visibility: hidden;  }
+  .sidebar[data-menu-motion] .sidebar-content { transition: transform 240ms cubic-bezier(.2,.8,.2,1), visibility 0s 240ms; }
+  .sidebar[data-mobile-menu="open"] .sidebar-content { transform: translateX(0); visibility: visible; transition-delay: 0s; }
+  .sidebar[data-mobile-menu] .drawer-heading { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding-left: 9px; }
+  .drawer-heading strong { color: var(--ink); font-size: 16px; }
+  .sidebar[data-mobile-menu] .sidebar-nav { overflow-y: auto; }
+  .sidebar[data-mobile-menu] .sidebar-footer { flex-shrink: 0; }
+  .sidebar[data-mobile-menu] .appearance-panel { top: auto; bottom: calc(100% + 8px); left: 0; right: auto; }
+  .sidebar[data-mobile-menu] .mobile-menu-backdrop { display: block; position: fixed; z-index: 31; inset: 0; width: 100%; height: 100dvh; margin: 0; padding: 0; border: 0; border-radius: 0; background: #0006; box-shadow: none; opacity: 0; visibility: hidden; transition: opacity 240ms, visibility 240ms; }
+  .sidebar[data-mobile-menu="open"] .mobile-menu-backdrop { opacity: 1; visibility: visible; }
+  body:has(.sidebar[data-mobile-menu="open"]) { overflow: hidden; }
+  .workspace { min-height: calc(100vh - 69px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar[data-mobile-menu] .sidebar-content, .sidebar[data-mobile-menu] .mobile-menu-backdrop { transition: none; }
+}
+
+/* Reveal navigation beneath a page that slides aside, leaving a rounded edge. */
+@media (max-width: 639px) {
+  /* Continue the navigation canvas behind both rounded corners of the page. */
+  body.application:has(.sidebar[data-mobile-menu]) { background: var(--canvas-soft); overflow-x: clip; --mobile-menu-width: calc(100vw - 68px); }
+  .sidebar[data-mobile-menu] { padding: 0; border: 0; background: transparent; }
+  .sidebar[data-mobile-menu] .sidebar-header { position: relative; z-index: 34; padding: 12px; background: var(--canvas); border-bottom: 1px solid var(--hairline); }
+  .sidebar[data-menu-motion] .sidebar-header, .application:has(.sidebar[data-menu-motion]) > .workspace { transition: transform 280ms cubic-bezier(.22,.8,.25,1), border-radius 280ms, box-shadow 280ms; }
+  .application:has(.sidebar[data-mobile-menu]) > .workspace { position: relative; z-index: 33; background: var(--canvas); }
+  .sidebar[data-mobile-menu] .sidebar-content { width: var(--mobile-menu-width); padding: 20px 16px max(20px, env(safe-area-inset-bottom)); border: 0; transform: translateX(-24px); background: var(--canvas-soft); }
+  .sidebar[data-menu-motion] .sidebar-content { transition: transform 280ms cubic-bezier(.22,.8,.25,1), visibility 0s 280ms; }
+  .sidebar[data-mobile-menu="open"] .sidebar-content { transform: translateX(0); transition-delay: 0s; }
+  .sidebar[data-mobile-menu="open"] .sidebar-header { transform: translateX(var(--mobile-menu-width)); border-top-left-radius: 28px; background: transparent; border-bottom-color: transparent; }
+  .application:has(.sidebar[data-mobile-menu="open"]) > .workspace { transform: translateX(var(--mobile-menu-width)); z-index: 34; background: transparent; max-height: calc(100dvh - 77px); overflow: hidden; border-bottom-left-radius: 28px; }
+  .sidebar[data-mobile-menu] .drawer-heading { padding: 0 12px; }
+  .sidebar[data-mobile-menu] .drawer-heading strong { font-size: 22px; letter-spacing: -.04em; }
+  .sidebar[data-mobile-menu] .sidebar-nav { padding-top: 24px; }
+  .sidebar[data-mobile-menu] .sidebar-nav a { min-height: 52px; gap: 12px; padding: 12px; font-size: 15px; }
+  .sidebar[data-mobile-menu] .sidebar-nav svg { width: 20px; height: 20px; }
+  .sidebar[data-mobile-menu] .nav-label { margin-left: 12px; }
+  .sidebar[data-mobile-menu] .sidebar-footer { padding: 20px 8px 0; }
+  .sidebar[data-mobile-menu] .mobile-menu-backdrop { z-index: 35; left: var(--mobile-menu-width); width: 68px; background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar[data-menu-motion] .sidebar-header, .sidebar[data-menu-motion] .sidebar-content, .application:has(.sidebar[data-menu-motion]) > .workspace { transition: none; }
+}
+
+/* One rounded surface casts the shadow for both header and content. */
+@media (max-width: 639px) {
+  .sidebar[data-mobile-menu]::before { content: ""; position: fixed; z-index: 33; inset: 0 auto 0 0; width: 100vw; height: 100dvh; pointer-events: none; background: var(--canvas); border-radius: 28px 0 0 28px; box-shadow: -16px 0 48px -16px #00000026; transform: translateX(0); visibility: hidden; }
+  .sidebar[data-menu-motion]::before { transition: transform 280ms cubic-bezier(.22,.8,.25,1), visibility 0s 280ms; }
+  .sidebar[data-mobile-menu="open"]::before { transform: translateX(var(--mobile-menu-width)); visibility: visible; transition-delay: 0s; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar[data-menu-motion]::before { transition: none; }
+}

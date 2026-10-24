@@ -5,6 +5,17 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+## 0.4.1 - 2026-10-24
+
+### Changed
+
+- Keep the bloc dropdown beside the mobile hamburger and open desktop-style
+  navigation by sliding the page aside with a rounded edge and soft shadow,
+  one continuous shadow over a matching background around both rounded corners,
+  contained keyboard focus,
+  page-strip/Escape dismissal and reduced-motion support. Navigation remains expanded
+  when JavaScript is unavailable.
+
 ## 0.4.0 - 2026-10-24
 
 ### Changed
