@@ -98,7 +98,7 @@ text in both themes. White text on bright lime and lime body text on
 white are prohibited. Error red remains semantic.
 
 Both themes are complete and use the same components. Initial appearance follows
-the system. A footer icon opens System, Light and Dark choices in the workspace; access screens retain a native labeled selector. The manual
+the system. A footer icon opens System, Light and Dark choices in the workspace; public access screens always follow the system without a selector. The manual
 choice persists in browser-local storage and synchronizes across tabs; failure
 to access storage does not prevent rendering or the current selection. Without
 JavaScript, system appearance works and the unavailable selector remains hidden.
@@ -142,7 +142,7 @@ Buttons, inputs and selects have 12px corners. Desktop buttons are at least 30px
 high with 12px text; inputs are at least 32px high with 13px text. Below 640px
 and for coarse pointers, the shared button/input minimum-height tokens are 44px.
 This does not apply to every link: directory record links retain a 28px minimum.
-The access appearance select uses the button-height token. Neutral
+Public access inputs and buttons use 48px minimum heights and 16px text. Neutral
 secondary buttons use thin borders. Following the requester's button reference,
 filled buttons have a subtle 1px outline, an inset top highlight and a short
 outer shadow in both themes. Pressing replaces the raised shadow with an inset
@@ -230,3 +230,16 @@ Check desktop and narrow widths, both themes, long content, keyboard navigation,
 no-JavaScript forms, repeated HTMX swaps, loading/error feedback and history.
 The [portable interface behavior record](docs/behaviors/portable-interface.md)
 records current verification and any limits. Visual evidence lives in Drive.
+
+## Frontend consistency refinement
+
+Public access keeps only the short brand headline beside the form. Internal forms
+retain a divider after the last field and breathing room before notices/actions.
+Login and recovery use stacked fields without dividers. All editable text fields
+include concise placeholders alongside their persistent visible labels.
+Overview and directories share a 1200px content container and
+40px/32px desktop padding; account security uses a narrower 960px container
+with 48px/40px desktop padding. Page headers have no bottom divider; tables stay within those gutters. Sidebar links have
+6px vertical separation and workspace dropdowns fit the sidebar width. Tenant
+creation belongs to the Tenants list (header or empty state), not the overview
+or workspace menu.

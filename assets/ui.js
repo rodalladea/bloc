@@ -14,7 +14,7 @@
   };
   let saved;
   try { saved = localStorage.getItem(key); } catch { /* Storage is optional. */ }
-  apply(saved);
+  apply(root.hasAttribute("data-ui-theme-fixed") ? "system" : saved);
   const reveal = () => document.querySelectorAll("[data-ui-theme-picker]").forEach(picker => {
     picker.hidden = false;
     apply(root.dataset.uiTheme);
@@ -47,6 +47,6 @@
     });
   });
   window.addEventListener("storage", event => {
-    if (event.key === key || event.key === null) apply(event.newValue);
+    if (!root.hasAttribute("data-ui-theme-fixed") && (event.key === key || event.key === null)) apply(event.newValue);
   });
 })();

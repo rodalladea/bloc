@@ -10,7 +10,7 @@ use common::Fixture;
 use tower::ServiceExt;
 
 #[test]
-fn interface_theme_is_available_on_every_administrator_screen() {
+fn interface_theme_picker_is_only_available_inside_the_application() {
     for path in [
         "/admin",
         "/admin/login",
@@ -22,6 +22,11 @@ fn interface_theme_is_available_on_every_administrator_screen() {
         let html = Full { page: &page }.render().unwrap();
         assert!(html.contains("href=\"/assets/ui.css\""));
         assert!(html.contains("src=\"/assets/ui.js\""));
+        if path != "/admin" && path != "/admin/password" {
+            assert!(!html.contains("aria-label=\"Appearance\""));
+            assert!(html.contains("data-ui-theme=\"system\" data-ui-theme-fixed"));
+            continue;
+        }
         assert!(html.contains("aria-label=\"Appearance\""));
         for theme in ["system", "light", "dark"] {
             assert!(
@@ -41,7 +46,7 @@ fn dashboard_navigation_and_actions() {
     let html = Full { page: &page }.render().unwrap();
     assert!(html.contains("aria-label=\"Administration\""));
     assert!(html.contains("href=\"/admin\" aria-current=\"page\""));
-    assert!(html.contains("href=\"/admin/tenants/new\""));
+    assert!(!html.contains("href=\"/admin/tenants/new\""));
     assert!(html.contains("href=\"/admin/tenants\""));
     assert!(html.contains("href=\"/admin/password\""));
     assert!(html.contains("Owner@example.test"));

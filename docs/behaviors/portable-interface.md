@@ -92,7 +92,7 @@ new composition; this is not a claim of test-first implementation.
 
 | Scenario | Evidence | Status |
 | --- | --- | --- |
-| interface-01 | `interface_theme_is_available_on_every_administrator_screen`; browser appearance checks | Passed on PostgreSQL 17 |
+| interface-01 | `interface_theme_picker_is_only_available_inside_the_application`; browser appearance checks | Passed on PostgreSQL 17 |
 | interface-02 | Existing no-JavaScript and form regression checks; storage-denied appearance check | Passed on PostgreSQL 17 |
 | interface-03 | Existing administrator and directory browser checks plus visual review | Passed on PostgreSQL 17 |
 | interface-04 | Standalone consumer browser check | Passed on PostgreSQL 17 |
@@ -259,7 +259,7 @@ And narrow screens retain all three footer controls
 And without JavaScript the appearance picker stays hidden and system theme applies.
 
 Coverage: `dashboard_navigation_and_actions` (failed on the old header before
-implementation), `interface_theme_is_available_on_every_administrator_screen`,
+implementation), `interface_theme_picker_is_only_available_inside_the_application`,
 and `workspace_menus` exercised by administrator `browser_preview` and directory
 arrangement proofs. `browser_session_expiry` now logs out through the directory
 sidebar; `browser_no_javascript` exercises the same menu without JavaScript.
@@ -302,3 +302,60 @@ labels and interaction. This is cosmetic and adds no behavior scenarios.
 The same rounded folder is reused on overview, directory empty states and access
 introduction. Library tests, formatting and diff checks passed; browser suites
 were not rerun for this SVG-only refinement.
+
+## Frontend consistency refinement — 2026-10-24
+
+Decision source: requester screenshots and instruction to correct all reported
+frontend inconsistencies. Supersedes public access appearance selection and
+creation shortcuts in the overview/workspace menu above. Authentication behavior
+and form submission contracts are unchanged.
+
+### interface-07: focused public access and consistent workspace
+
+Given login, setup or recovery is displayed
+When a saved Light or Dark preference exists for the workspace
+Then public access follows the system without showing a theme selector
+And access controls are at least 48px tall with 16px text
+And the introduction contains only the short headline.
+
+Given an administrator opens the workspace
+When they navigate among Overview, Tenants and Account security
+Then all pages use the same outer content width and gutters
+And tables stay within those gutters
+And sidebar items have visible spacing and the workspace dropdown fits its menu
+And tenant creation is offered on the Tenants list, once per list state.
+
+Given a form has visible fields
+When the final field is followed by a notice or actions
+Then a divider and spacing separate that field from the footer.
+
+Coverage: public/system theme isolation and removal of dashboard creation shortcuts
+are covered by `interface_theme_picker_is_only_available_inside_the_application`
+and `dashboard_navigation_and_actions`. Layout requires browser geometry checks;
+these do not establish authentication or HTMX interaction acceptance.
+
+Validation for this refinement: rendering-based browser checks passed for login,
+recovery, account security and overview at 390, 768 and 1280px in both system
+colour schemes (24 combinations). Checked horizontal overflow, access control
+height, absent public selector, dropdown bounds and absent overview creation links.
+`tenant_creation_has_one_entry_per_list_state` covers empty and populated tenant
+lists. Directory table alignment and footer spacing were reviewed in the shared
+styles; live database-backed directory/browser interaction suites were not rerun.
+
+### Follow-up: placeholders and public form separators
+
+Requester refinement: every editable text field includes a short placeholder;
+visible labels remain. Login and recovery omit field dividers while internal
+settings retain them. This supersedes the separator rule in interface-07 for
+those two public forms only. Password placeholders contain instructions, never
+sample credentials. Hidden protocol fields and appearance choices are excluded.
+Validation: compile/render checks cover the shared administrator and directory
+form templates; unchanged submission and authentication contracts.
+
+### Follow-up: page heading separation and account width
+
+Requester refinement: remove the divider between page headings and content on
+all screens. Account security returns to its narrower 960px container with
+48px/40px desktop padding; directory/overview widths remain unchanged. This
+supersedes the shared width rule for account security in interface-07. Spacing
+continues to separate headings and content; internal form dividers remain.

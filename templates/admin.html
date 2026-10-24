@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="ui">
+<html lang="en" class="ui"{% if !page.home && page.path != "/admin/password" %} data-ui-theme="system" data-ui-theme-fixed{% endif %}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,7 +22,7 @@
 {% include "admin_content.html" %}
 </div>
 {% else %}
-<header class="site-header"><div class="header-inner"><a class="wordmark" href="/admin/login" aria-label="bloc sign in">bloc<span class="brand-dot" aria-hidden="true"></span></a>{% include "appearance.html" %}</div></header>
+<header class="site-header"><div class="header-inner"><a class="wordmark" href="/admin/login" aria-label="bloc sign in">bloc<span class="brand-dot" aria-hidden="true"></span></a></div></header>
 <div class="access-layout">
 {% include "access_introduction.html" %}
 {% include "admin_content.html" %}

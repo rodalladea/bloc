@@ -55,16 +55,16 @@
 <input type="hidden" name="csrf" value="{{ p.csrf }}">{% if p.create %}<input type="hidden" name="creation_id" value="{{ p.creation }}">{% else %}<input type="hidden" name="version" value="{{ p.version }}">{% endif %}
 {% if p.user %}<div class="field ui-field ui-field--row">
 <label for="email">Email address</label>
-<input id="email" name="email" type="email" value="{{ p.record.email }}" aria-describedby="email-help{% if p.invalid == "email" %} email-error{% endif %}" {% if p.invalid == "email" %}aria-invalid="true"{% endif %}>
+<input id="email" placeholder="you@example.com" name="email" type="email" value="{{ p.record.email }}" aria-describedby="email-help{% if p.invalid == "email" %} email-error{% endif %}" {% if p.invalid == "email" %}aria-invalid="true"{% endif %}>
 <p id="email-help" class="help ui-help">Unverified. Domain case is normalized; local-part case is preserved.</p>{% if p.invalid == "email" %}<p id="email-error" class="field-error ui-field-error">{{ p.error }}</p>{% endif %}</div>
 <div class="field ui-field ui-field--row">
 <label for="display-name">Display name <span class="help ui-help">(optional)</span>
 </label>
-<input id="display-name" name="display_name" value="{{ p.record.display_name }}" aria-describedby="display-help{% if p.invalid == "display-name" %} display-error{% endif %}" {% if p.invalid == "display-name" %}aria-invalid="true"{% endif %}>
+<input id="display-name" placeholder="e.g. Alex Morgan" name="display_name" value="{{ p.record.display_name }}" aria-describedby="display-help{% if p.invalid == "display-name" %} display-error{% endif %}" {% if p.invalid == "display-name" %}aria-invalid="true"{% endif %}>
 <p id="display-help" class="help ui-help">Up to 128 characters and 512 UTF-8 bytes. Control characters are not allowed.</p>{% if p.invalid == "display-name" %}<p id="display-error" class="field-error ui-field-error">{{ p.error }}</p>{% endif %}</div>
 {% else %}<div class="field ui-field ui-field--row">
 <label for="name">Tenant name</label>
-<input id="name" name="name" value="{% if !p.create || !p.record.name.is_empty() %}{{ p.record.name }}{% endif %}" aria-describedby="name-help{% if p.invalid == "name" %} name-error{% endif %}" {% if p.invalid == "name" %}aria-invalid="true"{% endif %}>
+<input id="name" placeholder="e.g. Acme" name="name" value="{% if !p.create || !p.record.name.is_empty() %}{{ p.record.name }}{% endif %}" aria-describedby="name-help{% if p.invalid == "name" %} name-error{% endif %}" {% if p.invalid == "name" %}aria-invalid="true"{% endif %}>
 <p id="name-help" class="help ui-help">1–128 characters, up to 512 UTF-8 bytes. Names do not need to be unique.</p>{% if p.invalid == "name" %}<p id="name-error" class="field-error ui-field-error">{{ p.error }}</p>{% endif %}</div>{% endif %}
 <div class="actions">
 <button type="submit">{% if p.create %}{% if p.user %}Create user{% else %}Create tenant{% endif %}{% else %}Save changes{% endif %}</button>
