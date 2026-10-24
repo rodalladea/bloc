@@ -11,8 +11,8 @@ home now use shared PostgreSQL. Production authentication approval remains block
 on full acceptance and MFA; application-user authentication, provider configuration,
 OIDC/OAuth token issuance and SAML are not implemented.
 
-Tenant and tenant-bound user directories are managed at `/admin/tenants`; directory
-records do not authenticate users. See [directory management](docs/tenant-user-management.md).
+Realm and realm-bound user directories are managed at `/admin/realms`; directory
+records do not authenticate users. See [directory management](docs/realm-user-management.md).
 
 ## Run locally
 
@@ -155,7 +155,7 @@ and31002. Run `tests/run_storage.py` with `--browser-python <python>` and
 database majors. The fixture suite requires local Docker and does not exercise a
 production ingress certificate. Run service/browser suites serially to avoid
 colliding with their fixed test ports. For focused directory iteration, add
-`--target tenant_user_management`; `--proof directory_c01` selects one exact proof.
+`--target realm_user_management`; `--proof directory_c01` selects one exact proof.
 Use `--cached-images` only when the pinned fixture images are already present and
 registry access is unavailable; the evidence still records their image IDs/digests.
 

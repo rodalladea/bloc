@@ -30,30 +30,31 @@ compatibility and `/healthz` for liveness, and separates optional operational Jo
 and operator Pod credentials. Full-service native capacity remains acceptance work;
 no production readiness or identity-protocol conformance is claimed.
 
-Independent tenant/user directories extend this guarded authority model. Each
-user has immutable tenant ownership, tenant-local canonical email uniqueness and
+Independent realm/user directories extend this guarded authority model. Each
+user has immutable realm ownership, realm-local canonical email uniqueness and
 independent lifecycle status. Reads and atomic directory/audit mutations recheck
 current administrator authority under the installation lock. See
-[ADR 0005](adr/0005-tenant-user-directories.md) and the
-[directory runbook](tenant-user-management.md). These records do not authenticate
+[ADR 0005](adr/0005-tenant-user-directories.md),
+[realm terminology decision](adr/0006-realm-terminology.md), and the
+[directory runbook](realm-user-management.md). These records do not authenticate
 application users.
 
 ## Planned boundaries
 
-- Domain: external identities, clients, roles, grants; tenant/user directories are implemented.
+- Domain: external identities, clients, roles, grants; realm/user directories are implemented.
 - Application: login orchestration, consent, account linking, admin authorization.
 - Protocol adapters: OIDC/OAuth issuer, OIDC broker, SAML IdP and SP roles.
 - Infrastructure: persistence, key storage/rotation, email, audit events.
 - Web: server-rendered admin and login pages, HTMX fragments, HTTP APIs.
 
 These are boundaries to establish as features land, not empty crates to generate.
-Tenancy and protocol boundaries require separate ADRs. The administrator
+Realm isolation and protocol boundaries require separate ADRs. The administrator
 increment uses shared PostgreSQL; accepted [ADR 0004](adr/0004-initial-administrator-access.md)
 records its setup schema, SQLx migration and privilege boundaries. The HTTP server requires validated PostgreSQL configuration; serving replicas do
 not run migrations.
 
 Provider selection will be driven by enabled, validated configurations scoped to
-a tenant. Provider secrets remain server-side. Explicit account-linking policy
+a realm. Provider secrets remain server-side. Explicit account-linking policy
 must prevent identity takeover; matching email alone is insufficient.
 
 Protocol implementations must use maintained libraries, published specifications,

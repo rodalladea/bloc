@@ -853,11 +853,11 @@ pub fn router(app: Application) -> Router {
             }),
         )
         .route(
-            "/admin/tenants",
+            "/admin/realms",
             get(crate::directory::handler).post(crate::directory::handler),
         )
         .route(
-            "/admin/tenants/{*resource}",
+            "/admin/realms/{*resource}",
             get(crate::directory::handler).post(crate::directory::handler),
         )
         .route(

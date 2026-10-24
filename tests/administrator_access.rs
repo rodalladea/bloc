@@ -1499,7 +1499,7 @@ async fn administration_home() {
         "<script>alert(1)</script>@example.test"
     );
     assert!(!html.contains("<script>alert"));
-    assert!(html.contains("href=\"/admin/tenants\""));
+    assert!(html.contains("href=\"/admin/realms\""));
     assert!(html.contains("aria-label=\"Administration\""));
 }
 #[tokio::test]

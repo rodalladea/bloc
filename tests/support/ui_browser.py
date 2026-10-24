@@ -44,7 +44,7 @@ def workspace_menus(page):
     expect(page.locator('header')).to_have_count(0)
     trigger = page.get_by_label('Workspace menu', exact=True)
     trigger.click()
-    expect(page.get_by_role('link', name='Switch tenant', exact=True)).to_be_visible()
+    expect(page.get_by_role('link', name='Switch realm', exact=True)).to_be_visible()
     expect(page.get_by_role('button', name='Log out', exact=True)).to_be_visible()
     capture_menu(page, 'workspace-menu')
     page.keyboard.press('Escape')

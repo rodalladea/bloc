@@ -8,7 +8,7 @@ protocol flows from memory. Consult protocol specifications and maintained libra
 documentation; record the relevant decisions and attack cases. Never replace a
 missing validator with an always-successful stub.
 
-Treat tenant identity, redirects, issuer/audience selection, provider callbacks,
+Treat realm identity, redirects, issuer/audience selection, provider callbacks,
 and account linking as explicit trust boundaries. Require negative tests when
 implementing them. Authorization checks belong on every protected server action,
 including HTMX fragment endpoints.

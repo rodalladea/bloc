@@ -19,11 +19,11 @@ struct Page {
     intro: &'static str,
     list_path: String,
     detail_path: String,
-    tenant_path: String,
+    realm_path: String,
     user: bool,
     list: bool,
     create: bool,
-    tenant: Record,
+    realm: Record,
     record: Record,
     rows: Vec<Record>,
     csrf: String,
@@ -47,13 +47,13 @@ impl Page {
         Self {
             title: "Directory access".into(),
             intro: "",
-            list_path: "/admin/tenants".into(),
+            list_path: "/admin/realms".into(),
             detail_path: String::new(),
-            tenant_path: String::new(),
+            realm_path: String::new(),
             user: false,
             list: false,
             create: false,
-            tenant: Record::default(),
+            realm: Record::default(),
             record: Record::default(),
             rows: vec![],
             csrf: String::new(),
@@ -62,8 +62,8 @@ impl Page {
             version: String::new(),
             next: String::new(),
             feedback: String::new(),
-            recovery: "/admin/tenants".into(),
-            recovery_label: "Back to tenants",
+            recovery: "/admin/realms".into(),
+            recovery_label: "Back to realms",
             invalid: "",
             error: "",
             hidden: false,
@@ -114,7 +114,7 @@ fn render(p: &Page, status: StatusCode, hx: bool) -> Response {
 fn failure(path: &str, status: StatusCode, hx: bool) -> Response {
     let mut p = Page::new();
     p.hidden = true;
-    let reload = if path == "/admin/tenants" || path.ends_with("/users") {
+    let reload = if path == "/admin/realms" || path.ends_with("/users") {
         format!("{path}/new")
     } else {
         path.trim_end_matches("/status").to_owned()
@@ -129,8 +129,8 @@ fn failure(path: &str, status: StatusCode, hx: bool) -> Response {
             p.title = "Record not found".into();
             p.fail(
                 "This record is not available at this address.",
-                "/admin/tenants",
-                "Back to tenants",
+                "/admin/realms",
+                "Back to realms",
             )
         }
         StatusCode::FORBIDDEN => p.fail(
@@ -243,9 +243,9 @@ async fn token(
 }
 pub(crate) async fn handler(State(app): State<Application>, request: Request) -> Response {
     let category = if request.uri().path().contains("/users") {
-        "tenant_user_management"
+        "realm_user_management"
     } else {
-        "tenant_management"
+        "realm_management"
     };
     let mut response = handle(&app, request).await;
     let expired_redirect = response
@@ -305,7 +305,7 @@ async fn handle(app: &Application, request: Request) -> Response {
     p.email = owner.email;
     p.user = parts.get(3) == Some(&"users");
     let status_route = parts.last() == Some(&"status");
-    let tenant_id = parts
+    let realm_id = parts
         .get(2)
         .copied()
         .filter(|v| !(*v == "new" && parts.len() == 3));
@@ -313,7 +313,7 @@ async fn handle(app: &Application, request: Request) -> Response {
         .get(4)
         .copied()
         .filter(|v| !(*v == "new" && parts.len() == 5));
-    if tenant_id.is_some_and(|v| !uuid(v))
+    if realm_id.is_some_and(|v| !uuid(v))
         || user_id.is_some_and(|v| !uuid(v))
         || parts.len() > if p.user { 6 } else { 4 }
         || parts.len() == 4 && !p.user && !status_route
@@ -363,32 +363,28 @@ async fn handle(app: &Application, request: Request) -> Response {
     } else {
         parts.len() == 2
     };
-    p.tenant_path = tenant_id
-        .map(|id| format!("/admin/tenants/{id}"))
+    p.realm_path = realm_id
+        .map(|id| format!("/admin/realms/{id}"))
         .unwrap_or_default();
     p.list_path = if p.user {
-        format!("{}/users", p.tenant_path)
+        format!("{}/users", p.realm_path)
     } else {
-        "/admin/tenants".into()
+        "/admin/realms".into()
     };
     p.detail_path = if p.user {
         user_id
             .map(|id| format!("{}/{id}", p.list_path))
             .unwrap_or_default()
     } else {
-        p.tenant_path.clone()
+        p.realm_path.clone()
     };
-    if let Some(id) = tenant_id {
-        match app
-            .storage
-            .directory_tenants(&session, Some(id), None)
-            .await
-        {
+    if let Some(id) = realm_id {
+        match app.storage.directory_realms(&session, Some(id), None).await {
             Ok(mut rows) => {
                 if rows.is_empty() {
                     return failure(&path, StatusCode::NOT_FOUND, hx);
                 }
-                p.tenant = rows.remove(0);
+                p.realm = rows.remove(0);
             }
             Err(e) => return storage_failure(e, &path, hx),
         }
@@ -397,7 +393,7 @@ async fn handle(app: &Application, request: Request) -> Response {
         if let Some(id) = user_id {
             match app
                 .storage
-                .directory_users(&session, tenant_id.unwrap_or(""), Some(id), None)
+                .directory_users(&session, realm_id.unwrap_or(""), Some(id), None)
                 .await
             {
                 Ok(mut rows) => {
@@ -410,7 +406,7 @@ async fn handle(app: &Application, request: Request) -> Response {
             }
         }
     } else {
-        p.record = p.tenant.clone()
+        p.record = p.realm.clone()
     }
     p.version = p.record.version.to_string();
     p.creation = match new_uuid() {
@@ -421,28 +417,28 @@ async fn handle(app: &Application, request: Request) -> Response {
         if p.user {
             "Users".into()
         } else {
-            "Tenants".into()
+            "Realms".into()
         }
     } else if p.create {
         if p.user {
             "Create user".into()
         } else {
-            "Create tenant".into()
+            "Create realm".into()
         }
     } else if p.user {
         "User details".into()
     } else {
-        p.tenant.name.clone()
+        p.realm.name.clone()
     };
     p.intro = if p.list {
         if p.user {
-            "Independent users belonging to this tenant. Directory records do not authenticate anyone."
+            "Independent users belonging to this realm. Directory records do not authenticate anyone."
         } else {
             "Independent directories managed by the installation administrator."
         }
     } else if p.create {
         if p.user {
-            "Add an independent user to this tenant."
+            "Add an independent user to this realm."
         } else {
             "Give this directory a name. Its identity stays fixed when the name changes."
         }
@@ -451,9 +447,9 @@ async fn handle(app: &Application, request: Request) -> Response {
     } else {
         "Manage this directory’s name, users and status."
     };
-    p.combined = match (p.tenant.status.as_str(), p.record.status.as_str()) {
-        ("suspended", "suspended") => "Tenant suspended and user suspended",
-        ("suspended", _) => "Tenant suspended",
+    p.combined = match (p.realm.status.as_str(), p.record.status.as_str()) {
+        ("suspended", "suspended") => "Realm suspended and user suspended",
+        ("suspended", _) => "Realm suspended",
         (_, "suspended") => "User suspended",
         _ => "Active",
     };
@@ -490,10 +486,10 @@ async fn handle(app: &Application, request: Request) -> Response {
             };
             let result = if p.user {
                 app.storage
-                    .directory_users(&session, tenant_id.unwrap_or(""), None, cursor)
+                    .directory_users(&session, realm_id.unwrap_or(""), None, cursor)
                     .await
             } else {
-                app.storage.directory_tenants(&session, None, cursor).await
+                app.storage.directory_realms(&session, None, cursor).await
             };
             p.rows = match result {
                 Ok(rows) => rows,
@@ -531,7 +527,7 @@ async fn handle(app: &Application, request: Request) -> Response {
             p.title = if p.user {
                 "Create user".into()
             } else {
-                "Create tenant".into()
+                "Create realm".into()
             };
         }
         let allowed = if status_route {
@@ -613,16 +609,16 @@ async fn handle(app: &Application, request: Request) -> Response {
             } else if p.user {
                 user_id.unwrap_or("")
             } else {
-                tenant_id.unwrap_or("")
+                realm_id.unwrap_or("")
             };
-            let tenant = if p.user { tenant_id.unwrap_or("") } else { id };
+            let realm = if p.user { realm_id.unwrap_or("") } else { id };
             let operation = match (p.user, creating, status_route) {
                 (true, true, _) => "user_create",
                 (true, false, true) => "user_status",
                 (true, false, false) => "user_update",
-                (false, true, _) => "tenant_create",
-                (false, false, true) => "tenant_status",
-                _ => "tenant_update",
+                (false, true, _) => "realm_create",
+                (false, false, true) => "realm_status",
+                _ => "realm_update",
             };
             let result = app
                 .storage
@@ -630,7 +626,7 @@ async fn handle(app: &Application, request: Request) -> Response {
                     &session,
                     Mutation {
                         operation,
-                        tenant,
+                        realm,
                         user: p.user.then_some(id),
                         version: version(&p.version).unwrap_or(0),
                         profile: if p.user {
@@ -650,7 +646,7 @@ async fn handle(app: &Application, request: Request) -> Response {
             let target = if p.user {
                 format!("{}/{id}", p.list_path)
             } else {
-                format!("/admin/tenants/{id}")
+                format!("/admin/realms/{id}")
             };
             match result {
                 Err(e) => return storage_failure(e, &path, hx),
@@ -661,8 +657,8 @@ async fn handle(app: &Application, request: Request) -> Response {
                         "This record changed after you opened the form. Nothing was saved. Reload the current record before editing again.",
                         &target, "Reload current record"),
                     "email_conflict" => p.fail(
-                        if creating { "This email is already used in this tenant. Choose another email address." }
-                        else { "This email is already used in this tenant. Nothing was changed." }, "", ""),
+                        if creating { "This email is already used in this realm. Choose another email address." }
+                        else { "This email is already used in this realm. Nothing was changed." }, "", ""),
                     "foreign_creation" => {
                         p.creation.clear();
                         p.fail("This creation form cannot be used. Nothing was created. Open a new form to continue.",
@@ -670,8 +666,8 @@ async fn handle(app: &Application, request: Request) -> Response {
                     }
                     "reused" => p.fail(
                         if p.user { "This creation form has already been used. No second user was created." }
-                        else { "This creation form has already been used. No second tenant was created." },
-                        &target, if p.user { "Review existing user" } else { "Review existing tenant" }),
+                        else { "This creation form has already been used. No second realm was created." },
+                        &target, if p.user { "Review existing user" } else { "Review existing realm" }),
                     _ => return failure(&path, StatusCode::SERVICE_UNAVAILABLE, hx),
                 },
             }
@@ -714,17 +710,17 @@ async fn handle(app: &Application, request: Request) -> Response {
 }
 
 #[test]
-fn tenant_creation_has_one_entry_per_list_state() {
+fn realm_creation_has_one_entry_per_list_state() {
     for populated in [false, true] {
         let mut p = Page::new();
         p.list = true;
-        p.title = "Tenants".into();
+        p.title = "Realms".into();
         if populated {
             p.rows.push(Record::default());
         }
         let html = Full { p: &p }.render().unwrap();
-        assert_eq!(html.matches("href=\"/admin/tenants/new\"").count(), 2);
+        assert_eq!(html.matches("href=\"/admin/realms/new\"").count(), 2);
         let fragment = Fragment { p: &p }.render().unwrap();
-        assert_eq!(fragment.matches("href=\"/admin/tenants/new\"").count(), 1);
+        assert_eq!(fragment.matches("href=\"/admin/realms/new\"").count(), 1);
     }
 }
