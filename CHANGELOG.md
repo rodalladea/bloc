@@ -5,6 +5,32 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+### Changed
+
+- Round sidebar and workspace-menu icon geometry while retaining the shared
+  outline weight and sizing.
+
+- Remove the workspace header; move tenant/account navigation into the sidebar
+  menu and appearance, feedback and help into its footer.
+
+- Unify rounded components around the shared 12px radius, including navigation,
+  panels, notices, badges and controls.
+- Align dark controls and focus colours with the workspace's neutral graphite
+  palette, preserving the approved light theme and existing green status badges.
+- Make buttons and fields more compact and rounded, with cool neutral surfaces,
+  clearer control borders and a translucent neutral field-focus ring.
+- Add subtle raised edges to primary and secondary buttons in both themes.
+- Soften separators and field borders in both themes, and indicate the active
+  navigation item with a neutral fill instead of a border and green dot.
+- Unify the administrator overview, tenant directories, and account security in a
+  responsive dashboard with persistent navigation, clearer action hierarchy,
+  compact account details, and shared neutral/lime styling.
+- Redesign administration with a single theme-integrated navigation menu,
+  compact controls, bordered settings rows, integrated directory tables and
+  focused access screens. Add persistent
+  light/dark/system appearance and reusable HTML/CSS/JavaScript UI assets that
+  remain local to bloc and can be extracted later.
+
 ## 0.2.1 - 2026-10-23
 
 ### Security

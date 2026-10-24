@@ -1,1 +1,33 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true,"historyCacheSize":0,"includeIndicatorStyles":false,"historyRestoreAsHxRequest":false}'><title>bloc — {{ page.title }}</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/htmx.min.js" defer></script><script src="/assets/admin.js" defer></script></head><body><header class="site-header"><div class="header-inner"><a class="wordmark" href="/admin/login" aria-label="bloc sign in">bloc</a><span>Administration</span></div></header>{% include "admin_content.html" %}<footer>bloc · development and evaluation</footer></body></html>
+<!doctype html>
+<html lang="en" class="ui">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true,"historyCacheSize":0,"includeIndicatorStyles":false,"historyRestoreAsHxRequest":false}'>
+<title>bloc — {{ page.title }}</title>
+<link rel="stylesheet" href="/assets/ui.css">
+<link rel="stylesheet" href="/assets/admin.css">
+<script src="/assets/ui.js"></script>
+<script src="/assets/htmx.min.js" defer></script>
+<script src="/assets/admin.js" defer></script>
+</head>
+<body class="{% if page.home || page.path == "/admin/password" %}application{% else %}access{% endif %}">
+<a class="skip-link" href="#content">Skip to content</a>
+{% if page.home || page.path == "/admin/password" %}
+{% let active = page.home.then_some("overview").unwrap_or("account") %}
+{% let shell_email = page.email.as_str() %}
+{% let shell_csrf = page.csrf.as_str() %}
+{% include "sidebar.html" %}
+<div class="workspace">
+{% include "admin_content.html" %}
+</div>
+{% else %}
+<header class="site-header"><div class="header-inner"><a class="wordmark" href="/admin/login" aria-label="bloc sign in">bloc<span class="brand-dot" aria-hidden="true"></span></a>{% include "appearance.html" %}</div></header>
+<div class="access-layout">
+{% include "access_introduction.html" %}
+{% include "admin_content.html" %}
+</div>
+<footer class="access-footer">bloc · development and evaluation</footer>
+{% endif %}
+</body>
+</html>

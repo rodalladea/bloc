@@ -1,0 +1,22 @@
+<div class="overview-grid">
+<div>
+<section class="directory-overview workspace-section" aria-labelledby="directories-heading">
+<div class="section-heading"><h2 id="directories-heading">Directories</h2><span class="section-kicker">Installation workspace</span></div>
+<a class="directory-entry" href="/admin/tenants" aria-label="Browse tenants"><span class="entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 8h-6a2 2 0 0 1-1.6-.8l-1.8-2.4A2 2 0 0 0 8 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2H3"/></svg></span><span class="entry-copy"><strong>Tenant directories</strong><small>Manage tenants, user profiles, and lifecycle status.</small></span><span class="entry-arrow" aria-hidden="true">↗</span></a>
+<p class="capability-note">Directory users cannot sign in. Application authentication is not yet available.</p>
+</section>
+<section class="account-panel" aria-labelledby="account-heading">
+<div class="section-heading"><h2 id="account-heading">Administrator account</h2></div>
+<div class="account-summary"><span class="account-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg></span><div><p class="account-email">{{ page.email }}</p><p class="help ui-help"><span>Installation administrator</span> <span aria-hidden="true">·</span> Unverified sign-in identifier</p></div></div>
+<div class="account-actions"><a class="text-link" href="/admin/password">Change password <span aria-hidden="true">↗</span></a>
+{% if !page.feedback.is_empty() %}<div class="notice ui-notice error ui-notice--error" role="alert" id="feedback" tabindex="-1">{{ page.feedback }}</div>{% endif %}
+{% include "admin_form.html" %}
+</div>
+</section>
+</div>
+<section class="installation-panel" aria-labelledby="installation-heading">
+<div class="section-heading"><h2 id="installation-heading">Installation details</h2></div>
+<dl class="installation-details"><div><dt>Setup</dt><dd><span class="badge ui-badge active ui-badge--positive">Setup complete</span></dd></div><div><dt>bloc version</dt><dd class="mono ui-mono">{{ page.version }}</dd></div><div><dt>Environment</dt><dd>Development &amp; evaluation</dd></div></dl>
+<div class="installation-note"><h3>Available today</h3><p>Administrator access and tenant-bound user directories.</p><p class="help ui-help">Identity providers, OIDC, OAuth, and SAML are planned.</p></div>
+</section>
+</div>

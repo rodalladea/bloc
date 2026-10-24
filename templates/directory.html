@@ -1,26 +1,27 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="ui">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true,"historyCacheSize":0,"includeIndicatorStyles":false,"historyRestoreAsHxRequest":false}'>
 <title>bloc — {{ p.title }}</title>
+<link rel="stylesheet" href="/assets/ui.css">
+<link rel="stylesheet" href="/assets/admin.css">
+<script src="/assets/ui.js"></script>
 <link rel="stylesheet" href="/assets/directory.css">
 <script src="/assets/htmx.min.js" defer>
 </script>
 <script src="/assets/directory.js" defer>
 </script>
 </head>
-<body>
-<header>
-<div class="header">
-<a class="wordmark" href="/admin">bloc</a>
-<nav class="nav" aria-label="Administration">
-<a href="/admin">Overview</a>
-<a href="/admin/tenants" aria-current="page">Tenants</a>
-</nav>
-<small>Installation administrator</small>
+<body class="application">
+<a class="skip-link" href="#content">Skip to content</a>
+{% let active = "tenants" %}
+{% let shell_email = p.email.as_str() %}
+{% let shell_csrf = p.csrf.as_str() %}
+{% include "sidebar.html" %}
+<div class="workspace">
+{% include "directory_content.html" %}
 </div>
-</header>{% include "directory_content.html" %}<footer class="footer">bloc · development and evaluation</footer>
 </body>
 </html>

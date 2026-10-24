@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: bloc-interface-design
-description: A minimal, precise interface built around black, white, neutral grays, clear typography, and restrained lime-green highlights. Use generous whitespace, thin borders, and consistent components to make content and actions easy to scan.
+description: A minimal, precise interface built around black, white, neutral grays, clear typography, and restrained lime-green highlights. Use compact application chrome, one navigation menu, integrated data surfaces, and consistent components.
 
 colors:
   canvas: "#ffffff"
@@ -11,10 +11,10 @@ colors:
   ink: "#09090b"
   body: "#3f3f46"
   muted: "#71717a"
-  hairline: "#e4e4e7"
-  hairline-strong: "#a1a1aa"
-  primary: "#18181b"
-  primary-hover: "#27272a"
+  hairline: "#ebebee"
+  hairline-strong: "#c5ced1"
+  primary: "#242b2e"
+  primary-hover: "#343f44"
   primary-active: "#3f3f46"
   on-primary: "#fafafa"
   accent: "#a3e635"
@@ -23,7 +23,7 @@ colors:
   accent-soft: "#ecfccb"
   accent-ink: "#365314"
   on-accent: "#09090b"
-  focus: "#4d7c0f"
+  focus: "#586f7a"
   semantic-error: "#b91c1c"
   semantic-error-soft: "#fef2f2"
 
@@ -32,10 +32,8 @@ typography:
   mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
 
 rounded:
-  sm: 2px
-  md: 3px
-  lg: 4px
-  xl: 4px
+  component: 12px
+  circle: 50%
 
 spacing:
   xxs: 4px
@@ -51,184 +49,184 @@ spacing:
 
 # bloc interface design
 
-This file is the visual reference for agents designing or changing bloc's
-interface. It describes the intended direction, not a claim that every component
-or feature already exists. Apply it to server-rendered HTML and existing styles;
-keep changes within the repository's implementation guidance.
+The requester refined the visual direction on 2026-10-23: preserve the existing
+colours and use Supabase as the primary reference, followed by Cursor and Slack.
+Their supplied Supabase settings screenshot supersedes the earlier rail-based
+composition: use one navigation menu, no separate black strip and no “b” icon.
+The later Resend screenshots remove the workspace header and move the workspace
+menu and utility controls into the sidebar, retaining the approved colours.
 
 ## Visual direction
 
-Make the interface clean, structured, and primarily black and white. Neutral gray
-surfaces and thin borders establish hierarchy. Strong headings, compact controls,
-and generous space around content give the interface a quiet, practical character.
-Lime green provides an occasional point of emphasis.
+Use one quiet full-height navigation sidebar without a workspace header. Navigation and
+content share the theme's canvas, separated by thin rules. Avoid an inset,
+rounded application frame. Center settings in a restrained content column, with
+bordered groups, aligned field rows and a separate action footer. Keep controls
+compact and emphasize active navigation and focused inputs without heavy fills.
 
-- Use white as the default page canvas, near-black for headings and primary actions,
-  and neutral grays for secondary text, dividers, and subdued surfaces.
-- Keep most of every screen monochrome. Lime is a highlight, not a page background
-  or the default color for every interactive element.
-- Use clear component boundaries, consistent alignment, and very subtle corner radii.
-- Let typography and spacing carry hierarchy. Avoid decorative gradients, glows,
-  textured backgrounds, oversized pills, and ornamental illustrations.
-- Design around bloc's content and actual capabilities. Product previews should
-  represent bloc screens and clearly identify planned functionality.
+The follow-up refinement softens separators and resting field borders in both
+themes. Keep rules at 1px; use quieter neutral colours rather than changing the
+layout. Active navigation uses a neutral fill and medium-weight text, without a
+border or green dot. The subsequent supplied control references introduce a
+cool charcoal surface, more visible control edges and 12px control corners.
+Fields use a translucent ring in the same neutral hue as their focused border;
+error colours remain distinct.
+The requester approved the light controls but rejected the blue cast in dark
+mode. Dark controls therefore use the workspace's neutral graphite/zinc family,
+including borders and focus, so the existing lime status badges remain the
+colour accent. Light-mode values and control geometry stay unchanged.
 
-## Color and emphasis
+The references were inspected through their actual product imagery:
 
-Use the frontmatter tokens as the shared palette. Map them to CSS custom properties
-when implementing styles instead of scattering literal colors across components.
+- [Slack's sidebar update](https://slack.com/whats-new): historical reference for
+  grouped navigation; its contrasting rail is not part of the current direction.
+- [Supabase Studio on its product page](https://supabase.com/): compact navigation,
+  thin separators and integrated data tables. Its
+  [navigation guidance](https://supabase.com/changelog/33670-upcoming-breaking-change-to-dashboard-navigation)
+  reinforces keeping context and account actions distinct.
+- [Cursor's agent interface](https://cursor.com/changelog/2-0): restrained chrome,
+  quiet type hierarchy and content-centered work areas.
 
-| Role | Tokens | Treatment |
+These are design references. Do not copy their branding, add their unrelated
+features, or populate bloc with invented metrics, search fields or inactive links.
+
+## Colour and appearance
+
+Keep the frontmatter palette. Most surfaces are neutral; lime marks deliberate
+emphasis and labeled positive states. Primary controls use charcoal with light
+text in both themes. White text on bright lime and lime body text on
+white are prohibited. Error red remains semantic.
+
+Both themes are complete and use the same components. Initial appearance follows
+the system. A footer icon opens System, Light and Dark choices in the workspace; access screens retain a native labeled selector. The manual
+choice persists in browser-local storage and synchronizes across tabs; failure
+to access storage does not prevent rendering or the current selection. Without
+JavaScript, system appearance works and the unavailable selector remains hidden.
+
+| Role | Light | Dark |
 | --- | --- | --- |
-| Page and panels | `canvas`, `canvas-soft`, `surface-card` | White or subtly shaded neutral surfaces |
-| Subdued regions | `surface-muted` | Secondary panels, table headers, code backgrounds, hover fills |
-| Text | `ink`, `body`, `muted` | Strong headings, readable body copy, secondary metadata |
-| Borders | `hairline`, `hairline-strong` | Thin dividers; stronger outlines where controls need definition |
-| Default action | `primary`, `on-primary` | Near-black fill with near-white text |
-| Highlight | `accent`, `on-accent` | Lime fill with near-black text or icons |
-| Subtle highlight | `accent-soft`, `accent-ink` | Pale lime surface with dark green text |
-| Keyboard focus | `focus` | Visible outline with separation from the component |
-| Error | `semantic-error`, `semantic-error-soft` | Validation and destructive states only |
+| Workspace | `#ffffff` | `#18181b` |
+| Outer chrome | `#f4f4f5` | `#09090b` |
+| Muted surfaces | `#f4f4f5` | `#27272a` |
+| Main text | `#09090b` | `#fafafa` |
+| Secondary text | `#71717a` | `#a1a1aa` |
+| Separators | `#ebebee` | `#2e2e33` |
+| Control surfaces | `#f3f5f5` | `#252528` |
+| Resting field borders | `#c5ced1` | `#48484f` |
+| Hover/focused field borders | `#8b9ba2` | `#71717a` |
+| Field focus ring | focused border at 24% opacity | focused border at 24% opacity |
+| Primary control fill | `#242b2e` | `#343438` |
+| Primary control border | `#46565e` | `#64646c` |
+| Link/button focus outline | `#586f7a` | `#a1a1aa` |
+| Positive fill/text | `#ecfccb` / `#365314` | `#365314` / `#ecfccb` |
+| Error fill/text | `#fef2f2` / `#b91c1c` | `#b91c1c` / `#fef2f2` |
 
-Use lime for a small active indicator, a selected badge, or an occasional emphasized
-action. Default primary buttons and the bloc wordmark remain monochrome. When an
-accent button is appropriate, use its matching hover and active tokens.
+The public access introduction uses near-black in either theme. The authenticated
+shell uses the theme canvas throughout, including the single sidebar.
 
-Never use bright lime for small text on white or white text on lime. Use
-`accent-ink` for green text on light surfaces. Pair status colors with text or
-icons; a green highlight alone must not imply success. Error red is a semantic
-exception, not an additional decorative accent.
+## Typography and components
 
-The default theme is light. If a dark theme is introduced, preserve the same
-hierarchy using near-black canvases, neutral dark panels, light text, and restrained
-lime. Define and check a complete dark palette before shipping it.
+Icons use a consistent outline weight with round caps and joins, rounded
+rectangle corners and curved transitions in folders, workspace and utility symbols.
+Preserve their existing size and avoid mixing sharp and rounded versions of the
+same symbol.
 
-## Typography
+Use system sans-serif and monospace for technical identifiers; no font download
+is needed. Page headings are 22px/600; access headings are 28px/600, reduced to
+22px below 640px. Section headings are generally 13–15px/600 (empty-state
+headings use 16px), body and fields 13–14px, desktop buttons 12px, and metadata
+11–12px. Fields use 16px text below 640px. Use sentence case and
+restrained tracking. Long names, identifiers and error text must wrap safely.
 
-Use the system sans-serif stack for the interface. Use the monospace stack for
-code, technical identifiers, and configuration examples. No custom font download
-is required.
+Buttons, inputs and selects have 12px corners. Desktop buttons are at least 30px
+high with 12px text; inputs are at least 32px high with 13px text. Below 640px
+and for coarse pointers, the shared button/input minimum-height tokens are 44px.
+This does not apply to every link: directory record links retain a 28px minimum.
+The access appearance select uses the button-height token. Neutral
+secondary buttons use thin borders. Following the requester's button reference,
+filled buttons have a subtle 1px outline, an inset top highlight and a short
+outer shadow in both themes. Pressing replaces the raised shadow with an inset
+shadow; ghost and disabled buttons stay flat. Keep one primary action per group. Inputs
+have visible labels, persistent guidance and adjacent error messages. Field focus
+uses a 3px neutral ring at 24% opacity with no additional outline or fill change;
+invalid input and textarea fields keep their semantic red border and use a
+16% error-colour ring. No custom
+input is required where a native control fits.
 
-| Role | Size | Weight | Line height | Tracking |
-| --- | --- | --- | --- | --- |
-| Landing headline | 48–64px desktop, 32–40px mobile | 700 | 1.1 | -0.04em |
-| Page heading | 30–36px | 600–700 | 1.2 | -0.03em |
-| Section heading | 22–24px | 600 | 1.3 | -0.02em |
-| Card heading | 16–18px | 600 | 1.4 | Normal |
-| Body | 16px | 400 | 1.6 | Normal |
-| Controls and navigation | 14px | 500 | 1.4 | Normal |
-| Secondary copy and metadata | 13–14px | 400 | 1.5 | Normal |
-| Code | 13–14px | 400 | 1.6 | Normal |
+Tables span the workspace content width with subtle row dividers, muted headers
+and restrained hover fills. Do not enclose every data cell or section in a card.
+Lists retain semantic tables and a keyboard-accessible horizontal scroll region.
+Empty states supply a useful action and explain the real absence.
 
-Use sentence case for labels and headings. Keep body copy to roughly 60–75
-characters per line. Prefer concise labels and short supporting descriptions.
-Reserve tight tracking for larger headings, and avoid uppercase navigation or
-widely tracked labels as the default.
+All bounded components share the 12px `--ui-radius`: controls, navigation items,
+badges, notices, panels, entry tiles, icon containers and standalone table
+wrappers. The control-radius token inherits it. Circular avatars and status dots
+remain circular; unboxed layout sections and edge-to-edge tables keep straight
+separators. Badges retain text and a small dot for a positive state. Colour
+alone never conveys lifecycle state. Panels use the shared radius where an actual
+bounded surface is useful. Directory detail forms use vertically stacked,
+bordered profile, lifecycle and record sections in a single column. Record
+metadata uses a two-column label/value grid within its section. Feedback uses the same notice and field-error components in
+both full pages and fragments.
 
-## Layout and spacing
+## Workspace composition
 
-Use a 4px spacing unit with the frontmatter scale. Keep content centered in a
-container up to 1200px wide, with 16–24px horizontal gutters on small screens and
-24–32px on larger screens.
+Desktop: one full-height 240px sidebar, with a workspace/account menu at the top
+and appearance, feedback and help icons at the bottom. No horizontal workspace header. The sidebar
+narrows to 192px at 900px. Below 640px the same navigation becomes a wrapping row
+above the content; the workspace menu and utility icons remain available. All
+destinations remain labeled and usable without JavaScript.
+Use the plain `bloc` name with an installation descriptor in the workspace menu.
+Tenant navigation opens the existing directory; it does not change administrator
+authority or introduce tenant-bound sessions. Feedback opens the project issue
+form and help opens its README. Icon controls have hover/focus labels. Menus close
+on Escape and outside clicks with JavaScript; native disclosure works without it. Navigation and
+appearance stay outside the HTMX replacement target. Breadcrumbs appear only in
+the page content.
 
-- Landing sections: 64–80px vertical spacing on desktop, 40–48px on mobile.
-- Application sections: 24–32px between related groups.
-- Cards: 20–24px padding, with 16–24px gaps between cards.
-- Forms: 16–24px between fields and 6–8px between a label and its control.
-- Navigation: approximately 64px high with a subtle bottom border.
+The overview has a directory entry, administrator account actions and compact
+installation details. It does not invent totals, charts or activity. Settings use
+a centered column up to 960px including gutters. Profile fields are organized in
+bordered rows: label/help on the left and input on the right at desktop widths,
+stacked below 1000px. Lifecycle controls and immutable metadata follow the profile.
+Creation forms remain at most 680px wide. Use 32–40px desktop content gutters,
+24px at intermediate sizes and 16px on mobile. Table overflow stays contained.
 
-Align headings, descriptions, controls, and tables to a shared grid. Use two or
-three columns only when the content benefits; collapse to a single column when
-space becomes constrained. Administrative screens can be denser than landing
-pages while retaining clear grouping and comfortable control spacing.
+## Access screens
 
-## Components
+Public sign-in, setup and recovery use a split composition: a near-black brand
+introduction on the left and a focused unboxed form on the right. The introduction
+names only implemented capabilities. Below 900px it is omitted, leaving the form
+and simple header. Account/password changes stay inside the authenticated shell.
+Error, closed-setup, unavailable and expired states keep the established messages
+and recovery behavior; a new arrangement does not change authentication policy.
 
-### Navigation
+## Portable UI boundary
 
-Place the lowercase bloc wordmark at the left, followed by a small set of relevant
-links. Keep secondary actions understated. Use near-black text for the current
-page, with an underline or subtle neutral background; a small lime marker is
-optional. Keep borders and spacing consistent with the content container.
+[UI assets](docs/ui-system.md) define opt-in component styles, tokens and generic
+appearance behavior. Application layout and domain behavior stay separate.
+Components must work in ordinary HTML without Rust, Askama or HTMX. Keep current
+assets locally served; extraction and CDN publication are future work.
 
-### Buttons and links
+## Accessibility and verification
 
-Default primary buttons use `primary` and `on-primary`, with `primary-hover` and
-`primary-active` interaction states. Secondary buttons use a white surface, dark
-text, and a 1px border. Ghost buttons use transparent backgrounds with a neutral
-hover fill. Use 3px corner radii, 14px medium-weight labels, and 12–16px horizontal
-padding. Aim for 40–44px control heights, with at least 44px touch targets.
+Keep semantic headings, native controls, visible labels, a skip link and visible
+keyboard focus. Links and buttons retain 2px focus outlines; fields use the
+neutral ring described above, with a system-colour outline in forced-colours
+mode. Target 4.5:1 normal text contrast. Field borders and translucent rings are
+deliberately softer; do not claim they meet 3:1 non-text contrast. Keep persistent labels and visible
+field surfaces. Shared buttons and fields use a 44px minimum on narrow viewports
+and coarse pointers; directory record links retain a 28px minimum. Workspace
+utility icons are 44px in those modes. The workspace-menu summary is at least
+52px on desktop and 44px below 640px.
 
-Use accent buttons sparingly where emphasis is intentional. Keep one clear primary
-action per action group. Inline links should be distinguishable through underlines
-or another persistent non-color cue. Disabled controls should look subdued and
-remain distinguishable from enabled controls.
+Directory fields associate guidance and errors through `aria-describedby`.
+Administrator access/password forms associate field errors, but the visible
+password guidance is currently not associated with its input. This is a known
+accessibility limitation of the current templates.
+Respect reduced-motion preferences. No essential action may depend on hover.
 
-### Cards and panels
-
-Use white surfaces, 1px `hairline` borders, and 4px corner radii. Titles are dark
-and semibold; descriptions use secondary text. Prefer flat surfaces for normal
-content. A subtle neutral shadow is acceptable for a floating menu, popover, or
-dialog when needed to separate overlapping layers.
-
-### Forms
-
-Use visible labels, white inputs, clear neutral borders, and 3px corner radii.
-Place supporting text below the field. Show focus visibly and place validation
-messages next to the affected control. Do not rely on placeholder text as a label.
-Keep inputs comfortably sized and allow long values to fit without breaking layout.
-
-### Tables and lists
-
-Use aligned columns, subtle row dividers, muted headers, and a light neutral hover
-fill for interactive rows. Avoid enclosing every cell in a box. Use monospace only
-for technical values. Place row actions consistently and keep them keyboard
-accessible. Provide clear empty, loading, and error states as functionality lands.
-
-### Badges and status
-
-Default badges use neutral fills, dark text, compact padding, and a subtle 2px
-corner radius. Reserve pale lime with dark green text for deliberate emphasis or a
-labeled positive state. State meaning in words and use an icon where useful.
-Avoid assigning a different decorative color to every category.
-
-### Code and technical content
-
-Use a muted neutral background, a thin border, and the monospace font. Keep
-syntax coloring restrained. Allow long code samples to scroll within their own
-container without causing the page to overflow.
-
-### Landing content and footer
-
-Use a strong headline, a short description, and a compact action group. Keep any
-product illustration aligned with the same borders, colors, and typography as the
-interface. The footer uses a top divider, subdued links, and modest spacing.
-Include only sections and actions appropriate to implemented or explicitly planned
-capabilities.
-
-## Responsive behavior and accessibility
-
-Let layout changes follow content needs. Use 640px and 1024px as initial layout
-breakpoints: single-column on small screens, two columns where useful on medium
-screens, and the full content grid on larger screens.
-
-- Collapse navigation when links no longer fit and give the menu control a label.
-- Stack action groups and form layouts when needed; avoid clipped labels.
-- Keep tables readable with contained horizontal scrolling or a suitable list view.
-- Preserve visible keyboard focus on every interactive element. Use a 2px `focus`
-  outline with a 2px offset on light surfaces; verify it against adjacent colors.
-- Check text and control contrast in their actual states. Target at least 4.5:1
-  for normal text and 3:1 for large text and essential control boundaries.
-- Use semantic headings, labels, links, and buttons. Never rely on color alone.
-- Keep transitions short, around 120–180ms, and respect reduced-motion preferences.
-  Avoid decorative entrance sequences and animated backgrounds.
-
-## Agent checklist
-
-1. Follow this direction for new UI and changes to existing components.
-2. Reuse shared tokens and existing component patterns before adding variants.
-3. Keep black, white, and neutral grays dominant; use lime with a clear purpose.
-4. Specify hover, active, focus, disabled, and error states where applicable.
-5. Review small-screen layout, keyboard access, long content, and contrast.
-6. Keep examples synthetic and distinguish planned features from working behavior.
-7. Update this reference when a deliberate design decision changes the system.
+Check desktop and narrow widths, both themes, long content, keyboard navigation,
+no-JavaScript forms, repeated HTMX swaps, loading/error feedback and history.
+The [portable interface behavior record](docs/behaviors/portable-interface.md)
+records current verification and any limits. Visual evidence lives in Drive.

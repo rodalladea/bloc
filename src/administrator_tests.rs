@@ -9,6 +9,66 @@ use axum::{
 use common::Fixture;
 use tower::ServiceExt;
 
+#[test]
+fn interface_theme_is_available_on_every_administrator_screen() {
+    for path in [
+        "/admin",
+        "/admin/login",
+        "/admin/setup",
+        "/admin/recovery",
+        "/admin/password",
+    ] {
+        let page = Page::new(path);
+        let html = Full { page: &page }.render().unwrap();
+        assert!(html.contains("href=\"/assets/ui.css\""));
+        assert!(html.contains("src=\"/assets/ui.js\""));
+        assert!(html.contains("aria-label=\"Appearance\""));
+        for theme in ["system", "light", "dark"] {
+            assert!(
+                html.contains(&format!("value=\"{theme}\""))
+                    || html.contains(&format!("data-ui-theme-choice=\"{theme}\""))
+            );
+        }
+        let fragment = Fragment { page: &page }.render().unwrap();
+        assert!(!fragment.contains("data-ui-theme-control"));
+    }
+}
+
+#[test]
+fn dashboard_navigation_and_actions() {
+    let mut page = Page::new("/admin");
+    page.email = "Owner@example.test".into();
+    let html = Full { page: &page }.render().unwrap();
+    assert!(html.contains("aria-label=\"Administration\""));
+    assert!(html.contains("href=\"/admin\" aria-current=\"page\""));
+    assert!(html.contains("href=\"/admin/tenants/new\""));
+    assert!(html.contains("href=\"/admin/tenants\""));
+    assert!(html.contains("href=\"/admin/password\""));
+    assert!(html.contains("Owner@example.test"));
+    assert!(html.contains("action=\"/admin/logout\""));
+    assert!(html.contains("Directory users cannot sign in"));
+    assert!(!html.contains("workspace-header"));
+    assert!(html.contains("aria-label=\"Workspace menu\""));
+    assert!(html.contains("aria-label=\"Help\""));
+    assert!(html.contains("data-ui-theme-choice=\"dark\""));
+    let fragment = Fragment { page: &page }.render().unwrap();
+    assert!(!fragment.contains("class=\"sidebar\""));
+    assert_eq!(fragment.matches("id=\"content\"").count(), 1);
+}
+
+#[test]
+fn dashboard_navigation_stays_out_of_public_access_forms() {
+    for path in ["/admin/login", "/admin/setup", "/admin/recovery"] {
+        let page = Page::new(path);
+        let html = Full { page: &page }.render().unwrap();
+        assert!(!html.contains("class=\"sidebar\""));
+        assert!(html.contains("href=\"#content\""));
+    }
+    let page = Page::new("/admin/password");
+    let html = Full { page: &page }.render().unwrap();
+    assert!(html.contains("href=\"/admin/password\" aria-current=\"page\""));
+}
+
 struct Http {
     app: Application,
     anonymous: String,
