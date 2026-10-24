@@ -5,6 +5,8 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+## 0.3.2 - 2026-10-24
+
 ### Fixed
 
 - Offer tenant creation directly in the workspace dropdown and move Manage tenants
