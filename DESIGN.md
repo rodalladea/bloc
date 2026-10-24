@@ -176,9 +176,8 @@ and appearance, feedback and help icons at the bottom. No horizontal workspace h
 narrows to 192px at 900px. Below 640px a compact header keeps the hamburger beside the bloc workspace
 dropdown. Following the supplied ChatGPT mobile reference, the button reveals navigation
 on the left while the header and page slide right, leaving a 68px page strip
-with a rounded top corner and soft shadow. Retain desktop navigation groups,
-roomier mobile rows and bottom utility controls. Tapping the page strip, the
-close button or Escape dismisses navigation. Keyboard focus stays inside the open drawer, background
+with rounded top and bottom corners and one continuous shadow. Retain desktop navigation groups,
+roomier mobile rows and bottom utility controls. Tapping the page strip or pressing Escape dismisses navigation. Keyboard focus stays inside the open drawer, background
 content is inert, and reduced-motion preferences disable animation. Desktop navigation remains visible.
 Without JavaScript, the labeled navigation stays expanded and usable.
 Use the plain `bloc` name with an installation descriptor in the workspace menu.

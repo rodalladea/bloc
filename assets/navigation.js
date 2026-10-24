@@ -8,7 +8,6 @@
    const drawer = sidebar.querySelector('.sidebar-content');
    const workspace = document.querySelector('.workspace');
    const header = sidebar.querySelector('.sidebar-header');
-   const closeButton = sidebar.querySelector('.mobile-menu-close');
    const close = (restoreFocus = false) => {
      toggle.setAttribute('aria-expanded', 'false');
      sidebar.dataset.mobileMenu = 'ready';
@@ -32,7 +31,7 @@
      header.inert = true;
      if (workspace) workspace.inert = true;
      drawer.getBoundingClientRect();
-     closeButton.focus();
+     drawer.querySelector('a[href]').focus();
    };
    toggle.hidden = false;
    sidebar.querySelector('.mobile-menu-backdrop').hidden = false;
@@ -40,7 +39,6 @@
    drawer.getBoundingClientRect();
    sidebar.dataset.menuMotion = 'ready';
    toggle.addEventListener('click', open);
-   closeButton.addEventListener('click', () => close(true));
    sidebar.querySelector('.mobile-menu-backdrop').addEventListener('click', () => close(true));
    drawer.addEventListener('click', event => {
      if (mobile.matches && event.target.closest('a[href]')) close(true);

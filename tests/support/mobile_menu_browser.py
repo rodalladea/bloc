@@ -40,12 +40,14 @@ def verify():
                 page.wait_for_timeout(320)
                 assert page.locator('.workspace').bounding_box()['x'] == 307
                 assert page.locator('.sidebar-header').bounding_box()['x'] == 307
-                expect(page.locator('.mobile-menu-close')).to_be_focused()
+                expect(page.get_by_role('link', name='Overview', exact=True)).to_be_focused()
+                expect(page.locator('.mobile-menu-close')).to_have_count(0)
+                assert page.locator('.sidebar').evaluate("e => getComputedStyle(e, '::before').borderBottomLeftRadius") == '28px'
                 assert page.locator('.workspace').evaluate('e => e.inert')
                 page.keyboard.press('Shift+Tab')
                 expect(page.get_by_role('link', name='Help', exact=True)).to_be_focused()
                 page.keyboard.press('Tab')
-                expect(page.locator('.mobile-menu-close')).to_be_focused()
+                expect(page.get_by_role('link', name='Overview', exact=True)).to_be_focused()
                 page.keyboard.press('Escape')
                 expect(nav).to_be_hidden()
                 expect(toggle).to_be_focused()

@@ -107,7 +107,7 @@ When they activate the hamburger button using a pointer or keyboard
 Then the page and header slide right to reveal the desktop navigation groups
 on the left, leaving a rounded page edge and shadow as in the supplied reference
 and utility controls, while the bloc dropdown sits beside the hamburger in the header
-And tapping the exposed page strip or close button dismisses the menu
+And tapping the exposed page strip dismisses the menu
 And keyboard focus stays inside the drawer and background content is inert
 And reduced-motion preferences disable animation
 And the button exposes whether navigation is expanded
