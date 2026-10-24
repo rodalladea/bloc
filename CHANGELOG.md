@@ -5,6 +5,11 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+### Fixed
+
+- Generate GitHub release descriptions from the matching dated changelog section
+  and use version-specific titles instead of repeating administrator-access text.
+
 ## 0.3.1 - 2026-10-23
 
 ### Fixed
