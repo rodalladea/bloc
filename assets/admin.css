@@ -171,3 +171,17 @@ dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; font-size: 13px; }
 
 .ui .access-form--plain .ui-field { border-bottom: 0; padding: 0; margin-bottom: 24px; }
 .ui .access-form--plain .ui-field + .actions { padding-top: 0; }
+
+/* Keep the full navigation available when scripting is unavailable. */
+.sidebar-content { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+.mobile-menu-toggle { display: none; }
+@media (max-width: 639px) {
+  .sidebar { display: block; }
+  .sidebar-content { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .sidebar[data-mobile-menu] .mobile-menu-toggle { display: grid; padding: 0; border: 0; background: transparent; box-shadow: none; }
+  .sidebar[data-mobile-menu] .mobile-menu-toggle[aria-expanded="false"] + .sidebar-content { display: none; }
+  .sidebar[data-mobile-menu] .mobile-menu-toggle[aria-expanded="true"] + .sidebar-content { margin-top: 8px; }
+  .sidebar[data-mobile-menu] .sidebar-nav { display: flex; flex-direction: column; }
+  .sidebar[data-mobile-menu] .sidebar-nav a { justify-content: flex-start; min-height: 44px; }
+  .workspace { min-height: calc(100vh - 69px); }
+}

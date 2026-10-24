@@ -5,6 +5,12 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+### Changed
+
+- Collapse the mobile dashboard navigation behind a hamburger button, with
+  keyboard access, Escape and outside-click dismissal, and expanded navigation
+  when JavaScript is unavailable.
+
 ## 0.3.2 - 2026-10-24
 
 ### Fixed

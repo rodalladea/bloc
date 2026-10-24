@@ -94,3 +94,28 @@ Evidence under `projects/bloc/.design/dashboard-interface-2026-10-23/`:
 - `ordinary.txt` — [ordinary test results](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=77136c186bfda06485a1765915fb53aded475c3f9fe212ab).
 - `postgres-17.txt` — [PostgreSQL 17 results](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=de7f97279b3997aeda9bc81ed24423203459561103889e77).
 - `postgres-18.txt` — [PostgreSQL 18 results](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=e30357e6e08d249a0a3f7be2e53f83b1d426d8abf7cc9901).
+
+## Mobile menu refinement — 2026-10-24
+
+Decision source: the requester asked to replace the dashboard mobile menu with a
+hamburger icon that opens the menu. No route, authority, or dependency changes.
+
+### dashboard-04: open mobile navigation
+
+Given an administrator on a viewport narrower than 640px with JavaScript enabled
+When they activate the hamburger button using a pointer or keyboard
+Then the workspace menu, navigation links and utility controls become available
+And the button exposes whether navigation is expanded
+And Escape closes navigation and returns focus to the button
+And clicking outside closes navigation
+And desktop navigation is always visible, with the hamburger hidden
+And without JavaScript the navigation remains expanded and usable.
+
+Verification: `python3 tests/support/mobile_menu_browser.py` passed in Chromium.
+The focused proof renders the actual sidebar template and application assets
+with synthetic values and checks mobile keyboard interaction, expanded state,
+Escape/focus, outside dismissal, desktop resizing and the no-JavaScript fallback.
+It failed before implementation because the hamburger control was missing.
+This checks the isolated shell, not authenticated service or HTMX form flows.
+Rust build, lint, ordinary tests and documentation checks could not run in the
+editing environment because the Rust toolchain is unavailable.
