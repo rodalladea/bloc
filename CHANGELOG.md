@@ -5,7 +5,12 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
-## 0.3.0 - 2026-10-23
+## 0.3.1 - 2026-10-23
+
+### Fixed
+
+- Validate scoped administrator styles and the shared appearance assets in the
+  packaged-container smoke test. Version 0.3.0 failed this gate before publication.
 
 ### Changed
 

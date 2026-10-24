@@ -46,13 +46,13 @@ def exercise(image, platform, checks, revision=None, authority=None):
         port = run('docker', 'port', container, '3000').stdout.strip().rsplit(':', 1)[1]
         wait(port)
         if 'C1' in checks:
-            routes = [('/assets/admin.css', 'text/css', b':root'), ('/assets/htmx.min.js', 'text/javascript', b'htmx'), ('/healthz', 'text/plain', b'ok\n')]
+            routes = [('/assets/admin.css', 'text/css', b'.ui'), ('/assets/ui.css', 'text/css', b'--ui-canvas'), ('/assets/ui.js', 'text/javascript', b'data-ui-theme'), ('/assets/htmx.min.js', 'text/javascript', b'htmx'), ('/healthz', 'text/plain', b'ok\n')]
             routes += [(path, None, b'') for path in ['/.well-known/openid-configuration', '/oauth/token', '/saml', '/missing']]
             for path, content_type, body in routes:
                 status, headers, actual = request(port, path)
                 assert status == (404 if path in ['/.well-known/openid-configuration', '/oauth/token', '/saml', '/missing'] else 200), (path, status)
                 if content_type:assert headers['Content-Type'].startswith(content_type)
-                assert body in actual
+                assert body in actual, (path, body)
                 if path == '/healthz':
                     assert actual == body
                 for key, value in {'cache-control':'no-store', 'x-content-type-options':'nosniff', 'referrer-policy':'same-origin', 'x-frame-options':'DENY', 'content-security-policy':"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"}.items():
