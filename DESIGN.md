@@ -173,9 +173,11 @@ both full pages and fragments.
 
 Desktop: one full-height 240px sidebar, with a workspace/account menu at the top
 and appearance, feedback and help icons at the bottom. No horizontal workspace header. The sidebar
-narrows to 192px at 900px. Below 640px a 44px hamburger button opens the navigation above the content,
-including the workspace menu and utility icons. It exposes its expanded state
-and closes on Escape or an outside click. Desktop navigation remains visible.
+narrows to 192px at 900px. Below 640px a compact header keeps the hamburger beside the bloc workspace
+dropdown. The button opens an animated drawer from the left, retaining desktop
+navigation groups and bottom utility controls. A dimmed backdrop, close button
+and Escape dismiss it. Keyboard focus stays inside the open drawer, background
+content is inert, and reduced-motion preferences disable animation. Desktop navigation remains visible.
 Without JavaScript, the labeled navigation stays expanded and usable.
 Use the plain `bloc` name with an installation descriptor in the workspace menu.
 Tenant navigation opens the existing directory; it does not change administrator

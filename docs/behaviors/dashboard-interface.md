@@ -104,7 +104,11 @@ hamburger icon that opens the menu. No route, authority, or dependency changes.
 
 Given an administrator on a viewport narrower than 640px with JavaScript enabled
 When they activate the hamburger button using a pointer or keyboard
-Then the workspace menu, navigation links and utility controls become available
+Then a left drawer slides over the content with the desktop navigation groups
+and utility controls, while the bloc dropdown sits beside the hamburger in the header
+And a dimmed backdrop and close button dismiss the drawer
+And keyboard focus stays inside the drawer and background content is inert
+And reduced-motion preferences disable animation
 And the button exposes whether navigation is expanded
 And Escape closes navigation and returns focus to the button
 And clicking outside closes navigation
@@ -114,7 +118,8 @@ And without JavaScript the navigation remains expanded and usable.
 Verification: `python3 tests/support/mobile_menu_browser.py` passed in Chromium.
 The focused proof renders the actual sidebar template and application assets
 with synthetic values and checks mobile keyboard interaction, expanded state,
-Escape/focus, outside dismissal, desktop resizing and the no-JavaScript fallback.
+Escape/focus, backdrop dismissal, focus containment, link dismissal, desktop resizing and the
+no-JavaScript fallback.
 It failed before implementation because the hamburger control was missing.
 This checks the isolated shell, not authenticated service or HTMX form flows.
 Rust build, lint, ordinary tests and documentation checks could not run in the
