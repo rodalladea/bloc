@@ -79,7 +79,7 @@
 .ui :where(input[aria-invalid="true"], textarea[aria-invalid="true"]):is(:hover, :focus) { border-color: var(--ui-error); }
 .ui :where(input[aria-invalid="true"], textarea[aria-invalid="true"]):focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-error) 16%, transparent); }
 .ui :where(input:disabled, select:disabled, textarea:disabled) { background: var(--ui-surface-muted); color: var(--ui-muted); }
-.ui .ui-field { margin-bottom: 18px; }
+.ui .ui-field { margin: 0; padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--ui-line); }
 .ui .ui-field--row { margin: 0; padding: 20px; border-bottom: 1px solid var(--ui-line); }
 .ui .ui-field--row > label { font-weight: 400; }
 @media (min-width: 1000px) {
@@ -121,3 +121,8 @@
 @media (forced-colors: active) {
   .ui :where(input:not([type="hidden"]), select, textarea):focus { outline: 2px solid Highlight; outline-offset: 2px; }
 }
+
+.ui .ui-field + .ui-notice { margin-top: 24px; }
+.ui .ui-field + .actions { padding-top: 20px; }
+
+.ui :where(input, textarea)::placeholder { color: var(--ui-muted); opacity: 1; }

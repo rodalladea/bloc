@@ -7,6 +7,18 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ### Fixed
 
+- Offer tenant creation directly in the workspace dropdown and move Manage tenants
+  into the sidebar Settings group.
+
+- Remove page-heading dividers and restore the narrower Account security layout.
+
+- Add placeholders to editable fields and remove field dividers from login and
+  password recovery while preserving the internal settings form style.
+
+- Simplify public access, enlarge its controls, and follow the system theme without
+  a selector. Align workspace page widths, contain tables and menus, space sidebar
+  links and form footers, and consolidate tenant creation in the Tenants list.
+
 - Generate GitHub release descriptions from the matching dated changelog section
   and use version-specific titles instead of repeating administrator-access text.
 

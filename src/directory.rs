@@ -712,3 +712,19 @@ async fn handle(app: &Application, request: Request) -> Response {
         }
     }
 }
+
+#[test]
+fn tenant_creation_has_one_entry_per_list_state() {
+    for populated in [false, true] {
+        let mut p = Page::new();
+        p.list = true;
+        p.title = "Tenants".into();
+        if populated {
+            p.rows.push(Record::default());
+        }
+        let html = Full { p: &p }.render().unwrap();
+        assert_eq!(html.matches("href=\"/admin/tenants/new\"").count(), 2);
+        let fragment = Fragment { p: &p }.render().unwrap();
+        assert_eq!(fragment.matches("href=\"/admin/tenants/new\"").count(), 1);
+    }
+}
