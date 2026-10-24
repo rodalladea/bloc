@@ -173,9 +173,10 @@ both full pages and fragments.
 
 Desktop: one full-height 240px sidebar, with a workspace/account menu at the top
 and appearance, feedback and help icons at the bottom. No horizontal workspace header. The sidebar
-narrows to 192px at 900px. Below 640px the same navigation becomes a wrapping row
-above the content; the workspace menu and utility icons remain available. All
-destinations remain labeled and usable without JavaScript.
+narrows to 192px at 900px. Below 640px a 44px hamburger button opens the navigation above the content,
+including the workspace menu and utility icons. It exposes its expanded state
+and closes on Escape or an outside click. Desktop navigation remains visible.
+Without JavaScript, the labeled navigation stays expanded and usable.
 Use the plain `bloc` name with an installation descriptor in the workspace menu.
 Tenant navigation opens the existing directory; it does not change administrator
 authority or introduce tenant-bound sessions. Feedback opens the project issue
