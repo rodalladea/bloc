@@ -1,19 +1,19 @@
-# tenant and user management
+# realm and user management
 
-The installation administrator manages independent directories at `/admin/tenants`.
-No tenant is created automatically. A tenant contains its own users; equal emails
-in different tenants identify independent records. Directory users cannot sign in.
+The installation administrator manages independent directories at `/admin/realms`.
+No realm is created automatically. A realm contains its own users; equal emails
+in different realms identify independent records. Directory users cannot sign in.
 This increment creates no credentials, email verification, providers or identity
 protocols. The installation administrator remains a separate identity.
 
-Create a tenant, then use **View users** to create and manage its users. Names may
+Create a realm, then use **View users** to create and manage its users. Names may
 repeat; immutable UUIDs distinguish directories. User emails are unverified and
-unique within their tenant, including suspended users. Email normalization trims
+unique within their realm, including suspended users. Email normalization trims
 surrounding whitespace and lowercases the domain while preserving local-part case
 and aliases. Display names are optional. Names allow at most 128 Unicode scalars
 and 512 UTF-8 bytes, without control characters.
 
-Tenant and user statuses are independent. Suspending a tenant leaves its users'
+Realm and user statuses are independent. Suspending a realm leaves its users'
 statuses unchanged and permits continued directory management. Reactivating it
 leaves individually suspended users suspended. Combined directory status is active
 only when both records are active; this status does not authenticate anyone.
@@ -43,13 +43,22 @@ user UUIDs. No transfer or deletion capability is provided.
 
 Every actual mutation and its single targeted success event commit atomically.
 Unavailable authority or audit append failure returns 503 and commits no directory
-change. Events carry immutable tenant/user targets, administrator, database time
+change. Events carry immutable realm/user targets, administrator, database time
 and a generated request UUID, without profile values or secret material. Existing
 maintenance retains success events for 90 days and denial aggregates for seven
 days, deleting at most 1,000 of each category per invocation. Existing operational
 failure reporting applies; these periods do not promise an exact deletion deadline.
 
 See [ADR 0005](adr/0005-tenant-user-directories.md) and the
-[behavior contract](behaviors/tenant-user-management.md) for scope and proof mapping.
+[behavior contract](behaviors/realm-user-management.md) for scope and proof mapping.
 Production authentication approval, MFA, native capacity and identity-protocol
 conformance remain separate requirements.
+
+## Upgrade from tenant terminology
+
+Run `bloc database migrate` using migrator credentials before starting the new
+binary. Migration 4 renames directories and ownership columns in place, preserving
+records and historical audit actions. New events use realm action names.
+Administration URLs now start at `/admin/realms`; update bookmarks and integrations
+that use `/admin/tenants`. Mixed old/new binaries are unsupported. See
+[ADR 0006](adr/0006-realm-terminology.md).

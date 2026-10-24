@@ -130,7 +130,7 @@ with sync_playwright() as p:
         assert len(pending)==1
     elif mode=='session_expiry':
         page.goto(origin+'/admin/password')
-        other=context.new_page();other.goto(origin+'/admin/tenants');other.get_by_label('Workspace menu',exact=True).click();submit(other,'Log out');other.wait_for_url(origin+'/admin/login')
+        other=context.new_page();other.goto(origin+'/admin/realms');other.get_by_label('Workspace menu',exact=True).click();submit(other,'Log out');other.wait_for_url(origin+'/admin/login')
         fill(page,{'current_password':'a synthetic password','password':'the replacement password','password_confirmation':'the replacement password'})
         submit(page,'Change password')
         page.wait_for_url(origin+'/admin/login?expired=1')
@@ -151,7 +151,7 @@ with sync_playwright() as p:
                     workspace_menus(page)
                     nav=page.get_by_role('navigation',name='Administration',exact=True)
                     expect(nav.locator('[aria-current=page]')).to_have_text('Overview' if path=='/admin' else 'Account security')
-                    expect(nav.get_by_role('link',name='Tenants',exact=True)).to_be_visible()
+                    expect(nav.get_by_role('link',name='Realms',exact=True)).to_be_visible()
                     expect(page.locator('.app-rail')).to_have_count(0)
                     expect(page.get_by_role('navigation',name='Administration',exact=True)).to_have_count(1)
                     shell=page.locator('.sidebar').bounding_box()
@@ -161,8 +161,8 @@ with sync_playwright() as p:
                     expect(page.locator('.sidebar')).to_have_count(0)
                     assert page.locator('main').evaluate('e=>e.clientWidth-parseFloat(getComputedStyle(e).paddingLeft)-parseFloat(getComputedStyle(e).paddingRight)')<=480
                 if path=='/admin':
-                    expect(page.get_by_role('link',name='Create tenant',exact=True)).to_be_visible()
-                    expect(page.get_by_role('link',name='Browse tenants',exact=True)).to_be_visible()
+                    expect(page.get_by_role('link',name='Create realm',exact=True)).to_be_visible()
+                    expect(page.get_by_role('link',name='Browse realms',exact=True)).to_be_visible()
                     expect(page.get_by_role('button',name='Sign out',exact=True)).to_be_visible()
                     panels=page.locator('.overview-grid>div,.overview-grid>.installation-panel').all()
                     a,b=[panel.bounding_box() for panel in panels]

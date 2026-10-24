@@ -11,7 +11,7 @@ import tempfile
 from support import postgres as fixtures
 
 ROOT = Path(__file__).resolve().parents[1]
-DIRECTORY_TESTS = tuple(f"directory_c{i:02}" for i in range(1,38)) + ("directory_input_refusals", "directory_response_policy")
+DIRECTORY_TESTS = tuple(f"directory_c{i:02}" for i in range(1,38)) + ("directory_input_refusals", "directory_response_policy", "directory_realm_upgrade")
 DIRECTORY_BROWSER_TESTS = tuple("directory_screen_"+s for s in ("t1","t2","t3","u1","u2","u3")) + ("directory_browser_interactions",)
 
 ADMIN_TESTS = (
@@ -72,7 +72,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cached-images", action="store_true", help="Use already present pinned fixture images without pulling")
     parser.add_argument("--proof", choices=DIRECTORY_TESTS+DIRECTORY_BROWSER_TESTS, help="Run one exact directory proof with --target")
-    parser.add_argument("--target", choices=("tenant_user_management",), help="Run only the directory feature target")
+    parser.add_argument("--target", choices=("realm_user_management",), help="Run only the directory feature target")
     parser.add_argument("--major", type=int, choices=(17, 18), help="Run one database major; default runs both")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--browser-python", help="Playwright Python; requires a pinned local HTTPS proxy on4443")
@@ -115,7 +115,7 @@ def main():
                 selection = ["--skip", "native_service_capacity"]
                 if not args.browser_python:
                     selection += ["--skip", "browser_", "--skip", "directory_screen_"]
-                targets = ["--test", "tenant_user_management"] if args.target else ["--lib", "--test", "setup_storage", "--test", "operator", "--test", "storage_tls", "--test", "administrator_access", "--test", "administrator_operations", "--test", "tenant_user_management"]
+                targets = ["--test", "realm_user_management"] if args.target else ["--lib", "--test", "setup_storage", "--test", "operator", "--test", "storage_tls", "--test", "administrator_access", "--test", "administrator_operations", "--test", "realm_user_management"]
                 print(f"Running PostgreSQL {major} regression tests", flush=True)
                 run = run_logged(
                     ["cargo", "test", "--locked", *targets, *([args.proof] if args.proof else []),

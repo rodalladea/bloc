@@ -21,7 +21,7 @@ policy; continue independent work while awaiting an answer. Agents may resolve
 routine implementation details within the authorized scope, but must not invent
 product requirements or treat their own proposal as maintainer approval.
 
-For identity work, include the actor's permissions, tenant and trust boundaries,
+For identity work, include the actor's permissions, realm and trust boundaries,
 invalid or expired inputs, replay where relevant, and observable denial behavior.
 Use synthetic data and follow [security requirements](security.md). Examples
 supplement threat modeling and protocol conformance checks; they do not replace them.
@@ -51,7 +51,7 @@ behavior. Use `proposed`, `agreed`, `implemented`, or `superseded` as record sta
 link the replacement for superseded records. Mixed delivery belongs in explicitly
 marked scenario coverage rows, not an overall claim that everything works.
 
-Significant architecture, protocol, dependency, storage, tenancy, or compatibility
+Significant architecture, protocol, dependency, storage, realm isolation, or compatibility
 choices need a numbered ADR with context, options, decision, consequences, and
 status. Link the behavior record and ADR in both directions. BDD explains what
 outcome is needed; ADRs explain why a technical approach was chosen. Follow

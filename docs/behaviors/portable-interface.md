@@ -75,7 +75,7 @@ And no bloc route or server request is required by the reusable runtime.
 
 Given the administrator opens a workspace page
 When viewing it on desktop or a narrow screen
-Then one labeled Administration menu exposes overview, tenants and account security
+Then one labeled Administration menu exposes overview, realms and account security
 And there is no separate black rail or “b” icon
 And desktop buttons and fields are compact, while their shared minimum-height
 tokens become 44px on narrow viewports and coarse pointers
@@ -107,13 +107,13 @@ Real-browser captures use synthetic data and are retained in
 - `admin-password-1280.png` — [light desktop settings](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=295ea3949d837979a8ac6d82340870b5902d64c42ee7a869).
 - `admin-password-dark-375.png` — [mobile settings](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=78aaa54657fc88061e181fe081222c51be1c8cadc4b97a7b).
 - `admin-admin-dark-1280.png` — [desktop overview](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=142a5aba5c13c26376d397a83e65d1262960f76095bce329).
-- `t3-default-dark-1280.png` — [tenant settings](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=865a317437574c732438a05e38189e0c7efc3392d82717e3).
+- `t3-default-dark-1280.png` — [realm settings](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=865a317437574c732438a05e38189e0c7efc3392d82717e3).
 - `u3-default-dark-1280.png` — [user settings](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=e02d1222081a9a221e54f747ffdaa07fb01857807dff5f6c).
-- `t3-default-dark-390.png` — [mobile tenant settings](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=a0f76b169ab118132d9024717b5fa66f795261c039929429).
+- `t3-default-dark-390.png` — [mobile realm settings](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=a0f76b169ab118132d9024717b5fa66f795261c039929429).
 
 Manual review covered account security in both themes at desktop/mobile widths,
 overview and directory details in dark mode at desktop/mobile widths, and the
-tenant table on a light desktop. Browser assertions
+realm table on a light desktop. Browser assertions
 cover navigation, keyboard focus, no horizontal page overflow, contained table
 scrolling, appearance persistence, blocked storage, no-JavaScript operation and
 standalone consumption. Screenshots disable transitions to capture settled themes.
@@ -158,7 +158,7 @@ not rerun. Captures are in `projects/bloc/.design/button-relief-2026-10-23/`:
 For the subsequent border refinement, formatting, strict Clippy, ordinary
 all-target tests and the documentation build passed. The existing
 `directory_screen_t3` browser proof passed on PostgreSQL 17. Manual review of
-tenant settings at 1280px and 390px in both themes confirmed quieter panel/field
+realm settings at 1280px and 390px in both themes confirmed quieter panel/field
 borders and active navigation without the dot or outline. The full storage suite
 and PostgreSQL 18 were not rerun for this CSS-only change.
 
@@ -201,7 +201,7 @@ Captures are retained in `projects/bloc/.design/rounded-controls-2026-10-23/`:
 
 For the following dark-palette correction, formatting, strict Clippy, ordinary
 all-target tests and documentation build passed. `directory_screen_t3` passed on
-PostgreSQL 17. Manual review covered dark tenant settings at 1280px and 390px
+PostgreSQL 17. Manual review covered dark realm settings at 1280px and 390px
 alongside the green badges, and the unchanged light desktop. Comparing the CSS
 with dark branches removed confirmed the light theme and all non-colour styles
 are identical. The full storage suite and standalone consumer proof were not
@@ -233,16 +233,16 @@ Captures are in `projects/bloc/.design/shared-radius-2026-10-23/`:
 ### Sidebar structure refinement (2026-10-23)
 
 Decision source: the requester supplied Resend screenshots and asked to remove
-bloc's workspace header, put tenant/account actions at the top of the sidebar,
+bloc's workspace header, put realm/account actions at the top of the sidebar,
 and appearance, feedback and help icons at the bottom. This supersedes the
 full-width header in the earlier composition. Existing installation administrator
-authority and tenant directory semantics remain unchanged.
+authority and realm directory semantics remain unchanged.
 
 #### interface-06: navigate through the sidebar menus
 
 Given an authenticated administrator on an overview, security or directory page
 When they open the workspace menu
-Then they can browse tenants, create a tenant, open account security or log out
+Then they can browse realms, create a realm, open account security or log out
 And the logout uses the existing session-bound CSRF-protected POST
 And no horizontal workspace header appears.
 
@@ -264,7 +264,7 @@ and `workspace_menus` exercised by administrator `browser_preview` and directory
 arrangement proofs. `browser_session_expiry` now logs out through the directory
 sidebar; `browser_no_javascript` exercises the same menu without JavaScript.
 
-Visual review: light/dark tenant settings at 1280px and light mobile at 390px.
+Visual review: light/dark realm settings at 1280px and light mobile at 390px.
 Captures in `projects/bloc/.design/sidebar-structure-2026-10-23/`:
 
 - `t3-default-dark-1280.png` — [dark desktop](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=7ada5ef1dea8ed2f0fda4defadd9a69f9bff295b2906ecb5).
@@ -319,11 +319,11 @@ And access controls are at least 48px tall with 16px text
 And the introduction contains only the short headline.
 
 Given an administrator opens the workspace
-When they navigate among Overview, Tenants and Account security
+When they navigate among Overview, Realms and Account security
 Then all pages use the same outer content width and gutters
 And tables stay within those gutters
 And sidebar items have visible spacing and the workspace dropdown fits its menu
-And tenant creation is offered on the Tenants list, once per list state.
+And realm creation is offered on the Realms list, once per list state.
 
 Given a form has visible fields
 When the final field is followed by a notice or actions
@@ -338,7 +338,7 @@ Validation for this refinement: rendering-based browser checks passed for login,
 recovery, account security and overview at 390, 768 and 1280px in both system
 colour schemes (24 combinations). Checked horizontal overflow, access control
 height, absent public selector, dropdown bounds and absent overview creation links.
-`tenant_creation_has_one_entry_per_list_state` covers empty and populated tenant
+`realm_creation_has_one_entry_per_list_state` covers empty and populated realm
 lists. Directory table alignment and footer spacing were reviewed in the shared
 styles; live database-backed directory/browser interaction suites were not rerun.
 
@@ -360,23 +360,23 @@ all screens. Account security returns to its narrower 960px container with
 supersedes the shared width rule for account security in interface-07. Spacing
 continues to separate headings and content; internal form dividers remain.
 
-### Follow-up: tenant creation and administration navigation
+### Follow-up: realm creation and administration navigation
 
-Requester decision: the workspace dropdown offers Create tenant directly, without
+Requester decision: the workspace dropdown offers Create realm directly, without
 routing through the full list. Move the list navigation from Workspace to Settings
-as Manage tenants; preserve the existing directory administration routes and
+as Manage realms; preserve the existing directory administration routes and
 contextual list actions. This supersedes interface-07's dropdown creation exclusion.
 
 Given the administrator opens the workspace dropdown
-When they select Create tenant
-Then they reach `/admin/tenants/new` directly.
+When they select Create realm
+Then they reach `/admin/realms/new` directly.
 
 Given the administrator uses the sidebar
 When they look for directory administration
-Then Manage tenants appears under Settings, with the existing active state
-And Workspace contains Overview without a Tenants list item.
+Then Manage realms appears under Settings, with the existing active state
+And Workspace contains Overview without a Realms list item.
 
 Coverage: `dashboard_navigation_and_actions` verifies the direct dropdown action,
 absence of the list link in the dropdown, and Settings placement;
-`tenant_creation_has_one_entry_per_list_state` verifies one contextual list action
+`realm_creation_has_one_entry_per_list_state` verifies one contextual list action
 in addition to the persistent dropdown action for both list states.

@@ -10,7 +10,7 @@ and source-matched native capacity evidence.
   access without transferring ownership.
 - In scope: setup, administrator sign-in, password change, recovery, sign-out,
   and a small administration home; multiple bloc instances in one region.
-- Out of scope: public administration API, tenant users, application integration,
+- Out of scope: public administration API, realm users, application integration,
   additional administrators, email verification/delivery, shared-disk persistence,
   and multi-region operation. MFA follows before production authentication use.
 - Breached/common-password screening is excluded by requester decision on
@@ -122,7 +122,7 @@ When the administrator signs in through the built-in interface
 Then they see their account and installation status with password-change and
 sign-out actions
 And the email address is not treated as verified or as account-linking authority
-And no tenant or application-management placeholder is presented as working.
+And no realm or application-management placeholder is presented as working.
 
 ### administrator-access-08: shared storage boundary
 

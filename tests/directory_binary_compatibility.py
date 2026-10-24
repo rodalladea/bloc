@@ -114,8 +114,8 @@ def main():
                 live = {name: response(port, "/healthz") for name, port in (("legacy", 38001), ("current", 38002))}
                 assert live["legacy"]["status"] == live["current"]["status"] == 200
                 assert sql("SELECT version||':'||encode(checksum,'hex') FROM public._sqlx_migrations WHERE version<=2 ORDER BY version") == before_checksums
-                assert sql("SELECT count(*) FROM bloc.security_audit_event WHERE action='code_issue' AND tenant_id IS NULL AND tenant_user_id IS NULL") == "1"
-                assert sql("SELECT string_agg(version::text,',' ORDER BY version) FROM public._sqlx_migrations") == "1,2,3"
+                assert sql("SELECT count(*) FROM bloc.security_audit_event WHERE action='code_issue' AND realm_id IS NULL AND realm_user_id IS NULL") == "1"
+                assert sql("SELECT string_agg(version::text,',' ORDER BY version) FROM public._sqlx_migrations") == "1,2,3,4"
                 record = {"major": major, "image_id": identity["Id"], "repo_digests": identity.get("RepoDigests"),
                           "revision": revision, "binary_sha256": fingerprints, "before_upgrade": before,
                           "after_upgrade": after, "liveness": live, "migrations": migrations, "result": "PASS"}

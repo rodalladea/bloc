@@ -36,7 +36,7 @@ or future-feature navigation to fill space.
 
 Given an authenticated installation administrator
 When they open the overview
-Then they can create a tenant, browse tenants, change their password, and sign out
+Then they can create a realm, browse realms, change their password, and sign out
 And installation/account information is grouped separately from directory work
 And directory users are explicitly described as unable to sign in.
 
@@ -45,7 +45,7 @@ And directory users are explicitly described as unable to sign in.
 Given the administrator is viewing a directory or account security
 When they navigate or submit an enhanced form
 Then one navigation shell remains, indicating the current section
-And a tenant's user directory is reachable from its page header
+And a realm's user directory is reachable from its page header
 And the main content and its feedback remain keyboard accessible
 And public sign-in, setup, and recovery forms do not show workspace navigation.
 
@@ -67,8 +67,8 @@ in this record remain applicable.
 | Scenario | Delivery / coverage | Evidence |
 | --- | --- | --- |
 | dashboard-01 | Implemented; verified on PostgreSQL 17 and 18 | `src/administrator_tests.rs`: `dashboard_navigation_and_actions`; `tests/administrator_access.rs`: `administration_home`, `browser_preview`; manual overview visual review at 1280px and 375px |
-| dashboard-02 | Implemented; verified on PostgreSQL 17 and 18 | `dashboard_navigation_stays_out_of_public_access_forms`; `tests/administrator_access.rs`: `browser_preview`; `tests/tenant_user_management.rs`: `directory_browser_interactions`, `directory_screen_t3` |
-| dashboard-03 | Implemented; verified on PostgreSQL 17 and 18 | `tests/administrator_access.rs`: `browser_preview`, `browser_no_javascript`, `browser_validation`, `browser_loading_network`, `browser_session_expiry`; `tests/tenant_user_management.rs`: `directory_screen_t1`, `directory_screen_t2`, `directory_screen_t3`, `directory_screen_u1`, `directory_screen_u2`, `directory_screen_u3`, `directory_browser_interactions` |
+| dashboard-02 | Implemented; verified on PostgreSQL 17 and 18 | `dashboard_navigation_stays_out_of_public_access_forms`; `tests/administrator_access.rs`: `browser_preview`; `tests/realm_user_management.rs`: `directory_browser_interactions`, `directory_screen_t3` |
+| dashboard-03 | Implemented; verified on PostgreSQL 17 and 18 | `tests/administrator_access.rs`: `browser_preview`, `browser_no_javascript`, `browser_validation`, `browser_loading_network`, `browser_session_expiry`; `tests/realm_user_management.rs`: `directory_screen_t1`, `directory_screen_t2`, `directory_screen_t3`, `directory_screen_u1`, `directory_screen_u2`, `directory_screen_u3`, `directory_browser_interactions` |
 
 The two dashboard render tests failed against the original interface before the
 implementation, then passed. Browser expectations were updated for the new layout;
@@ -84,7 +84,7 @@ and are retained outside the repository:
 Initial dashboard validation on 2026-10-23: formatting, strict Clippy, all-target ordinary tests,
 and documentation build passed. The storage runner passed 128 regression checks
 on each of PostgreSQL 17.11 and 18.6, including all twelve browser proofs per major.
-Manual review covered overview, account security, empty tenants, tenant details,
+Manual review covered overview, account security, empty realms, realm details,
 and user details at desktop and mobile sizes. The native service-capacity proof
 was excluded by the standard runner; no capacity or production-readiness claim is
 part of this interface change.

@@ -5,6 +5,13 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+### Changed
+
+- Rename tenant directories to realms, including administration URLs
+  (`/admin/realms`), forms and directory ownership terminology. An explicit
+  forward migration preserves existing records and historical audit events;
+  previous `/admin/tenants` URLs are no longer supported.
+
 ### Fixed
 
 - Offer tenant creation directly in the workspace dropdown and move Manage tenants

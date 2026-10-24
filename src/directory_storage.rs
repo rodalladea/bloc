@@ -32,7 +32,7 @@ impl From<Error> for DirectoryError {
 }
 pub(crate) struct Mutation<'a> {
     pub operation: &'a str,
-    pub tenant: &'a str,
+    pub realm: &'a str,
     pub user: Option<&'a str>,
     pub version: i64,
     pub profile: &'a str,
@@ -40,23 +40,22 @@ pub(crate) struct Mutation<'a> {
     pub status: &'a str,
 }
 impl Storage {
-    pub(crate) async fn directory_tenants(
+    pub(crate) async fn directory_realms(
         &self,
         session: &[u8; 32],
         id: Option<&str>,
         cursor: Option<(i64, &str)>,
     ) -> Result<Vec<Record>, DirectoryError> {
         self.compatible().await?;
-        let rows = sqlx::query(
-            "SELECT * FROM bloc.directory_tenants($1,$2::text::uuid,$3,$4::text::uuid)",
-        )
-        .bind(session.as_slice())
-        .bind(id)
-        .bind(cursor.map(|c| c.0))
-        .bind(cursor.map(|c| c.1))
-        .fetch_all(&self.pool)
-        .await
-        .map_err(error)?;
+        let rows =
+            sqlx::query("SELECT * FROM bloc.directory_realms($1,$2::text::uuid,$3,$4::text::uuid)")
+                .bind(session.as_slice())
+                .bind(id)
+                .bind(cursor.map(|c| c.0))
+                .bind(cursor.map(|c| c.1))
+                .fetch_all(&self.pool)
+                .await
+                .map_err(error)?;
         Ok(rows
             .into_iter()
             .map(|r| Record {
@@ -74,12 +73,12 @@ impl Storage {
     pub(crate) async fn directory_users(
         &self,
         session: &[u8; 32],
-        tenant: &str,
+        realm: &str,
         id: Option<&str>,
         cursor: Option<(i64, &str)>,
     ) -> Result<Vec<Record>, DirectoryError> {
         self.compatible().await?;
-        let rows=sqlx::query("SELECT * FROM bloc.directory_users($1,$2::text::uuid,$3::text::uuid,$4,$5::text::uuid)").bind(session.as_slice()).bind(tenant).bind(id).bind(cursor.map(|c|c.0)).bind(cursor.map(|c|c.1)).fetch_all(&self.pool).await.map_err(error)?;
+        let rows=sqlx::query("SELECT * FROM bloc.directory_users($1,$2::text::uuid,$3::text::uuid,$4,$5::text::uuid)").bind(session.as_slice()).bind(realm).bind(id).bind(cursor.map(|c|c.0)).bind(cursor.map(|c|c.1)).fetch_all(&self.pool).await.map_err(error)?;
         Ok(rows
             .into_iter()
             .map(|r| Record {
@@ -108,7 +107,7 @@ impl Storage {
         )
         .bind(session.as_slice())
         .bind(m.operation)
-        .bind(m.tenant)
+        .bind(m.realm)
         .bind(m.user)
         .bind(m.version)
         .bind(m.profile)

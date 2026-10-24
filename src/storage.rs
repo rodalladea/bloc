@@ -119,6 +119,13 @@ impl Storage {
                     sqlx::SqlStr::from_static(include_str!("../migrations/0003_directory.sql")),
                     false,
                 ),
+                sqlx::migrate::Migration::new(
+                    4,
+                    "realms".into(),
+                    sqlx::migrate::MigrationType::Simple,
+                    sqlx::SqlStr::from_static(include_str!("../migrations/0004_realms.sql")),
+                    false,
+                ),
             ]
             .into(),
             ..Migrator::DEFAULT

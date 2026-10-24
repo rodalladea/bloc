@@ -1,6 +1,6 @@
 # 0005: independent tenant-user directories
 
-Status: accepted — 2026-10-21
+Status: accepted — 2026-10-21. Terminology superseded by [ADR 0006](0006-realm-terminology.md); directory rules remain in force.
 
 ## Context
 
@@ -22,7 +22,7 @@ verification. The requester subsequently approved the concrete interface set:
 [projects/bloc/.design/tenant-user-management-screens.md](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=884509362acfc8d88e9ca47ece59bd2deb598e37e405c125), ID
 `884509362acfc8d88e9ca47ece59bd2deb598e37e405c125`, with embedded preview source
 ID [8360fbadc81cf795b130e8ec13994a7c23b4b5b1769bc400](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=8360fbadc81cf795b130e8ec13994a7c23b4b5b1769bc400). These are binding interface
-sources. The [behavior record](../behaviors/tenant-user-management.md) maps the
+sources. The [behavior record](../behaviors/realm-user-management.md) maps the
 agreed examples and pending proofs.
 
 ## Options

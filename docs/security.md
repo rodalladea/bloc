@@ -3,7 +3,7 @@
 These are requirements for future features, not claims about implemented controls.
 Record a threat model and test plan for every authentication or federation flow.
 
-- Enforce tenant isolation in storage access and authorization; deny by default.
+- Enforce realm isolation in storage access and authorization; deny by default.
   Treat admin APIs and HTML fragments as equally protected surfaces.
 - Use maintained password-hashing and cryptography libraries; design key storage,
   rotation, revocation, and recovery before issuing credentials.
