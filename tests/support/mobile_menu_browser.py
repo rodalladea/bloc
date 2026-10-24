@@ -43,6 +43,7 @@ def verify():
                 expect(page.get_by_role('link', name='Overview', exact=True)).to_be_focused()
                 expect(page.locator('.mobile-menu-close')).to_have_count(0)
                 assert page.locator('.sidebar').evaluate("e => getComputedStyle(e, '::before').borderBottomLeftRadius") == '28px'
+                expect(page.locator('.sidebar-header')).to_have_css('border-bottom-color', 'rgba(0, 0, 0, 0)')
                 assert page.locator('.workspace').evaluate('e => e.inert')
                 page.keyboard.press('Shift+Tab')
                 expect(page.get_by_role('link', name='Help', exact=True)).to_be_focused()

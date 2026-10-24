@@ -212,7 +212,7 @@ dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; font-size: 13px; }
   .sidebar[data-mobile-menu] .sidebar-content { width: var(--mobile-menu-width); padding: 20px 16px max(20px, env(safe-area-inset-bottom)); border: 0; transform: translateX(-24px); background: var(--canvas-soft); }
   .sidebar[data-menu-motion] .sidebar-content { transition: transform 280ms cubic-bezier(.22,.8,.25,1), visibility 0s 280ms; }
   .sidebar[data-mobile-menu="open"] .sidebar-content { transform: translateX(0); transition-delay: 0s; }
-  .sidebar[data-mobile-menu="open"] .sidebar-header { transform: translateX(var(--mobile-menu-width)); border-top-left-radius: 28px; background: transparent; }
+  .sidebar[data-mobile-menu="open"] .sidebar-header { transform: translateX(var(--mobile-menu-width)); border-top-left-radius: 28px; background: transparent; border-bottom-color: transparent; }
   .application:has(.sidebar[data-mobile-menu="open"]) > .workspace { transform: translateX(var(--mobile-menu-width)); z-index: 34; background: transparent; max-height: calc(100dvh - 77px); overflow: hidden; border-bottom-left-radius: 28px; }
   .sidebar[data-mobile-menu] .drawer-heading { padding: 0 12px; }
   .sidebar[data-mobile-menu] .drawer-heading strong { font-size: 22px; letter-spacing: -.04em; }
@@ -229,7 +229,7 @@ dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; font-size: 13px; }
 
 /* One rounded surface casts the shadow for both header and content. */
 @media (max-width: 639px) {
-  .sidebar[data-mobile-menu]::before { content: ""; position: fixed; z-index: 33; inset: 0 auto 0 0; width: 100vw; height: 100dvh; pointer-events: none; background: var(--canvas); border-radius: 28px 0 0 28px; box-shadow: -12px 0 32px #00000014; transform: translateX(0); visibility: hidden; }
+  .sidebar[data-mobile-menu]::before { content: ""; position: fixed; z-index: 33; inset: 0 auto 0 0; width: 100vw; height: 100dvh; pointer-events: none; background: var(--canvas); border-radius: 28px 0 0 28px; box-shadow: -16px 0 48px -16px #00000026; transform: translateX(0); visibility: hidden; }
   .sidebar[data-menu-motion]::before { transition: transform 280ms cubic-bezier(.22,.8,.25,1), visibility 0s 280ms; }
   .sidebar[data-mobile-menu="open"]::before { transform: translateX(var(--mobile-menu-width)); visibility: visible; transition-delay: 0s; }
 }
