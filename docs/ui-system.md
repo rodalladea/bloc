@@ -52,6 +52,7 @@ links have the base appearance. Compose the following classes with semantic HTML
 | Secondary / ghost button | `ui-button--secondary`, `ui-button--ghost` | Choose one main action per group |
 | Field group | `ui-field` | Visible label and control association |
 | Settings row | `ui-field ui-field--row` | Label, input, help and error; stacks below 1000px |
+| Busy button | `button[aria-busy="true"]` | Disable during submission; supply an action label and a polite live status; clear busy state on completion |
 | Help / error | `ui-help`, `ui-field-error` | Consumer supplies `aria-describedby` and `aria-invalid`; classes only style the text |
 | Notice | `ui-notice`, `ui-notice--error` | Appropriate alert/status role and focus policy |
 | Panel | `ui-panel` | Heading and meaningful grouping |
@@ -131,3 +132,16 @@ the picker, updates `aria-pressed` and preserves the same storage contract. A
 native `details` marked `data-ui-dropdown` closes on Escape (returning focus to
 its summary), outside clicks and appearance selection. These disclosures retain
 ordinary Tab navigation; they do not claim ARIA menu/arrow-key semantics.
+
+## Button loading
+
+A busy button shows a 16px neutral spinner before its label using only `ui.css`.
+Keep the action visible (for example “Signing in…” or “Saving changes…”), set
+`aria-busy="true"` and `disabled`, and remove both when the request finishes.
+Reduced motion replaces rotation with a static indicator. No progress percentage
+is implied. The styles use theme tokens and need no initialization.
+
+bloc's request scripts read `data-pending-label`, restore the original label after
+failure, and announce the pending action through a separate `.ui-sr-only` status
+region. This replaces the visible message beneath submit buttons. Native forms
+remain usable without JavaScript; directory navigation keeps its existing status.

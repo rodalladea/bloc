@@ -409,3 +409,27 @@ cover full-page and fragment HTML, field association, absence of duplicate alert
 alert ordering and recovery links. Both tests failed before implementation.
 Browser fixture expectations were updated for invalid-field focus; live browser/TLS
 fixtures have not been rerun. HTML assertions do not prove browser focus behavior.
+
+### interface-09: loading inside the action button
+
+Decision: requester selected “Inside the button” from the loading preview on
+2026-10-25. Applies to existing enhanced form submissions, using shared `ui.css`.
+
+Given an administrator submits an access, account, directory or lifecycle form
+When the request is pending
+Then the submitting button is disabled and shows a small spinner with an
+action-specific label, without a separate visible loading message
+And a polite status remains available to screen readers
+And reduced-motion preference leaves a static indicator.
+
+Given a request fails or finishes without leaving the form
+When the pending state is cleared
+Then the button's original label and availability are restored
+And no spinner remains or automatic retry occurs.
+
+Coverage: `form_actions_expose_accessible_pending_labels` and
+`directory_actions_expose_pending_labels` cover rendered action labels and hidden
+status markup. The administrator test failed before implementation. Browser
+loading/network fixture assertions now include busy state and spinner styling,
+but live browser/TLS fixtures have not been rerun. Native form submission and
+directory navigation behavior are unchanged.

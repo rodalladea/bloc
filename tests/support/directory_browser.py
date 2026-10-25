@@ -190,10 +190,12 @@ def saving(page):
     submit(page, 'Save changes')
     expect(page.locator('main')).to_have_attribute('aria-busy', 'true')
     expect(page.locator('#content form button')).to_be_disabled()
-    expect(page.locator('#content form button')).to_have_text('Saving…')
+    expect(page.locator('#content form button')).to_have_attribute('aria-busy', 'true')
+    assert page.locator('#content form button').evaluate("e=>getComputedStyle(e,'::before').animationName") == 'ui-button-spin'
+    expect(page.locator('#content form button')).to_have_text('Saving changes…')
     feedback = page.locator('form .working[role=status]')
     expect(feedback).to_be_visible()
-    expect(feedback).to_have_text('Saving… Wait for a result before submitting again.')
+    expect(feedback).to_have_text('Saving changes… Wait for a result before submitting again.')
     assert page.locator('form .working').evaluate("e=>e.getAttribute('role')==='status'")
     assert len(waiting) == 1
     waiting.pop().continue_()

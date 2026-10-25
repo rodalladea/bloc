@@ -422,3 +422,20 @@ fn form_feedback_separates_field_and_general_errors() {
         }
     }
 }
+
+#[test]
+fn form_actions_expose_accessible_pending_labels() {
+    for (path, label) in [
+        ("/admin/login", "Signing in…"),
+        ("/admin/setup", "Creating administrator…"),
+        ("/admin/recovery", "Resetting password…"),
+        ("/admin/password", "Changing password…"),
+        ("/admin", "Signing out…"),
+    ] {
+        let page = Page::new(path);
+        let html = Fragment { page: &page }.render().unwrap();
+        assert!(html.contains(&format!("data-pending-label=\"{label}\"")));
+        assert!(html.contains("ui-sr-only working\" role=\"status\" hidden"));
+        assert!(!html.contains("aria-busy=\"true\""));
+    }
+}

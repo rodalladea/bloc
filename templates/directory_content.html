@@ -67,10 +67,10 @@
 <input id="name" placeholder="e.g. Acme" name="name" value="{% if !p.create || !p.record.name.is_empty() %}{{ p.record.name }}{% endif %}" aria-describedby="name-help{% if p.invalid == "name" %} name-error{% endif %}" {% if p.invalid == "name" %}aria-invalid="true" autofocus{% endif %}>
 <p id="name-help" class="help ui-help">1–128 characters, up to 512 UTF-8 bytes. Names do not need to be unique.</p>{% if p.invalid == "name" %}<p id="name-error" class="field-error ui-field-error">{{ p.error }}</p>{% endif %}</div>{% endif %}
 <div class="actions">
-<button type="submit">{% if p.create %}{% if p.user %}Create user{% else %}Create realm{% endif %}{% else %}Save changes{% endif %}</button>
+<button type="submit" data-pending-label="{% if p.create %}{% if p.user %}Creating user…{% else %}Creating realm…{% endif %}{% else %}Saving changes…{% endif %}">{% if p.create %}{% if p.user %}Create user{% else %}Create realm{% endif %}{% else %}Save changes{% endif %}</button>
 <a href="{% if p.create %}{{ p.list_path }}{% else %}{{ p.detail_path }}{% endif %}">Cancel</a>
 </div>
-<p class="working help ui-help" role="status" hidden>Saving… Wait for a result before submitting again.</p>
+<p class="working ui-sr-only" role="status" hidden>Saving… Wait for a result before submitting again.</p>
 </form>
 </section>
 {% if !p.create %}<section class="panel ui-panel" {% if p.confirm %}id="confirmation" tabindex="-1"{% endif %}>{% if p.confirm %}<h2>{% if p.status == "active" %}Reactivate{% else %}Suspend{% endif %} this {% if p.user %}user{% else %}realm{% endif %}?</h2>
@@ -81,10 +81,10 @@
 <input type="hidden" name="version" value="{{ p.version }}">
 <input type="hidden" name="status" value="{{ p.status }}">
 <div class="actions">
-<button type="submit">{% if p.status == "active" %}Reactivate{% else %}Suspend{% endif %} {% if p.user %}user{% else %}realm{% endif %}</button>
+<button type="submit" data-pending-label="{% if p.status == "active" %}Reactivating…{% else %}Suspending…{% endif %}">{% if p.status == "active" %}Reactivate{% else %}Suspend{% endif %} {% if p.user %}user{% else %}realm{% endif %}</button>
 <a href="{{ p.detail_path }}?cancel=1" hx-get="{{ p.detail_path }}?cancel=1">Cancel</a>
 </div>
-<p class="working help ui-help" role="status" hidden>Saving… Wait for a result before submitting again.</p>
+<p class="working ui-sr-only" role="status" hidden>Saving… Wait for a result before submitting again.</p>
 </form>{% else %}<h2>{% if p.user %}User status{% else %}Realm status{% endif %}</h2>
 <p>
 <span class="badge ui-badge {% if p.record.status == "active" %}active ui-badge--positive{% endif %}">{% if p.record.status == "active" %}Active{% else %}Suspended{% endif %}</span>

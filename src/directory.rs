@@ -758,3 +758,39 @@ fn directory_feedback_separates_field_and_general_errors() {
         }
     }
 }
+
+#[test]
+fn directory_actions_expose_pending_labels() {
+    for user in [false, true] {
+        for create in [false, true] {
+            let mut p = Page::new();
+            p.user = user;
+            p.create = create;
+            let html = Fragment { p: &p }.render().unwrap();
+            let label = match (user, create) {
+                (true, true) => "Creating user…",
+                (false, true) => "Creating realm…",
+                (_, false) => "Saving changes…",
+            };
+            assert!(html.contains(&format!("data-pending-label=\"{label}\"")));
+            assert!(html.contains("working ui-sr-only\" role=\"status\" hidden"));
+        }
+        for status in ["active", "suspended"] {
+            let mut p = Page::new();
+            p.user = user;
+            p.confirm = true;
+            p.status = status.into();
+            let label = if status == "active" {
+                "Reactivating…"
+            } else {
+                "Suspending…"
+            };
+            assert!(
+                Fragment { p: &p }
+                    .render()
+                    .unwrap()
+                    .contains(&format!("data-pending-label=\"{label}\""))
+            );
+        }
+    }
+}

@@ -124,8 +124,10 @@ with sync_playwright() as p:
         pending=[]
         page.route('**/admin/password',lambda route: pending.append(route))
         submit(page,'Change password')
-        expect(page.get_by_role('button',name='Working…',exact=True)).to_be_disabled()
+        expect(page.get_by_role('button',name='Changing password…',exact=True)).to_be_disabled()
         expect(page.locator('#content form')).to_have_attribute('aria-busy','true')
+        expect(page.locator('#content button[type=submit]')).to_have_attribute('aria-busy','true')
+        assert page.locator('#content button[type=submit]').evaluate("e=>getComputedStyle(e,'::before').animationName") == 'ui-button-spin'
         assert len(pending)==1
         expect(page.get_by_role('link',name='Back to administration',exact=True)).to_be_enabled()
         assert not page.get_by_role('link',name='Back to administration',exact=True).get_attribute('aria-disabled')

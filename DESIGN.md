@@ -253,3 +253,11 @@ Overview and directories share a 1200px content container and
 with 48px/40px desktop padding. Page headers have no bottom divider; tables stay within those gutters. Sidebar links have
 6px vertical separation and workspace dropdowns fit the sidebar width. The workspace dropdown offers Create realm directly. Manage realms lives
 under Settings in the sidebar; the list retains its contextual creation action.
+
+## Loading feedback
+
+Enhanced form submissions use a small neutral spinner inside the submitting
+button with an action-specific label. Keep the button geometry and rounded
+corners, disable repeat submission, and restore the label when a request fails.
+Avoid a second visible loading message below the button; retain a polite hidden
+status for assistive technology. Reduced motion uses a static indicator.

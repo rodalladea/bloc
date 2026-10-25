@@ -7,6 +7,9 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ### Changed
 
+- Show a shared, theme-aware spinner inside submitting buttons with specific
+  action labels and reduced-motion support, replacing visible loading messages.
+
 - Refine shared error alerts with soft theme-aware surfaces and subtle, even
   borders, and strengthen invalid text input outlines.
 - Show field validation inline across access, account and directory forms; move
