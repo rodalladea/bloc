@@ -380,3 +380,32 @@ Coverage: `dashboard_navigation_and_actions` verifies the direct dropdown action
 absence of the list link in the dropdown, and Settings placement;
 `realm_creation_has_one_entry_per_list_state` verifies one contextual list action
 in addition to the persistent dropdown action for both list states.
+
+### interface-08: field errors and general alerts
+
+Decision: requester instruction in this chat on 2026-10-24. Applies to all existing
+access, account, realm and user forms; shared appearance stays in `assets/ui.css`.
+Authentication policy, status codes, secret clearing and persistence are unchanged.
+
+Given an administrator submits an invalid email, password, realm name or display name
+When the form is rendered again
+Then the affected field has a red border and an associated inline error
+And no duplicate validation summary or field-jump link is shown
+And focus moves to the invalid field after an enhanced submission.
+
+Given a request has a general error such as session expiry, a conflict or outage
+When the page or fragment renders, or a network failure is reported
+Then one shared alert appears first in the main content, above headings and fields
+And recovery actions remain available
+And enhanced updates focus the alert ahead of any invalid field.
+
+Wrong-credential responses remain generic: the UI does not identify whether the
+email or password caused a failed sign-in. General and field errors may coexist
+when both are relevant (for example an invalid form version and an invalid name).
+
+Coverage: `src/administrator_tests.rs::form_feedback_separates_field_and_general_errors`
+and `src/directory.rs::directory_feedback_separates_field_and_general_errors`
+cover full-page and fragment HTML, field association, absence of duplicate alerts,
+alert ordering and recovery links. Both tests failed before implementation.
+Browser fixture expectations were updated for invalid-field focus; live browser/TLS
+fixtures have not been rerun. HTML assertions do not prove browser focus behavior.

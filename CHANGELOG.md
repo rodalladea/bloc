@@ -5,6 +5,13 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+### Changed
+
+- Refine shared error alerts with soft theme-aware surfaces and subtle, even
+  borders, and strengthen invalid text input outlines.
+- Show field validation inline across access, account and directory forms; move
+  general errors above page content and focus the relevant feedback.
+
 ## 0.4.1 - 2026-10-24
 
 ### Changed

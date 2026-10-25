@@ -202,7 +202,8 @@ The live invalidation exercise does not by itself prove a physical backup restor
 Given the five administration screens
 When JavaScript is disabled, then real forms and links complete the journey.
 When HTMX is enabled, designated errors replace the main fragment, focus its
-single alert summary and never refill code/password fields. Normal success is303;
+general alert, or the invalid field for field validation, and never refill
+code/password fields. Field validation has no duplicate alert summary. Normal success is303;
 enhanced success is200 with HX-Redirect because XHR consumes3xx redirects.
 When a request cannot be confirmed, show the approved network message, clear
 secret fields and require an explicit retry. Exact tests: `browser_no_javascript`,

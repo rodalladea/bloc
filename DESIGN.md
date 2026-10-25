@@ -95,7 +95,9 @@ features, or populate bloc with invented metrics, search fields or inactive link
 Keep the frontmatter palette. Most surfaces are neutral; lime marks deliberate
 emphasis and labeled positive states. Primary controls use charcoal with light
 text in both themes. White text on bright lime and lime body text on
-white are prohibited. Error red remains semantic.
+white are prohibited. Error red remains semantic. Error alerts use a soft tinted surface, neutral body
+text, a subtle, even border. Invalid fields retain a
+red border with an inset outline; their focused ring remains visible.
 
 Both themes are complete and use the same components. Initial appearance follows
 the system. A footer icon opens System, Light and Dark choices in the workspace; public access screens always follow the system without a selector. The manual
@@ -119,7 +121,8 @@ JavaScript, system appearance works and the unavailable selector remains hidden.
 | Primary control border | `#46565e` | `#64646c` |
 | Link/button focus outline | `#586f7a` | `#a1a1aa` |
 | Positive fill/text | `#ecfccb` / `#365314` | `#365314` / `#ecfccb` |
-| Error fill/text | `#fef2f2` / `#b91c1c` | `#b91c1c` / `#fef2f2` |
+| Error fill/text | `#fef2f2` / `#b91c1c` | `#2b1b1e` / `#fca5a5` |
+| Error alert border | `#fca5a5` | `#704044` |
 
 The public access introduction uses near-black in either theme. The authenticated
 shell uses the theme canvas throughout, including the single sidebar.
@@ -167,7 +170,9 @@ alone never conveys lifecycle state. Panels use the shared radius where an actua
 bounded surface is useful. Directory detail forms use vertically stacked,
 bordered profile, lifecycle and record sections in a single column. Record
 metadata uses a two-column label/value grid within its section. Feedback uses the same notice and field-error components in
-both full pages and fragments.
+both full pages and fragments. Field validation uses only the invalid border and
+associated inline message. General errors appear at the top of main content,
+above headings, and keep their recovery actions.
 
 ## Workspace composition
 

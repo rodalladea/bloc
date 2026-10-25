@@ -1,4 +1,6 @@
 <main class="directory-page{% if !p.list %} directory-settings{% endif %}" id="content" tabindex="-1" hx-target="#content" hx-swap="outerHTML" hx-sync="#content:drop" hx-history="false" hx-boost="true">
+{% if !p.feedback.is_empty() %}<div class="notice ui-notice error ui-notice--error" role="alert" id="feedback" tabindex="-1">
+<p>{{ p.feedback }}</p>{% if !p.recovery.is_empty() %}<a href="{{ p.recovery }}">{{ p.recovery_label }}</a>{% endif %}</div>{% endif %}
 <nav class="breadcrumbs" aria-label="Breadcrumb">
 <a href="/admin" hx-boost="false">Administration</a>
 <span>/</span>
@@ -17,8 +19,6 @@
 <h1 tabindex="-1">{{ p.title }}</h1>
 <p class="intro">{{ p.intro }}</p>{% if !p.hidden && !p.user && !p.list && !p.create %}<p class="mono ui-mono">{{ p.record.id }} <span class="badge ui-badge {% if p.record.status == "active" %}active ui-badge--positive{% endif %}">{% if p.record.status == "active" %}Active{% else %}Suspended{% endif %}</span>
 </p>{% endif %}</div>{% if !p.hidden && p.list && (!p.rows.is_empty() || !p.feedback.is_empty()) %}<a class="button ui-button" href="{{ p.list_path }}/new">{% if p.user %}Create user{% else %}Create realm{% endif %}</a>{% else if !p.hidden && !p.user && !p.list && !p.create %}<a class="button ui-button" href="{{ p.realm_path }}/users">View users <span aria-hidden="true">→</span></a>{% endif %}</div>
-{% if !p.feedback.is_empty() %}<div class="notice ui-notice error ui-notice--error" role="alert" id="feedback" tabindex="-1">
-<p>{{ p.feedback }}</p>{% if !p.invalid.is_empty() %}<a href="#{{ p.invalid }}">Review field</a>{% endif %}{% if !p.recovery.is_empty() %}<a href="{{ p.recovery }}">{{ p.recovery_label }}</a>{% endif %}</div>{% endif %}
 {% if !p.hidden %}
 {% if p.list %}{% if p.feedback.is_empty() %}{% if p.rows.is_empty() %}<section class="panel ui-panel empty">
 <span class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 8h-6a2 2 0 0 1-1.6-.8l-1.8-2.4A2 2 0 0 0 8 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2H3"/></svg></span>
@@ -55,16 +55,16 @@
 <input type="hidden" name="csrf" value="{{ p.csrf }}">{% if p.create %}<input type="hidden" name="creation_id" value="{{ p.creation }}">{% else %}<input type="hidden" name="version" value="{{ p.version }}">{% endif %}
 {% if p.user %}<div class="field ui-field ui-field--row">
 <label for="email">Email address</label>
-<input id="email" placeholder="you@example.com" name="email" type="email" value="{{ p.record.email }}" aria-describedby="email-help{% if p.invalid == "email" %} email-error{% endif %}" {% if p.invalid == "email" %}aria-invalid="true"{% endif %}>
+<input id="email" placeholder="you@example.com" name="email" type="email" value="{{ p.record.email }}" aria-describedby="email-help{% if p.invalid == "email" %} email-error{% endif %}" {% if p.invalid == "email" %}aria-invalid="true" autofocus{% endif %}>
 <p id="email-help" class="help ui-help">Unverified. Domain case is normalized; local-part case is preserved.</p>{% if p.invalid == "email" %}<p id="email-error" class="field-error ui-field-error">{{ p.error }}</p>{% endif %}</div>
 <div class="field ui-field ui-field--row">
 <label for="display-name">Display name <span class="help ui-help">(optional)</span>
 </label>
-<input id="display-name" placeholder="e.g. Alex Morgan" name="display_name" value="{{ p.record.display_name }}" aria-describedby="display-help{% if p.invalid == "display-name" %} display-error{% endif %}" {% if p.invalid == "display-name" %}aria-invalid="true"{% endif %}>
+<input id="display-name" placeholder="e.g. Alex Morgan" name="display_name" value="{{ p.record.display_name }}" aria-describedby="display-help{% if p.invalid == "display-name" %} display-error{% endif %}" {% if p.invalid == "display-name" %}aria-invalid="true" autofocus{% endif %}>
 <p id="display-help" class="help ui-help">Up to 128 characters and 512 UTF-8 bytes. Control characters are not allowed.</p>{% if p.invalid == "display-name" %}<p id="display-error" class="field-error ui-field-error">{{ p.error }}</p>{% endif %}</div>
 {% else %}<div class="field ui-field ui-field--row">
 <label for="name">Realm name</label>
-<input id="name" placeholder="e.g. Acme" name="name" value="{% if !p.create || !p.record.name.is_empty() %}{{ p.record.name }}{% endif %}" aria-describedby="name-help{% if p.invalid == "name" %} name-error{% endif %}" {% if p.invalid == "name" %}aria-invalid="true"{% endif %}>
+<input id="name" placeholder="e.g. Acme" name="name" value="{% if !p.create || !p.record.name.is_empty() %}{{ p.record.name }}{% endif %}" aria-describedby="name-help{% if p.invalid == "name" %} name-error{% endif %}" {% if p.invalid == "name" %}aria-invalid="true" autofocus{% endif %}>
 <p id="name-help" class="help ui-help">1–128 characters, up to 512 UTF-8 bytes. Names do not need to be unique.</p>{% if p.invalid == "name" %}<p id="name-error" class="field-error ui-field-error">{{ p.error }}</p>{% endif %}</div>{% endif %}
 <div class="actions">
 <button type="submit">{% if p.create %}{% if p.user %}Create user{% else %}Create realm{% endif %}{% else %}Save changes{% endif %}</button>

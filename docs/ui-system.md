@@ -72,8 +72,11 @@ the button-height token. Light controls use cool neutral tones; dark controls us
 graphite/zinc tones matching the workspace and its lime accents. Focused
 fields keep their fill and use a 3px ring in the focused border's hue at 24%
 opacity. Invalid inputs and textareas retain their error border and use an
-error-colour ring at 16% opacity; selects have no dedicated invalid-state rule. Keyboard focus
+error-colour ring at 16% opacity, with an inset outline while resting; selects have no dedicated invalid-state rule. Keyboard focus
 on links/buttons retains an outline, and forced-colours mode also outlines fields.
+
+Error notices use a muted tint in both themes, neutral body text, red links and a
+subtle, even border. `--ui-error-line` supplies the quieter surrounding border.
 
 Primary and secondary buttons share a thin outline, inset top highlight and
 short shadow for subtle relief. The `--ui-button-*` tokens define their theme
@@ -84,6 +87,11 @@ Native disabled controls, invalid inputs/textareas, focus and hover receive
 corresponding styling. Directory forms associate help and error text with their
 fields. Administrator access/password forms currently associate errors only;
 their visible password guidance is not linked through `aria-describedby`.
+Use inline field errors for validation, without a duplicate notice. General errors
+use `ui-notice ui-notice--error` as the first element in the main content, above
+headings and form fields. Retain recovery actions. bloc focuses the invalid field
+after validation and prioritizes a general alert when one is present.
+
 The consumer owns pending state, validation semantics, focus after navigation,
 confirmation and the effect of an action. No authentication or mutation policy
 belongs in these assets. Do not load the script more than once or inject it with

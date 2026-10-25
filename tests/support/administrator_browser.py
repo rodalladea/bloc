@@ -32,10 +32,17 @@ def empty_secrets(page):
     for control in page.locator('input[type="password"],input[name="code"]').all():
         expect(control).to_have_value('')
 
-def validation_result(page, enhanced):
-    expect(page.locator('[role="alert"]')).to_have_count(1)
+def validation_result(page, enhanced, field=None):
+    expect(page.locator('[role="alert"]')).to_have_count(0 if field else 1)
     empty_secrets(page)
-    if enhanced: expect(page.locator('#feedback')).to_be_focused()
+    if field:
+        expect(page.locator('#'+field)).to_have_attribute('aria-invalid','true')
+        expect(page.locator('#field-error')).to_be_visible()
+        error_color = page.locator('#field-error').evaluate('(el)=>getComputedStyle(el).color')
+        expect(page.locator('#'+field)).to_have_css('border-top-color',error_color)
+        page.locator('#'+field).hover()
+        expect(page.locator('#'+field)).to_have_css('border-top-color',error_color)
+    if enhanced: expect(page.locator('#'+field if field else '#feedback')).to_be_focused()
 
 def keyboard_order(page):
     page.reload()
@@ -60,7 +67,7 @@ with sync_playwright() as p:
     if mode in ['validation','no_javascript']:
         fill(page,{'code':setup,'email':'Owner@EXAMPLE.test','password':'short','password_confirmation':'different'})
         submit(page,'Create administrator')
-        validation_result(page,mode=='validation')
+        validation_result(page,mode=='validation','password')
         if mode=='validation':
             fill(page,{'code':'A'*43,'email':'Owner@EXAMPLE.test','password':'a synthetic password','password_confirmation':'a synthetic password'})
             submit(page,'Create administrator')
@@ -95,11 +102,11 @@ with sync_playwright() as p:
         page.goto(origin+'/admin/password')
         fill(page,{'current_password':'a synthetic password','password':'short','password_confirmation':'different'})
         submit(page,'Change password')
-        expect(page.locator('#feedback')).to_be_focused()
+        expect(page.locator('#feedback')).to_have_count(0)
+        expect(page.locator('#password')).to_be_focused()
         expect(page.locator('#password')).to_have_attribute('aria-invalid','true')
-        assert page.locator('#feedback a').get_attribute('href')=='#password'
         for name in ['current_password','password','password_confirmation']:assert page.locator('[name="'+name+'"]').input_value()==''
-        validation_result(page,True)
+        empty_secrets(page)
         fill(page,{'current_password':'wrong password','password':'the replacement password','password_confirmation':'the replacement password'})
         submit(page,'Change password')
         validation_result(page,True)
@@ -107,7 +114,7 @@ with sync_playwright() as p:
         page.goto(origin+'/admin/recovery')
         fill(page,{'code':recovery,'password':'short','password_confirmation':'different'})
         submit(page,'Reset password')
-        validation_result(page,True)
+        validation_result(page,True,'password')
         fill(page,{'code':'A'*43,'password':'the replacement password','password_confirmation':'the replacement password'})
         submit(page,'Reset password')
         validation_result(page,True)
@@ -189,7 +196,7 @@ with sync_playwright() as p:
         page.goto(origin+'/admin/password')
         fill(page,{'current_password':'a synthetic password','password':'short','password_confirmation':'different'})
         submit(page,'Change password')
-        validation_result(page,False)
+        validation_result(page,False,'password')
         page.goto(origin+'/admin/password')
         fill(page,{'current_password':'a synthetic password','password':'the replacement password','password_confirmation':'the replacement password'})
         submit(page,'Change password');page.wait_for_url(origin+'/admin/login')
@@ -200,7 +207,7 @@ with sync_playwright() as p:
         page.goto(origin+'/admin/recovery')
         fill(page,{'code':recovery,'password':'short','password_confirmation':'different'})
         submit(page,'Reset password')
-        validation_result(page,False)
+        validation_result(page,False,'password')
         fill(page,{'code':recovery,'password':'a recovered password','password_confirmation':'a recovered password'})
         submit(page,'Reset password');page.wait_for_url(origin+'/admin/login')
         login(page,'a recovered password')
