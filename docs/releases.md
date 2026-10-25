@@ -33,7 +33,7 @@ use `v0.0.1`; Cargo, the bloc lockfile entry, chart version and appVersion use
 `0.0.1`. `publish = false` still prevents crates.io publication. Chart-only changes
 consume a new unified version. No floating image aliases are published.
 
-The distribution workflow runs on PRs, `main`, and `v*` tags. Only a maintainer's
+The distribution workflow runs manually and on `v*` tags. Only a maintainer's
 complete numeric `vX.Y.Z` tag on a commit belonging to reviewed `main` can enter
 publication. Prerelease, partial, leading-zero and disagreeing versions fail
 admission. Publishing never deploys to an operator's cluster.
@@ -57,11 +57,14 @@ This repository change does not itself publish a release or confirm package acce
    run Distribution on the branch and review its image/cluster evidence.
 3. Merge the reviewed source. The maintainer explicitly creates and pushes its
    numeric version tag. Never create a fake public release to test upgrades.
-4. The tagged revision reruns Rust formatting, lint, tests, documentation and
-   dependency audit. Native amd64 and arm64 jobs build attested OCI artifacts and
-   exercise the exact bytes locally. The combined image is checked for both
-   platforms, provenance and SBOM, then the chart is tested against Helm 4.3.1 /
-   Kubernetes 1.36.5, including a failing upgrade and recovery.
+4. Native amd64 and arm64 jobs build attested OCI artifacts once. After both
+   builds, native smoke/capacity measurements run alongside source/cluster
+   validation. The tagged revision reruns Rust formatting, lint, tests, documentation
+   and dependency audit. The combined image is checked for both platforms,
+   provenance and SBOM; the chart is tested against Helm 4.3.1 / Kubernetes 1.36.5,
+   including a failing upgrade and recovery. A separate completion gate requires
+   both successful paths and checks each capacity record against the candidate
+   platform manifest and current source revision before writing `evidence.json`.
 5. Only after these gates pass does Actions retain the candidate bundle. The
    publisher inspects existing identities, uploads only missing verified artifacts,
    verifies all content anonymously, and pulls with Docker on each platform and
@@ -118,12 +121,28 @@ main-branch push. Routine PR CI keeps source and packaging policy checks; its
 PostgreSQL suites run the two majors in parallel for relevant changes. The
 separate dependency-audit workflow runs for dependency changes, weekly, or manually.
 Native capacity is an explicit manual/release proof, not a prerequisite for PR CI.
-Candidate evidence is written only after both paths succeed. Cluster lifecycle
-checks (including C18) and the disconnected-recovery check (C19) run concurrently
-in separate disposable namespaces; both retain their full five-minute timeouts.
-The launcher waits for both suites and fails if either fails. Logs are retained
-in `evidence/source-validation.log`, `evidence/cluster-lifecycle.log`, and
+The completion gate invokes the same Python capacity validator as the ignored Rust
+wrapper, without rebuilding the test binary in a fresh runner. Both measurements
+remain fresh, including chart-only releases, because the unified version changes
+the application/image identity. Candidate evidence is written only after both paths
+succeed; intermediate `validation.json` is insufficient for publication or retry.
+Cluster lifecycle checks (including C18) and the disconnected-recovery check (C19) run concurrently
+in separate disposable namespaces; only their intentionally failing upgrades use
+60-second timeouts. Normal operations and the operator procedure retain five minutes.
+The launcher waits for both suites and fails if either fails. C18 also requires
+Helm to report completed automatic rollback before accepting healthy A; C19 still
+requires failed recovery, retained B, explicit rollback and healthy A. Logs are
+retained in `evidence/source-validation.log`, `evidence/cluster-lifecycle.log`, and
 `evidence/cluster-recovery.log`, in addition to the combined cluster log.
+The **Release cache warming** workflow has read-only repository permissions and
+runs the shared native build workflow on relevant main changes. Tag runs restore
+main caches; caches from a different tag are not accessible. BuildKit falls back
+to an older same-architecture cache and validates layer inputs itself. Rust restores
+only the matching distribution/check manifest/toolchain prefix. The kind-node cache
+key includes its pinned build script and tool installer; restoration loads only the
+image, then creates a fresh cluster and checks the server baseline. Intermediate
+artifacts may be replaced on a rerun; the original candidate is never overwritten.
+
 `tests/distribution/setup-cluster.sh` creates only disposable kind resources and
 uses a separately owned ingress controller fixture. It requires Docker, the
 pinned Helm/kind clients, kubectl, Python 3.11+, curl and OpenSSL. It does not use a

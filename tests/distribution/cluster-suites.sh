@@ -3,7 +3,7 @@ set -euo pipefail
 mkdir -p evidence
 lifecycle=()
 for check in {9..18} 20 21; do lifecycle+=(--check "C$check"); done
-printf 'Starting lifecycle/C18 and disconnected-recovery/C19 in separate namespaces; both retain five-minute timeouts.\n'
+printf 'Starting lifecycle/C18 and disconnected-recovery/C19 in separate namespaces; intentional upgrade failures use 60-second fixture timeouts.\n'
 python3 -u tests/distribution/cluster.py "$@" "${lifecycle[@]}" 2>&1 | tee evidence/cluster-lifecycle.log &
 lifecycle_pid=$!
 python3 -u tests/distribution/cluster.py "$@" --check C19 2>&1 | tee evidence/cluster-recovery.log &

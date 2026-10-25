@@ -119,7 +119,7 @@ class ReleaseTests(unittest.TestCase):
             (self.root/'evidence.json').write_text(json.dumps(record))
             with self.subTest(check=check), self.assertRaisesRegex(ValueError,'validation evidence'):
                 release.evidence(self.root,'a'*40,'0.0.1')
-        self.assertIn('needs: [prepare, validate]', self.workflow())
+        self.assertIn('needs: [prepare, complete]', self.workflow())
 
     def test_c25_unified_version_and_packaged_digest(self):
         import tomllib
@@ -216,12 +216,13 @@ class ReleaseTests(unittest.TestCase):
         import re
         workflow=self.workflow()
         for action in re.findall(r'uses:\s*(\S+)',workflow):
-            if action == './.github/workflows/administrator-service-capacity.yml':
+            if action.startswith('./.github/workflows/'):
                 local = ROOT / action[2:]
                 self.assertTrue(local.is_file())
                 contract=local.read_text()
                 self.assertIn('  workflow_call:',contract)
-                self.assertIn('      contents: read',contract)
+                import yaml
+                self.assertEqual(yaml.safe_load(contract)['permissions'], {'contents':'read'})
                 self.assertNotIn('contents: write',contract)
                 self.assertNotIn('packages: write',contract)
                 for nested in re.findall(r'uses:\s*(\S+)',contract):

@@ -18,7 +18,8 @@ retain full checks. Renames include both the removed and added paths. Failed
 selection retains source and database jobs unless the workflow is cancelled.
 
 Caches are accelerators, never validation evidence. Rust caches advance per
-revision and restore only within a compatible lane/toolchain/manifest prefix.
+revision and restore within a compatible toolchain/manifest prefix; distribution
+may fall back to the main check lane.
 The auditor cache includes its installation script and toolchain; the installer
 checks the pinned executable version. BuildKit caches are architecture-specific
 and replace the previous local export to avoid retaining unreferenced blobs.
@@ -80,3 +81,62 @@ Policy tests do not establish native capacity or hosted cache behavior. Use the
 manual Distribution workflow to verify both real platform images, paired capacity
 records, cache restore/save and cluster validation. Keep execution-specific logs,
 measurements and results in CI artifacts and the pull request description.
+
+## Release scheduling revision (2026-10-25)
+
+Decision source: the maintainer requested a branch from main implementing the
+release optimizations discussed in chat. The following scenarios supersede the
+previous scheduling and fixture-budget descriptions, without changing application
+limits, normal operator timeouts or immutable publication/retry rules.
+
+### ci-efficiency-04: overlap capacity with cluster validation
+
+Given a newly admitted version or manual validation run
+When both native image builds finish
+Then native smoke/capacity measurements and source/cluster validation run in
+independent jobs against those builds. Only successful results from both paths
+can produce the original candidate evidence and enter publication. Missing,
+failed, cancelled or mismatched native evidence cannot complete a candidate.
+
+### ci-efficiency-05: share accelerators through main
+
+Given a reviewed change on main affecting the native build or release fixtures
+When release cache warming runs
+Then both native build caches and the pinned disposable node image are prepared
+without publication permissions. Releases may restore main's caches; different
+version tags need not read each other's cache scopes. BuildKit may restore an
+older architecture-compatible cache and determines which layers remain valid.
+Rust may restore main's compatible check-lane cache but still executes all checks.
+
+### ci-efficiency-06: bound intentional failures independently of operator waits
+
+Given the C18 unavailable-image fixture or C19 disconnected-API fixture
+When the deliberate failed upgrade runs
+Then Helm uses a 60-second timeout with rollback-on-failure; C18 still requires
+failed upgrade, successful automatic restoration and healthy A; C19 still requires
+failed automatic restoration, retained B and successful explicit restoration.
+Successful operations and the documented operator procedure retain five minutes.
+
+Verification: `tests/distribution/test_efficiency.py` covers scheduling, cache
+scope/warming configuration and fixture command budgets. `tests/distribution/test_completion.py` and `test_node_image.py`
+cover refusal to generate evidence on unsuccessful inputs. Hosted
+native measurements, node cache transfer costs and total workflow timing remain
+required before claiming an elapsed-time improvement. Both native capacity
+measurements still run afresh: unified version changes alter application/image
+identity, so chart-only releases do not reuse an older version's measurements.
+
+
+| Scenario | Local proof | Remaining boundary |
+| --- | --- | --- |
+| ci-efficiency-04 | `EfficiencyTests.test_cluster_validation_and_native_measurements_share_builds_without_waiting_for_each_other`, `CompletionTests.test_completion_requires_both_bounds_and_current_manifest_identities`, `test_missing_measurement_or_failed_validation_never_completes`, `test_completed_candidate_cannot_be_overwritten`; retained OCI completion round trip passed | Hosted scheduling and both fresh native runs |
+| ci-efficiency-05 | `EfficiencyTests.test_main_warms_the_same_native_build_cache_as_releases`, `NodeImageTests.test_absent_cached_present_and_failed_node_images`; actionlint passed | Hosted cache hits and transfer cost |
+| ci-efficiency-06 | `EfficiencyTests.test_deliberate_failed_upgrades_use_one_minute_without_shortening_normal_operations`; real C18/C19 passed on Helm 4.3.1 / Kubernetes 1.36.5 | No claim of a full hosted release run |
+
+Author evidence, including local recovery outputs and limitations:
+`projects/bloc/.checks/release-pipeline-efficiency-2026-10-25.md`
+([Drive](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=4436673fdb817bf7184e3ccf42815bac19dae34aeaa69ef2)).
+The complete C18/C19 scenarios took 114.17s/149.07s, including their setup and
+cleanup; these are not the durations of the individual 60-second Helm operations.
+The OCI completion proof used retained v0.4.1 bytes/measurements, not fresh native
+benchmarks. Both temporary namespaces, registry and node-registry configuration
+were removed after the local recovery proof.

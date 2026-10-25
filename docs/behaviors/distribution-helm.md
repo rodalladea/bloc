@@ -143,8 +143,12 @@ Task criterion: 21.
 
 The batched launcher runs C9–C18/C20–C21 and C19 concurrently in separate
 PID-specific namespaces. Only the lifecycle process creates the test Ingress.
-Both processes must succeed; all scenario assertions and five-minute recovery
-budgets are unchanged. `test_parallel.py` verifies concurrent start, complete
+Both processes must succeed. The 2026-10-25 maintainer-approved
+[CI efficiency revision](ci-efficiency.md#release-scheduling-revision-2026-10-25)
+changes only the intentionally failing C18/C19 upgrades to 60-second fixture
+budgets. Normal operations and the operator runbook retain five minutes. C18 now
+also requires Helm to report completed automatic rollback; the remaining scenario
+assertions are retained. `test_parallel.py` verifies concurrent start, complete
 scenario selection, and failure propagation from either process.
 
 | Scenario | Delivery / coverage | Evidence |

@@ -55,6 +55,12 @@ def forwarding(kube, namespace):
         process.wait(timeout=10)
 
 
+def failed_upgrade_arguments(package, values):
+    # Only intentionally unavailable images use this shorter fixture budget.
+    return ['upgrade', 'fixture', package, '--version', '0.0.2', '--values', str(values),
+            '--wait=watcher', '--timeout', '60s', '--rollback-on-failure']
+
+
 def exercise(args):
     helm,kube=args.helm,args.kubectl
     context=command(kube,'config','current-context').stdout.strip()
@@ -203,8 +209,8 @@ def exercise(args):
             verify_http(); passed.append('C20')
             if 'C18' in checks:
                 failed=tmp/'failed.json'; failed.write_text(json.dumps({'image':{'repository':repository,'digest':'sha256:'+'f'*64}}))
-                result=h('upgrade','fixture',packages['B'],'--version','0.0.2','--values',str(failed),'--wait=watcher','--timeout','5m','--rollback-on-failure',check=False)
-                assert result.returncode!=0, result.stdout
+                result=h(*failed_upgrade_arguments(packages['B'], failed),check=False)
+                assert result.returncode!=0 and 'has been rolled back' in result.stdout.lower(), result.stdout
                 assert deployment()['spec']['template']['spec']['containers'][0]['image']==repository+'@'+digest_a
                 verify_http(); passed.append('C18')
             if 'C19' in checks:
@@ -222,10 +228,10 @@ def exercise(args):
                 operation=None
                 try:
                     wait_for(lambda:command(kube,'--kubeconfig',str(disconnected),'get','namespace',namespace,check=False).returncode==0,30)
-                    operation=subprocess.Popen([helm,'upgrade','fixture',packages['B'],'--namespace',namespace,'--version','0.0.2','--values',str(failed),'--wait=watcher','--timeout','5m','--rollback-on-failure'],env=environment,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+                    operation=subprocess.Popen([helm,*failed_upgrade_arguments(packages['B'], failed),'--namespace',namespace],env=environment,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
                     wait_for(lambda:deployment()['spec']['template']['spec']['containers'][0]['image']==repository+'@sha256:'+'e'*64)
                     proxy.terminate(); proxy.wait(timeout=10)
-                    output=operation.communicate(timeout=360)[0]
+                    output=operation.communicate(timeout=180)[0]
                     assert operation.returncode and 'original upgrade error' in output.lower(), output
                     assert 'an error occurred while finding last successful release' in output.lower(), output
                     assert 'refused' in output or 'unreachable' in output, output
