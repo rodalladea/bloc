@@ -30,8 +30,12 @@ jobs:
         run: python3 scripts/distribution/prepare.py
         env:
           GH_TOKEN: ${{ github.token }}
-  platform:
+  build:
     needs: prepare
+    if: needs.prepare.outputs.reuse != 'true'
+    uses: ./.github/workflows/build-images.yml
+  platform:
+    needs: [prepare, build]
     if: needs.prepare.outputs.reuse != 'true'
     strategy:
       fail-fast: false
@@ -42,38 +46,15 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 40
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          path: ${{ runner.temp }}/buildkit-cache
-          key: buildkit-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Dockerfile', 'Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-${{ github.sha }}
-          restore-keys: |
-            buildkit-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Dockerfile', 'Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-
-      - name: Build attested image on native platform
-        env:
-          ARCH: ${{ matrix.arch }}
-        run: |
-          mkdir -p platform/image
-          docker buildx create --name bloc --driver docker-container --driver-opt image=moby/buildkit@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea --use
-          version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml","rb"))["package"]["version"])')
-          fingerprint=$(python3 -c 'import sys; sys.path.insert(0,"tests/support"); from application_fingerprint import source_fingerprint; print(source_fingerprint())')
-          docker buildx build \
-            --cache-from "type=local,src=${RUNNER_TEMP}/buildkit-cache" \
-            --cache-to "type=local,dest=${RUNNER_TEMP}/buildkit-cache-new,mode=max" \
-            --label "org.bloc.source-tree-sha256=$fingerprint" \
-            --platform "linux/$ARCH" \
-            --build-arg "VERSION=$version" --build-arg "REVISION=$GITHUB_SHA" \
-            --provenance=mode=max \
-            --attest type=sbom,generator=docker/buildkit-syft-scanner@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9 \
-            --output type=oci,dest=platform/image.tar .
-          rm -rf "${RUNNER_TEMP}/buildkit-cache"
-          mv "${RUNNER_TEMP}/buildkit-cache-new" "${RUNNER_TEMP}/buildkit-cache"
-          tar -xf platform/image.tar -C platform/image
-          rm platform/image.tar
+          name: platform-build-${{ matrix.arch }}
+          path: platform
       - name: Exercise and measure exact OCI image
         env:
           ARCH: ${{ matrix.arch }}
@@ -90,15 +71,19 @@ jobs:
           path: platform/
           if-no-files-found: ignore
           retention-days: 14
+          overwrite: true
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: platform-${{ matrix.arch }}
-          path: platform/
+          path: |
+            platform/service-capacity/
+            platform/smoke.log
           if-no-files-found: error
           retention-days: 14
+          overwrite: true
   validate:
-    needs: [prepare, platform]
-    if: ${{ !cancelled() && needs.platform.result == 'success' }}
+    needs: [prepare, build]
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -107,14 +92,12 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: platform-amd64
+          name: platform-build-amd64
           path: platforms/amd64
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: platform-arm64
+          name: platform-build-arm64
           path: platforms/arm64
-      - name: Join verified native service records
-        run: python3 tests/support/combine_native_service_evidence.py platforms "${RUNNER_TEMP}/native-service.json"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -124,6 +107,7 @@ jobs:
           key: rust-${{ runner.os }}-${{ runner.arch }}-distribution-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-${{ github.sha }}
           restore-keys: |
             rust-${{ runner.os }}-${{ runner.arch }}-distribution-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-
+            rust-${{ runner.os }}-${{ runner.arch }}-check-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/bloc-tools
@@ -131,10 +115,50 @@ jobs:
       - run: bash scripts/distribution/install-tools.sh
       - name: Install workflow test dependencies
         run: python3 -m pip install --requirement tests/requirements.txt
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/node-image
+          key: kind-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/distribution/node-image.sh', 'scripts/distribution/install-tools.sh') }}
       - name: Validate source and cluster suites in parallel
         run: bash scripts/distribution/validate.sh
-        env:
-          BLOC_NATIVE_SERVICE_EVIDENCE: ${{ runner.temp }}/native-service.json
+      - name: Retain validation output pending native measurements
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: validated-candidate
+          path: candidate/
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+          compression-level: 0
+      - name: Preserve diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: distribution-diagnostics-${{ github.run_attempt }}
+          path: evidence/
+  complete:
+    needs: [prepare, platform, validate]
+    if: ${{ !cancelled() && needs.platform.result == 'success' && needs.validate.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: validated-candidate
+          path: candidate
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: platform-amd64
+          path: measurements/amd64
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: platform-arm64
+          path: measurements/arm64
+      - name: Bind both native measurements to the validated candidate
+        run: python3 scripts/distribution/complete.py --bundle candidate --measurements measurements
       - name: Retain original verified bytes before any publication
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -143,15 +167,9 @@ jobs:
           if-no-files-found: error
           retention-days: 90
           compression-level: 0
-      - name: Preserve diagnostics on failure
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: distribution-diagnostics-${{ github.run_attempt }}
-          path: evidence/
   publish:
-    needs: [prepare, validate]
-    if: ${{ !cancelled() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && needs.prepare.result == 'success' && (needs.validate.result == 'success' || needs.prepare.outputs.reuse == 'true') }}
+    needs: [prepare, complete]
+    if: ${{ !cancelled() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && needs.prepare.result == 'success' && (needs.complete.result == 'success' || needs.prepare.outputs.reuse == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:

@@ -7,9 +7,7 @@ exec > >(tee evidence/cluster.log) 2>&1
 kind_name=bloc-distribution
 registry=bloc-test-registry
 if ! kind get clusters | grep -qx "$kind_name"; then
-  # kind has no published node image for every patch; build the exact release.
-  kind build node-image --type release v1.36.5 --image bloc-test-node:v1.36.5 \
-    --base-image kindest/base:v20260820-69b56db7@sha256:8098fa3cae05bc15d9c4b93a566d19e1f8e65a25e26ebeb993b6cb41142cf791
+  bash scripts/distribution/node-image.sh
   kind create cluster --name "$kind_name" --image bloc-test-node:v1.36.5 --wait 5m
 fi
 [[ $(kubectl config current-context) == "kind-$kind_name" ]]

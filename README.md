@@ -94,10 +94,18 @@ multi-platform image/Kubernetes validation runs through the **Distribution**
 workflow manually or on version tags. Run it for packaging changes before merging
 or releasing. Capacity benchmarks run manually through **Administrator service
 capacity** and as part of Distribution; ordinary PRs do not build benchmark images.
-Distribution builds each native platform once, then smoke-tests and measures that
-exact image by digest. Both platform records remain required. BuildKit layers are
+Distribution builds each native platform once. Native smoke/capacity measurements
+and source/Kubernetes validation then run in parallel against those retained
+images. Candidate completion requires both native records, matched to the exact
+platform manifests and source revision. BuildKit layers are
 cached per native architecture; Rust dependencies occupy a separate build layer,
 and each exported cache replaces its predecessor to avoid accumulating old blobs.
+The **Release cache warming** workflow prepares both native build caches and the
+pinned kind node image on relevant main-branch changes, making them available to
+new tags. Distribution can also restore a compatible Rust check-lane cache from
+main. Node caches contain a compressed image, never a cluster or validation proof.
+Intentional C18/C19 upgrade failures use 60-second fixture timeouts; successful
+operations and the operator runbook retain five-minute waits.
 
 See the [storage runbook](docs/administrator-setup-storage.md#verification) for
 fixture requirements. Previews and one-off experiments are kept outside this repository.

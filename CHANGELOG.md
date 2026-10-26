@@ -5,6 +5,18 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+## 0.4.2 - 2026-10-25
+
+### Changed
+
+- Build native release images once and run capacity measurements alongside source
+  and Kubernetes validation, with final evidence bound to the exact platform
+  manifests and source revision.
+- Warm native build and disposable Kubernetes node caches from main, and reuse
+  compatible Rust check caches during release validation.
+- Use one-minute timeouts for deliberately failing upgrade/recovery fixtures while
+  preserving five-minute waits for normal operations and operator procedures.
+
 ## 0.4.1 - 2026-10-24
 
 ### Changed

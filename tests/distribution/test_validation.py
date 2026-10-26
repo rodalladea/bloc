@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class ValidationTests(unittest.TestCase):
     def test_source_checks_overlap_and_every_failure_blocks_candidate_evidence(self):
-        phases = ['fmt', 'clippy', 'test', 'doc', 'install', 'audit', 'capacity']
-        for failure in ['init', '', *phases, 'source-smoke']:
+        phases = ['fmt', 'clippy', 'test', 'doc', 'install', 'audit']
+        for failure in ['init', '', *phases, 'policy', 'chart', 'candidate', 'cluster', 'source-smoke', 'registry']:
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temporary:
                 work = Path(temporary)
                 for directory in ('bin', 'scripts/distribution', 'scripts/ci', 'tests/distribution',
@@ -20,9 +20,7 @@ class ValidationTests(unittest.TestCase):
                     (work/directory).mkdir(parents=True)
                 (work/'scripts/ci/install-auditor.sh').write_text(
                     (ROOT/'scripts/ci/install-auditor.sh').read_text())
-                (work/'tests/distribution/setup-cluster.sh').write_text('exit 0\n')
-                for arch in ('amd64', 'arm64'):
-                    (work/f'platforms/{arch}/smoke.log').write_text('fixture passed\n')
+                (work/'tests/distribution/setup-cluster.sh').write_text('[[ "$FAIL_SOURCE" != cluster ]]\n')
                 (work/'bin/rustup').write_text(f'#!{sys.executable}\n' + '''
 import os, pathlib, sys
 assert sys.argv[1:] == ['show', 'active-toolchain']
@@ -44,15 +42,23 @@ if phase == 'fmt':
         if time.monotonic() > deadline: raise SystemExit('source checks did not overlap')
         time.sleep(0.01)
 if phase == os.environ['FAIL_SOURCE']: raise SystemExit(1)
-if phase == 'capacity': pathlib.Path('source-passed').touch()
+if phase == 'audit': pathlib.Path('source-passed').touch()
 ''')
                 (work/'bin/python3').write_text(f'#!{sys.executable}\n' + '''
 import os, pathlib, sys
 assert pathlib.Path('toolchain-ready').exists(), 'distribution preceded toolchain initialization'
 args = sys.argv[1:]
-if args[0] == '-m': pathlib.Path('distribution-started').touch()
+if args[0] == '-m':
+    pathlib.Path('distribution-started').touch()
+    if os.environ['FAIL_SOURCE'] == 'policy': raise SystemExit(1)
 elif args[0] == '-c': print('0.0.1')
-elif args[0] == 'scripts/distribution/candidate.py': pathlib.Path('candidate').mkdir()
+elif args[0] == 'tests/distribution/chart.py':
+    if os.environ['FAIL_SOURCE'] == 'chart': raise SystemExit(1)
+elif args[0] == 'scripts/distribution/candidate.py':
+    if os.environ['FAIL_SOURCE'] == 'candidate': raise SystemExit(1)
+    pathlib.Path('candidate').mkdir()
+elif args[0] == 'tests/distribution/registry.py':
+    if os.environ['FAIL_SOURCE'] == 'registry': raise SystemExit(1)
 elif args[0] == 'tests/distribution/source.py':
     assert pathlib.Path('source-passed').exists(), 'source smoke overlaps source checks'
     pathlib.Path('source-smoke-passed').touch()
@@ -60,7 +66,7 @@ elif args[0] == 'tests/distribution/source.py':
 elif args[0] == '-':
     assert pathlib.Path('source-passed').exists(), 'evidence preceded source success'
     assert pathlib.Path('source-smoke-passed').exists(), 'evidence preceded source smoke'
-    pathlib.Path('candidate/evidence.json').write_text('{}')
+    pathlib.Path('candidate/validation.json').write_text('{}')
 ''')
                 (work/'bin/git').write_text('#!/bin/sh\nprintf "fixture-revision\\n"\n')
                 for executable in (work/'bin').iterdir():
@@ -80,7 +86,8 @@ elif args[0] == '-':
                     continue
                 executed = (work/'cargo-commands').read_text().splitlines()
                 self.assertEqual(executed, phases[:phases.index(failure)+1] if failure in phases else phases)
-                self.assertEqual((work/'candidate/evidence.json').exists(), not failure)
+                self.assertEqual((work/'candidate/validation.json').exists(), not failure)
+                self.assertFalse((work/'candidate/evidence.json').exists(), 'native proofs still pending')
 
 
 
