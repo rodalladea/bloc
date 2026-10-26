@@ -99,13 +99,17 @@ and source/Kubernetes validation then run in parallel against those retained
 images. Candidate completion requires both native records, matched to the exact
 platform manifests and source revision. BuildKit layers are
 cached per native architecture; Rust dependencies occupy a separate build layer,
-and each exported cache replaces its predecessor to avoid accumulating old blobs.
+and each refreshed cache replaces its predecessor to avoid accumulating old blobs.
+Exact primary-key hits still build/export the attested image but skip cache export;
+partial restores and misses refresh the cache only after a successful build.
 The **Release cache warming** workflow prepares both native build caches and the
 pinned kind node image on relevant main-branch changes, making them available to
 new tags. Distribution can also restore a compatible Rust check-lane cache from
 main. Node caches contain a compressed image, never a cluster or validation proof.
 Intentional C18/C19 upgrade failures use 60-second fixture timeouts; successful
-operations and the operator runbook retain five-minute waits.
+operations and the operator runbook retain five-minute waits. Cluster lifecycle/ingress,
+probes with automatic rollback, and disconnected recovery run in three isolated
+namespaces. Every group must pass; all C9–C21 scenarios remain required.
 
 See the [storage runbook](docs/administrator-setup-storage.md#verification) for
 fixture requirements. Previews and one-off experiments are kept outside this repository.

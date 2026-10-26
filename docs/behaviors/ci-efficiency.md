@@ -31,8 +31,10 @@ standalone manual capacity workflow remains available.
 
 ## Open questions and assumptions
 
-Hosted cache hit rates and elapsed-time improvements require a subsequent
-GitHub Actions run. Local checks cannot establish those measurements.
+Each cache/scheduling revision needs its own hosted timing and cache-hit proof.
+Local checks cannot establish those measurements. The v0.4.2 baseline below
+verifies the first release-scheduling revision; the latest revision remains
+unmeasured on hosted runners.
 
 ## Scenarios
 
@@ -140,3 +142,64 @@ cleanup; these are not the durations of the individual 60-second Helm operations
 The OCI completion proof used retained v0.4.1 bytes/measurements, not fresh native
 benchmarks. Both temporary namespaces, registry and node-registry configuration
 were removed after the local recovery proof.
+
+The first release scheduling revision was subsequently verified by
+[v0.4.2 Distribution](https://github.com/rodalladea/bloc/actions/runs/40268066020):
+7min32s versus v0.4.1's 18min12s, with a separate 2min20s main cache-warming run.
+This closes the hosted boundaries above for ci-efficiency-04 through -06 at that
+revision. Details: `projects/bloc/.checks/release-pipeline-efficiency-hosted-2026-10-26.md`
+([Drive](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=3d4c209decf8d0d240969c39ad8da4e5677d2cf14431ada2)).
+
+## Cache export and cluster scheduling revision (2026-10-26)
+
+Decision source: the maintainer requested a new branch from main for the next
+release optimizations after the successful v0.4.2 measurement. Scope is exact-hit
+cache export avoidance and cluster scheduling; image provenance, fresh native
+capacity measurements, publication authority and timeouts remain unchanged.
+
+### ci-efficiency-07: avoid exporting an unchanged exact-hit cache
+
+Given the shared native build job restores an exact primary-key BuildKit cache
+When it builds the attested OCI image
+Then it still builds/exports the image with provenance, SBOM and the current
+revision/fingerprint, but does not export or replace the restored local cache.
+A partial restore (`false`) or absent cache (empty output) still exports a fresh
+cache and rotates it only after a successful build. Build failure leaves the
+previous cache untouched and prevents artifact success.
+
+### ci-efficiency-08: isolate disruptive cluster checks without repeating rollouts
+
+Given a verified candidate and disposable cluster
+When the batched launcher validates C9–C21
+Then lifecycle/ingress, probes/automatic rollback (C16/C18), and disconnected
+recovery (C19) run concurrently in three PID-specific namespaces. Every C9–C21
+check is selected, and every process must succeed. Only lifecycle creates the
+Ingress. Each disruptive process installs healthy A and proves its own failure
+and restoration; saved-values upgrades, mirror rollouts and history/explicit
+rollback checks remain covered by lifecycle instead of being repeated by all
+processes. C16 probe settings, C18/C19 assertions and all timeouts are preserved.
+
+Local proof targets: `BuildCacheTests.test_exact_hit_preserves_cache_and_still_exports_attested_image`,
+`test_partial_or_missing_cache_is_replaced_after_success`,
+`test_build_failure_does_not_promote_partial_cache`, and
+`ParallelTests.test_cluster_lanes_overlap_cover_all_checks_and_propagate_failures`.
+Real three-namespace execution is required to validate resource contention and
+actual Kubernetes behavior; no hosted speedup is claimed from local policy tests.
+
+
+| Scenario | Local verification | Remaining boundary |
+| --- | --- | --- |
+| ci-efficiency-07 | `tests/distribution/test_build_cache.py::BuildCacheTests` executes the workflow shell against a disposable Docker boundary: exact hits preserve the cache and image/attestation flags, partial/missing caches refresh, build failures do not promote partial output | Actual hosted exporter duration |
+| ci-efficiency-08 | `tests/distribution/test_parallel.py::ParallelTests.test_cluster_lanes_overlap_cover_all_checks_and_propagate_failures` verifies all three groups overlap, every check is selected, and each group's failure blocks success; live comparison passed all C9–C21 assertions | Hosted three-group resource contention and total release time |
+
+The local A/B cluster comparison used the same warmed Linux arm64 kind cluster,
+Helm 4.3.1 / Kubernetes 1.36.5 and retained v0.4.1 image fixtures for both cases.
+The previous two-group implementation at main took 215.02s; the new three-group
+implementation took 147.08s (67.94s / 31.6% less). This single local comparison
+includes fixture setup/cleanup and does not measure a full release or fresh native
+capacity. Both cases retained all C9–C21 assertions. Temporary registry,
+port-forward, node registry configuration and test namespaces were cleaned up.
+
+
+Author evidence: `projects/bloc/.checks/release-cache-cluster-efficiency-2026-10-26.md`
+([Drive](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=8bf8d85c9494278eca4d9e1d8012f7b74036cba92224b8eb)).

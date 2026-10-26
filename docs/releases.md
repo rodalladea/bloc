@@ -126,18 +126,25 @@ wrapper, without rebuilding the test binary in a fresh runner. Both measurements
 remain fresh, including chart-only releases, because the unified version changes
 the application/image identity. Candidate evidence is written only after both paths
 succeed; intermediate `validation.json` is insufficient for publication or retry.
-Cluster lifecycle checks (including C18) and the disconnected-recovery check (C19) run concurrently
-in separate disposable namespaces; only their intentionally failing upgrades use
-60-second timeouts. Normal operations and the operator procedure retain five minutes.
-The launcher waits for both suites and fails if either fails. C18 also requires
-Helm to report completed automatic rollback before accepting healthy A; C19 still
-requires failed recovery, retained B, explicit rollback and healthy A. Logs are
-retained in `evidence/source-validation.log`, `evidence/cluster-lifecycle.log`, and
-`evidence/cluster-recovery.log`, in addition to the combined cluster log.
+Cluster checks run in three disposable namespaces: lifecycle/ingress, probes and
+automatic rollback (C16/C18), and disconnected recovery (C19). Every C9–C21 check
+remains selected and the launcher waits for all three processes, failing if any
+fails. Only lifecycle/ingress performs the saved-values/mirror rollouts and creates
+the Ingress; the disruptive groups start with healthy A and prove their own
+failure/restoration without repeating those unrelated rollouts. Intentional upgrade
+failures retain 60-second timeouts; normal operations and the operator procedure
+retain five minutes. C18 requires Helm's completed automatic rollback and healthy A;
+C19 requires failed recovery, retained B, explicit rollback and healthy A.
+Logs are retained in `evidence/source-validation.log`, `evidence/cluster-lifecycle.log`,
+`evidence/cluster-resilience.log` and `evidence/cluster-recovery.log`, in addition to
+the combined cluster log.
 The **Release cache warming** workflow has read-only repository permissions and
 runs the shared native build workflow on relevant main changes. Tag runs restore
 main caches; caches from a different tag are not accessible. BuildKit falls back
-to an older same-architecture cache and validates layer inputs itself. Rust restores
+to an older same-architecture cache and validates layer inputs itself. An exact
+primary-key hit skips exporting/replacing the local cache, while still building
+and exporting the attested image. Partial restores and misses export and rotate
+a fresh cache only after build success. Rust restores
 only the matching distribution/check manifest/toolchain prefix. The kind-node cache
 key includes its pinned build script and tool installer; restoration loads only the
 image, then creates a fresh cluster and checks the server baseline. Intermediate

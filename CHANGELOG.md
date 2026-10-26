@@ -5,6 +5,16 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+## 0.4.3 - 2026-10-26
+
+### Changed
+
+- Avoid exporting and replacing the native build cache on exact cache hits while
+  preserving attested image generation and cache refreshes for partial/missing hits.
+- Run cluster lifecycle/ingress, probes with automatic rollback, and disconnected
+  recovery in three isolated groups, preserving every C9–C21 check and removing
+  unrelated repeated rollouts from the failure scenarios.
+
 ## 0.4.2 - 2026-10-25
 
 ### Changed

@@ -176,37 +176,38 @@ def exercise(args):
                 assert any('Liveness probe failed' in e.get('message','') for e in events)
                 assert any('Readiness probe failed' in e.get('message','') for e in events)
                 verify_http(); passed.append('C16')
-            node=json.loads(command(kube,'get','nodes','-o','json').stdout)['items'][0]['metadata']['name']
-            saved={'replicaCount':2,'image':{'repository':repository},'logLevel':'debug','resources':{'requests':{'cpu':'200m','memory':'96Mi'},'limits':{'cpu':'1','memory':'192Mi'}},'nodeSelector':{'kubernetes.io/hostname':node},'tolerations':[{'key':'bloc-test','operator':'Exists','effect':'NoSchedule'}],'affinity':{'nodeAffinity':{'requiredDuringSchedulingIgnoredDuringExecution':{'nodeSelectorTerms':[{'matchExpressions':[{'key':'kubernetes.io/hostname','operator':'In','values':[node]}]}]}}}}
-            values.write_text(json.dumps(saved))
-            h('upgrade','fixture',packages['A'],'--version','0.0.1','--values',str(values),'--wait=watcher','--timeout','5m','--rollback-on-failure')
-            assert json.loads(h('get','values','fixture','-o','json').stdout)==saved
-            assert deployment()['spec']['template']['spec']['containers'][0]['image']==repository+'@'+digest_a
-            h('upgrade','fixture',packages['B'],'--version','0.0.2','--values',str(values),'--wait=watcher','--timeout','5m','--rollback-on-failure')
-            verify_http(); dep=deployment(); spec=dep['spec']['template']['spec']; container=spec['containers'][0]
-            assert dep['spec']['strategy']=={'type':'RollingUpdate','rollingUpdate':{'maxUnavailable':0,'maxSurge':1}}
-            assert spec['terminationGracePeriodSeconds']==30
-            assert container['image']==repository+'@'+digest_b and dep['spec']['replicas']==2 and ready()
-            for key in ['nodeSelector','tolerations','affinity']:
-                assert spec[key]==saved[key]
-            assert container['resources']==saved['resources']
-            assert {'name':'RUST_LOG','value':'debug'} in container['env']
-            assert {'name':'BLOC_BIND_ADDR','value':'0.0.0.0:3000'} in container['env']
-            assert json.loads(h('get','values','fixture','-o','json').stdout)==saved
-            history=json.loads(h('history','fixture','-o','json').stdout)
-            assert len(history)==3 and history[-1]['chart']=='bloc-0.0.2'
-            passed.extend(['C11','C17'])
-            mirror=repository+'-mirror'
-            mirrored={**saved,'image':{'repository':mirror,'digest':digest_b}}
-            values.write_text(json.dumps(mirrored))
-            h('upgrade','fixture',packages['B'],'--version','0.0.2','--values',str(values),'--wait=watcher','--timeout','5m','--rollback-on-failure')
-            verify_http()
-            assert deployment()['spec']['template']['spec']['containers'][0]['image']==mirror+'@'+digest_b
-            assert ready() and deployment()['spec']['replicas']==2
-            passed.append('C12')
-            h('rollback','fixture','1','--wait=watcher','--timeout','5m')
-            assert deployment()['spec']['template']['spec']['containers'][0]['image']==repository+'@'+digest_a
-            verify_http(); passed.append('C20')
+            if checks & {'C11','C12','C17','C20'}:
+                node=json.loads(command(kube,'get','nodes','-o','json').stdout)['items'][0]['metadata']['name']
+                saved={'replicaCount':2,'image':{'repository':repository},'logLevel':'debug','resources':{'requests':{'cpu':'200m','memory':'96Mi'},'limits':{'cpu':'1','memory':'192Mi'}},'nodeSelector':{'kubernetes.io/hostname':node},'tolerations':[{'key':'bloc-test','operator':'Exists','effect':'NoSchedule'}],'affinity':{'nodeAffinity':{'requiredDuringSchedulingIgnoredDuringExecution':{'nodeSelectorTerms':[{'matchExpressions':[{'key':'kubernetes.io/hostname','operator':'In','values':[node]}]}]}}}}
+                values.write_text(json.dumps(saved))
+                h('upgrade','fixture',packages['A'],'--version','0.0.1','--values',str(values),'--wait=watcher','--timeout','5m','--rollback-on-failure')
+                assert json.loads(h('get','values','fixture','-o','json').stdout)==saved
+                assert deployment()['spec']['template']['spec']['containers'][0]['image']==repository+'@'+digest_a
+                h('upgrade','fixture',packages['B'],'--version','0.0.2','--values',str(values),'--wait=watcher','--timeout','5m','--rollback-on-failure')
+                verify_http(); dep=deployment(); spec=dep['spec']['template']['spec']; container=spec['containers'][0]
+                assert dep['spec']['strategy']=={'type':'RollingUpdate','rollingUpdate':{'maxUnavailable':0,'maxSurge':1}}
+                assert spec['terminationGracePeriodSeconds']==30
+                assert container['image']==repository+'@'+digest_b and dep['spec']['replicas']==2 and ready()
+                for key in ['nodeSelector','tolerations','affinity']:
+                    assert spec[key]==saved[key]
+                assert container['resources']==saved['resources']
+                assert {'name':'RUST_LOG','value':'debug'} in container['env']
+                assert {'name':'BLOC_BIND_ADDR','value':'0.0.0.0:3000'} in container['env']
+                assert json.loads(h('get','values','fixture','-o','json').stdout)==saved
+                history=json.loads(h('history','fixture','-o','json').stdout)
+                assert len(history)==3 and history[-1]['chart']=='bloc-0.0.2'
+                passed.extend(['C11','C17'])
+                mirror=repository+'-mirror'
+                mirrored={**saved,'image':{'repository':mirror,'digest':digest_b}}
+                values.write_text(json.dumps(mirrored))
+                h('upgrade','fixture',packages['B'],'--version','0.0.2','--values',str(values),'--wait=watcher','--timeout','5m','--rollback-on-failure')
+                verify_http()
+                assert deployment()['spec']['template']['spec']['containers'][0]['image']==mirror+'@'+digest_b
+                assert ready() and deployment()['spec']['replicas']==2
+                passed.append('C12')
+                h('rollback','fixture','1','--wait=watcher','--timeout','5m')
+                assert deployment()['spec']['template']['spec']['containers'][0]['image']==repository+'@'+digest_a
+                verify_http(); passed.append('C20')
             if 'C18' in checks:
                 failed=tmp/'failed.json'; failed.write_text(json.dumps({'image':{'repository':repository,'digest':'sha256:'+'f'*64}}))
                 result=h(*failed_upgrade_arguments(packages['B'], failed),check=False)
