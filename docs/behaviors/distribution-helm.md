@@ -141,9 +141,12 @@ Task criterion: 21.
 
 ## Verification
 
-The batched launcher runs C9–C18/C20–C21 and C19 concurrently in separate
-PID-specific namespaces. Only the lifecycle process creates the test Ingress.
-Both processes must succeed. The 2026-10-25 maintainer-approved
+The batched launcher runs lifecycle/ingress (C9–C15/C17/C20–C21), probes with
+automatic rollback (C16/C18), and disconnected recovery (C19) concurrently in three
+PID-specific namespaces. Only lifecycle creates the test Ingress and performs the
+saved-values/mirror rollouts; the other groups install healthy A and prove their
+own failure/restoration. All three processes must succeed. The
+2026-10-25 maintainer-approved
 [CI efficiency revision](ci-efficiency.md#release-scheduling-revision-2026-10-25)
 changes only the intentionally failing C18/C19 upgrades to 60-second fixture
 budgets. Normal operations and the operator runbook retain five minutes. C18 now
