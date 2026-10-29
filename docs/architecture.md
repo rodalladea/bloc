@@ -36,8 +36,15 @@ independent lifecycle status. Reads and atomic directory/audit mutations recheck
 current administrator authority under the installation lock. See
 [ADR 0005](adr/0005-tenant-user-directories.md),
 [realm terminology decision](adr/0006-realm-terminology.md), and the
-[directory runbook](realm-user-management.md). These records do not authenticate
-application users.
+[directory runbook](realm-user-management.md). Directory records alone confer no
+authentication authority. Migration 0005 adds separate realm credentials,
+realm/purpose-bound forms, sessions, access links and policy. Realm HTTP handling
+and guarded database calls live in `realm_authentication.rs` and `realm_storage.rs`.
+They share the administrator's bounded password worker and installation admission
+budget, while principal authority remains separate. See
+[ADR 0007](adr/0007-realm-user-authentication.md) and the
+[authentication runbook](realm-user-authentication.md). Browser, native capacity
+and independent security acceptance remain pending.
 
 ## Planned boundaries
 

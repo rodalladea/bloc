@@ -8,11 +8,15 @@ Connect, OAuth authorization for third-party applications, and SAML federation.
 **Status: administrator access implemented for development and evaluation.** Server-rendered
 setup, sign-in, sessions, password change, operator recovery and administration
 home now use shared PostgreSQL. Production authentication approval remains blocked
-on full acceptance and MFA; application-user authentication, provider configuration,
-OIDC/OAuth token issuance and SAML are not implemented.
+on full acceptance and MFA. Realm-user authentication and My Account are under
+acceptance testing; provider configuration, OIDC/OAuth token issuance and SAML
+are not implemented.
 
 Realm and realm-bound user directories are managed at `/admin/realms`; directory
-records do not authenticate users. See [directory management](docs/realm-user-management.md).
+records alone do not authenticate users. The realm authentication increment adds
+opt-in registration, administrator activation/reset links, separate realm sessions
+and profile/password/session controls. See [directory management](docs/realm-user-management.md)
+and the [authentication runbook and pending acceptance](docs/realm-user-authentication.md).
 
 ## Run locally
 
@@ -174,3 +178,18 @@ registry access is unavailable; the evidence still records their image IDs/diges
 To check both executable/schema upgrade directions, build the current binary and
 run `python3 tests/directory_binary_compatibility.py --legacy-binary <retained-pre-directory-binary> --current-binary target/debug/bloc --output <new-external-directory>`.
 This snapshots both executables and uses disposable PostgreSQL 17/18 fixtures.
+
+Realm authentication proofs use `--target realm_authentication`; for example,
+`--proof realm_auth_c08` checks password policy across all credential-setting
+flows. The runner builds the pinned pre-authentication revision in a temporary
+directory for the upgrade proof, or accepts `BLOC_REALM_LEGACY_BINARY` pointing
+to a retained binary. A complete Git history is required for the automatic build.
+The realm browser proof exercises 36 states using the same HTTPS fixture.
+
+For mixed administrator/realm capacity, run
+`python3 tests/support/native_service_capacity.py --realm-auth --output <new-external-directory>`
+on each native architecture. Combine the two `record.json` objects into an array,
+set `BLOC_REALM_NATIVE_SERVICE_EVIDENCE` to that file and run
+`cargo test --locked --test realm_authentication realm_auth_native_capacity -- --ignored --exact`.
+The manual `Realm authentication service capacity` workflow runs those native
+measurements; adding the workflow does not establish acceptance.

@@ -126,6 +126,15 @@ impl Storage {
                     sqlx::SqlStr::from_static(include_str!("../migrations/0004_realms.sql")),
                     false,
                 ),
+                sqlx::migrate::Migration::new(
+                    5,
+                    "realm_authentication".into(),
+                    sqlx::migrate::MigrationType::Simple,
+                    sqlx::SqlStr::from_static(include_str!(
+                        "../migrations/0005_realm_authentication.sql"
+                    )),
+                    false,
+                ),
             ]
             .into(),
             ..Migrator::DEFAULT

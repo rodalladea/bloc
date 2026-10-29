@@ -232,6 +232,9 @@ async fn edit(
     let csrf = b.token(path.trim_end_matches("/status")).await;
     let mut fields = fields.to_vec();
     fields.push(("csrf", &csrf));
+    if path.contains("/users/") && fields.iter().any(|(name, _)| *name == "email") {
+        fields.push(("email_confirmed", "true"));
+    }
     let result = b.request("POST", path, &fields).await;
     if result.0 == StatusCode::SEE_OTHER {
         assert_eq!(result.2["location"], path.trim_end_matches("/status"));
@@ -759,7 +762,12 @@ check!(directory_c16, f, b, {
         )
     );
     let (_, h, _) = b.request("GET", &user_path(), &[]).await;
-    for text in [USER, REALM, "Unverified", "This user cannot sign in"] {
+    for text in [
+        USER,
+        REALM,
+        "Unverified",
+        "Sign-in also requires credentials and an active realm. Suspension ends sessions and access links.",
+    ] {
         assert!(h.contains(text));
     }
     let equal: bool = sqlx::query_scalar("SELECT created_at=updated_at FROM bloc.realm_user")
@@ -1027,7 +1035,7 @@ check!(directory_c23, _f, b, {
         let (_, h, _) = b.request("GET", &user_path(), &[]).await;
         assert!(h.contains("Combined directory status"));
         assert_eq!(record_value(&h, "Combined directory status"), text);
-        assert!(h.contains("This user cannot sign in"));
+        assert!(h.contains("Sign-in also requires credentials and an active realm. Suspension ends sessions and access links."));
         if tv == "1" && uv == "1" && text == "Active" {
             edit(
                 &mut b,
@@ -1063,7 +1071,7 @@ check!(directory_c23, _f, b, {
         record_value(&h, "Combined directory status"),
         "User suspended"
     );
-    assert!(h.contains("This user cannot sign in"));
+    assert!(h.contains("Sign-in also requires credentials and an active realm. Suspension ends sessions and access links."));
 });
 check!(directory_c24, f, b, {
     create_realm(&mut b, REALM, "Acme").await;
@@ -1226,11 +1234,13 @@ check!(directory_c26, f, b, {
     let a = [
         ("csrf", csrf.as_str()),
         ("email", "Shared@EXAMPLE.com"),
+        ("email_confirmed", "true"),
         ("version", "1"),
     ];
     let z = [
         ("csrf", csrf.as_str()),
         ("email", " Shared@example.com "),
+        ("email_confirmed", "true"),
         ("version", "1"),
     ];
     let (a, z) = tokio::join!(b.request("POST", &left, &a), c.request("POST", &right, &z));
@@ -1272,6 +1282,7 @@ check!(directory_c28, f, b, {
     let a = [
         ("csrf", csrf.as_str()),
         ("email", "Bob@example.com"),
+        ("email_confirmed", "true"),
         ("version", "1"),
     ];
     let z = [
@@ -2055,7 +2066,7 @@ check!(directory_c37, f, _b, {
         .fetch_one(&f.admin)
         .await
         .unwrap();
-    assert_eq!(n, 4);
+    assert_eq!(n, 5);
     sqlx::query("DELETE FROM public._sqlx_migrations WHERE version=4")
         .execute(&f.admin)
         .await
@@ -2080,7 +2091,7 @@ check!(directory_c37, f, _b, {
         .fetch_one(&f.admin)
         .await
         .unwrap();
-    assert_eq!(count, 3);
+    assert_eq!(count, 4);
     // Rebuild a coherent legacy database through its original checksum migrations, then upgrade.
     sqlx::raw_sql("DROP SCHEMA bloc CASCADE; DROP TABLE public._sqlx_migrations")
         .execute(&f.admin)

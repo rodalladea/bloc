@@ -5,6 +5,14 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+### Added
+
+- Realm authentication settings, optional self-registration, administrator-issued
+  activation and password-reset links, and independent realm-user sign-in.
+- My Account profile, password changes, and session management, backed by guarded
+  PostgreSQL authority and migration 0005. Paired native capacity acceptance remains
+  pending native amd64 evidence; native arm64 and functional verification pass.
+
 ## 0.4.3 - 2026-10-26
 
 ### Changed

@@ -9,7 +9,10 @@ realm-bound user identities before later authentication features consume them.
 This increment covers built-in realm and user listing, creation, profile edits,
 suspension/reactivation, shared authority and atomic directory auditing.
 
-Realm users cannot sign in. Credentials, verification/delivery, recovery,
+The original directory increment did not enable sign-in. The separate
+[realm authentication agreement](realm-user-authentication.md) now governs
+credentials, registration, activation/recovery and session invalidation after
+directory lifecycle/email changes. For this historical directory scope, credentials, verification/delivery, recovery,
 invitations, self-registration, delegation, global persons/memberships, transfers,
 deletion, providers, protocols, public management APIs, bulk operations, search,
 filtering and an audit viewer remain out of scope. Shared storage provides logical

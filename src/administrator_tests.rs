@@ -1,7 +1,6 @@
 //! Private observations of the real password worker at the production HTTP boundary.
 use super::*;
-#[path = "../tests/common/mod.rs"]
-mod common;
+use crate::test_common as common;
 use axum::{
     body::{Body, to_bytes},
     http::Request,
