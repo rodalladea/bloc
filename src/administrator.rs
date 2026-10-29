@@ -20,8 +20,8 @@ use subtle::ConstantTimeEq;
 pub struct Application {
     pub storage: Storage,
     pub config: Config,
-    worker: PasswordWorker,
-    dummy: String,
+    pub(crate) worker: PasswordWorker,
+    pub(crate) dummy: String,
 }
 impl Application {
     pub async fn new(storage: Storage, config: Config) -> Result<Self, credentials::Error> {
@@ -424,7 +424,9 @@ async fn handle_request(State(app): State<Application>, request: Request) -> Res
         )
         .await;
     }
-    if !security::origin(&app.config, &headers) {
+    if !security::origin(&app.config, &headers)
+        && !(path == "/admin/logout" && security::native_origin(&headers))
+    {
         return StatusCode::FORBIDDEN.into_response();
     }
     if security::one(&headers, "content-type").and_then(|v| v.split(';').next())
@@ -875,6 +877,28 @@ pub fn router(app: Application) -> Router {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
                     include_str!("../assets/directory.js"),
+                )
+            }),
+        )
+        .route(
+            "/realms/{*resource}",
+            get(crate::realm_authentication::handler).post(crate::realm_authentication::handler),
+        )
+        .route(
+            "/assets/realm.css",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+                    include_str!("../assets/realm.css"),
+                )
+            }),
+        )
+        .route(
+            "/assets/realm.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../assets/realm.js"),
                 )
             }),
         )

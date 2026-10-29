@@ -34,6 +34,9 @@ measurements and independent verification. MFA must precede production authentic
 identity protocol is delivered by this increment.
 
 Independent realm/user directory management now establishes immutable realm-bound
-identities and independent lifecycle states. It does not implement realm-user
-credentials, authentication, delegation or identity protocols. See the
-[directory runbook](realm-user-management.md) for its boundary.
+identities and independent lifecycle states. The realm-user authentication
+increment adds credentials, registration, activation/reset links and My Account;
+its browser, native-capacity and independent security acceptance is still pending.
+Delegation and identity protocols remain planned. See the
+[directory runbook](realm-user-management.md) and
+[realm authentication acceptance](realm-user-authentication.md).

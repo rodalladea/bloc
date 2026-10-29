@@ -6,11 +6,15 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tarfile
 import tempfile
 
 from support import postgres as fixtures
 
 ROOT = Path(__file__).resolve().parents[1]
+REALM_BASELINE_REVISION = "ed500d00c6f89b5ca119a581353d5e412d9148cb"
+REALM_AUTH_TESTS = tuple(f"realm_auth_c{i:02}" for i in range(1,64) if i not in (19,30,39,62)) + ("realm_auth_upgrade_roles",)
+REALM_AUTH_BROWSER_TESTS = ("realm_auth_c19", "realm_auth_c30", "realm_auth_c39", "realm_auth_c62")
 DIRECTORY_TESTS = tuple(f"directory_c{i:02}" for i in range(1,38)) + ("directory_input_refusals", "directory_response_policy", "directory_realm_upgrade")
 DIRECTORY_BROWSER_TESTS = tuple("directory_screen_"+s for s in ("t1","t2","t3","u1","u2","u3")) + ("directory_browser_interactions",)
 
@@ -68,11 +72,30 @@ def run_logged(command, output_path, *, cwd=None, env=None):
     return subprocess.CompletedProcess(command, returncode, stdout=output_path.read_text())
 
 
+def realm_legacy_binary(output):
+    """Retain an independently built pre-migration executable for both directions."""
+    supplied = os.environ.get("BLOC_REALM_LEGACY_BINARY")
+    if supplied:
+        return str(Path(supplied).resolve(strict=True))
+    source = output.resolve() / "realm-baseline"
+    source.mkdir()
+    archive = source / "source.tar"
+    subprocess.run(["git", "archive", "--format=tar", "--output", str(archive),
+                    REALM_BASELINE_REVISION], cwd=ROOT, check=True)
+    with tarfile.open(archive) as contents:
+        contents.extractall(source, filter="data")
+    archive.unlink()
+    target = source / "target"
+    run_logged(["cargo", "build", "--locked", "--bin", "bloc", "--target-dir", str(target)],
+               output / "realm-baseline-build.txt", cwd=source).check_returncode()
+    return str(target / "debug" / "bloc")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cached-images", action="store_true", help="Use already present pinned fixture images without pulling")
-    parser.add_argument("--proof", choices=DIRECTORY_TESTS+DIRECTORY_BROWSER_TESTS, help="Run one exact directory proof with --target")
-    parser.add_argument("--target", choices=("realm_user_management",), help="Run only the directory feature target")
+    parser.add_argument("--proof", choices=DIRECTORY_TESTS+DIRECTORY_BROWSER_TESTS+REALM_AUTH_TESTS+REALM_AUTH_BROWSER_TESTS, help="Run one exact proof with --target")
+    parser.add_argument("--target", choices=("realm_user_management", "realm_authentication"), help="Run only the directory feature target")
     parser.add_argument("--major", type=int, choices=(17, 18), help="Run one database major; default runs both")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--browser-python", help="Playwright Python; requires a pinned local HTTPS proxy on4443")
@@ -82,7 +105,12 @@ def main():
         parser.error("--browser-python and --tls-spki are required together")
     if args.proof and not args.target:
         parser.error("--proof requires --target")
+    if args.proof in REALM_AUTH_BROWSER_TESTS + DIRECTORY_BROWSER_TESTS and not args.browser_python:
+        parser.error("this proof requires --browser-python and --tls-spki")
     args.output.mkdir(parents=True, exist_ok=False)
+    legacy = None
+    if args.target in (None, "realm_authentication") and args.proof in (None, "realm_auth_upgrade_roles"):
+        legacy = realm_legacy_binary(args.output)
     results = []
     for major, image in zip((17, 18), fixtures.IMAGES):
         if args.major and args.major != major:
@@ -110,12 +138,16 @@ def main():
                     "BLOC_SETUP_OTHER_CA": str(directory / "other-ca.crt"),
                     "BLOC_SETUP_WRONG_NAME_PORT": ports[1], "BLOC_SETUP_PLAIN_PORT": ports[2],
                 }
+                if legacy:
+                    environment["BLOC_REALM_LEGACY_BINARY"] = legacy
                 if args.browser_python:
                     environment |= {"BLOC_BROWSER_PYTHON": args.browser_python, "BLOC_TEST_SPKI": args.tls_spki, "BLOC_DIRECTORY_BROWSER_EVIDENCE":str(args.output / f"browser-{major}")}
-                selection = ["--skip", "native_service_capacity"]
+                selection = ["--skip", "native_service_capacity", "--skip", "realm_auth_native_capacity"]
                 if not args.browser_python:
                     selection += ["--skip", "browser_", "--skip", "directory_screen_"]
-                targets = ["--test", "realm_user_management"] if args.target else ["--lib", "--test", "setup_storage", "--test", "operator", "--test", "storage_tls", "--test", "administrator_access", "--test", "administrator_operations", "--test", "realm_user_management"]
+                    for proof in REALM_AUTH_BROWSER_TESTS:
+                        selection += ["--skip", proof]
+                targets = ["--test", args.target] if args.target else ["--lib", "--test", "setup_storage", "--test", "operator", "--test", "storage_tls", "--test", "administrator_access", "--test", "administrator_operations", "--test", "realm_user_management", "--test", "realm_authentication"]
                 print(f"Running PostgreSQL {major} regression tests", flush=True)
                 run = run_logged(
                     ["cargo", "test", "--locked", *targets, *([args.proof] if args.proof else []),
@@ -128,8 +160,9 @@ def main():
                                 "repo_digests": identity.get("RepoDigests"), "exit_code": run.returncode})
                 (args.output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
                 run.check_returncode()
-                inventory = (args.proof,) if args.proof else DIRECTORY_TESTS if args.target else TESTS + ADMIN_TESTS + OPERATIONS_TESTS + WORKER_TESTS + DIRECTORY_TESTS
-                for test in inventory + (() if args.proof else (DIRECTORY_BROWSER_TESTS if args.target else BROWSER_TESTS + DIRECTORY_BROWSER_TESTS) if args.browser_python else ()):
+                inventory = (args.proof,) if args.proof else (REALM_AUTH_TESTS if args.target == "realm_authentication" else DIRECTORY_TESTS) if args.target else TESTS + ADMIN_TESTS + OPERATIONS_TESTS + WORKER_TESTS + DIRECTORY_TESTS + REALM_AUTH_TESTS
+                browser_inventory = REALM_AUTH_BROWSER_TESTS if args.target == "realm_authentication" else DIRECTORY_BROWSER_TESTS if args.target else BROWSER_TESTS + DIRECTORY_BROWSER_TESTS + REALM_AUTH_BROWSER_TESTS
+                for test in inventory + (() if args.proof else browser_inventory if args.browser_python else ()):
                     if f"test {test} ... ok" not in run.stdout:
                         raise RuntimeError(f"named proof did not run: {test}")
         finally:

@@ -1,0 +1,16 @@
+/* Realm settings use the shared controls and directory table without cell overrides. */
+.account-context,.public-realm{color:var(--muted);font-size:14px;margin-bottom:16px}
+.form-group{border:1px solid var(--hairline);border-radius:var(--ui-radius);margin:24px 0;overflow:hidden}
+.group-title{padding:20px;border-bottom:1px solid var(--hairline)}
+.group-title h2{margin:0}.group-title p{margin-bottom:0;color:var(--muted)}
+.form-group .ui-field--row,.check-row{padding:20px;border-bottom:1px solid var(--hairline)}
+.form-group>:last-child{border-bottom:0}
+.check-row{display:flex;align-items:center;justify-content:space-between;gap:24px}
+.check-row input{width:20px;min-height:20px;flex:none;accent-color:var(--ink)}
+.check-row label{font-weight:500}.check-row .ui-help{margin:4px 0 0}
+.two-inputs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.setting-control{min-width:0}.settings-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:24px}
+.inline-confirm{margin:24px 0;padding:24px;border:1px solid var(--hairline);border-radius:var(--ui-radius)}
+.info-grid{padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:16px}.info-grid dd{margin:0}
+.readonly{padding:12px 0;overflow-wrap:anywhere}.below{margin-top:20px}
+@media(min-width:1000px){.form-group .ui-field--row{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px}.form-group .ui-field--row label{grid-column:1;grid-row:1}.form-group .ui-field--row>.ui-help{grid-column:1;grid-row:2}.form-group .ui-field--row>input,.form-group .ui-field--row>.setting-control,.form-group .ui-field--row>.readonly{grid-column:2;grid-row:1 / span 2}.form-group .ui-field--row>.ui-field-error{grid-column:2}}

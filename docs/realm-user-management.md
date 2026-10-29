@@ -2,9 +2,11 @@
 
 The installation administrator manages independent directories at `/admin/realms`.
 No realm is created automatically. A realm contains its own users; equal emails
-in different realms identify independent records. Directory users cannot sign in.
-This increment creates no credentials, email verification, providers or identity
-protocols. The installation administrator remains a separate identity.
+in different realms identify independent records. Creating a directory record
+does not create credentials. The separate [realm authentication increment](realm-user-authentication.md)
+adds activation and sign-in, with acceptance still pending. Directory management
+provides no email verification, providers or identity protocols. The installation
+administrator remains a separate identity.
 
 Create a realm, then use **View users** to create and manage its users. Names may
 repeat; immutable UUIDs distinguish directories. User emails are unverified and
@@ -18,6 +20,10 @@ statuses unchanged and permits continued directory management. Reactivating it
 leaves individually suspended users suspended. Combined directory status is active
 only when both records are active; this status does not authenticate anyone.
 Lifecycle confirmation carries the version viewed when opening the action.
+With realm authentication, suspension also ends affected sessions and access links;
+reactivation does not restore them. Changing a user's normalized email requires
+explicit confirmation and invalidates that user's sessions and links while
+preserving their UUID and password. The replacement email remains unverified.
 
 A stale form returns a conflict. Reload the current record and review it before
 editing again; bloc never automatically replays a mutation. A repeated creation

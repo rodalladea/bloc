@@ -14,6 +14,8 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--output',required=True,type=Path)
 parser.add_argument('--image',default='bloc-native-service-capacity:local')
 parser.add_argument('--skip-build',action='store_true')
+parser.add_argument('--realm-auth', action='store_true',
+                    help='Measure mixed administrator and realm authentication workload')
 args=parser.parse_args()
 args.output.mkdir(parents=True,exist_ok=False)
 def preserve_failure(kind,error,traceback):
@@ -77,6 +79,32 @@ with tempfile.TemporaryDirectory(prefix='bloc-native-service-') as temp:
         setup=operation('operator','admin','setup-code').splitlines()[0].split('=',1)[1]
         cookie,token=state('/admin/setup')
         assert request('POST','/admin/setup',urlencode({'csrf':token,'code':setup,'email':'Owner@example.test','password':'a synthetic password','password_confirmation':'a synthetic password'}),cookie)[0]==303
+        realm_path = '/realms/11111111-1111-4111-8111-111111111111/login'
+        secrets = [setup, 'a synthetic password', 'Owner@example.test']
+        def sql(statement):
+            return postgres.command('docker', 'exec', db, 'psql', '-U', 'probe',
+                                    '-d', 'capacity', '-v', 'ON_ERROR_STOP=1', '-Atc', statement)
+        if args.realm_auth:
+            # The fixture owns this disposable database; no runtime capability is bypassed in requests.
+            sql("""BEGIN;
+                INSERT INTO bloc.realm(id,name,created_at,updated_at)
+                VALUES('11111111-1111-4111-8111-111111111111','Capacity realm',clock_timestamp(),clock_timestamp());
+                INSERT INTO bloc.realm_authentication_settings(realm_id)
+                VALUES('11111111-1111-4111-8111-111111111111') ON CONFLICT DO NOTHING;
+                INSERT INTO bloc.realm_user(id,realm_id,email,created_at,updated_at)
+                SELECT ('22222222-2222-4222-8222-'||lpad(i::text,12,'0'))::uuid,
+                    '11111111-1111-4111-8111-111111111111','Capacity'||i||'@example.test',clock_timestamp(),clock_timestamp()
+                FROM generate_series(1,20) i;
+                INSERT INTO bloc.realm_user_credential(realm_id,user_id,password_hash,credential_version,password_changed_at)
+                SELECT u.realm_id,u.id,a.password_hash,1,clock_timestamp()
+                FROM bloc.realm_user u CROSS JOIN bloc.installation_administrator a;
+                COMMIT;""")
+            secrets += [f'Capacity{i}@example.test' for i in range(1,21)]
+        def workload(number):
+            if args.realm_auth and number % 2:
+                return realm_path, f'Capacity{number + 1}@example.test', 'realm'
+            return '/admin/login', 'Owner@example.test', 'administrator'
+        admission_samples = []
         stop=threading.Event();health=[];attempts=[]
         def probes():
             while not stop.is_set():
@@ -90,16 +118,28 @@ with tempfile.TemporaryDirectory(prefix='bloc-native-service-') as temp:
                     states=[]
                     for number in range(20):
                         source='192.0.'+str(batch+1)+'.'+str(number+1)
-                        cookie,token=state('/admin/login',source)
-                        body=urlencode({'csrf':token,'email':'Owner@example.test','password':'a synthetic password'})
-                        states.append((cookie,body,source))
+                        path,email,principal=workload(number)
+                        cookie,token=state(path,source)
+                        secrets += [token, *[part.split('=',1)[1] for part in cookie.split('; ')]]
+                        body=urlencode({'csrf':token,'email':email,'password':'a synthetic password'})
+                        states.append((cookie,body,source,path,principal))
                     barrier=threading.Barrier(20)
                     def attempt(number):
-                        cookie,body,source=states[number]
+                        cookie,body,source,path,principal=states[number]
                         barrier.wait()
-                        status,_,headers,elapsed=request('POST','/admin/login',body,cookie,source)
-                        return {'status':status,'seconds':elapsed,'retry_after':dict((k.lower(),v) for k,v in headers).get('retry-after')}
+                        status,_,headers,elapsed=request('POST',path,body,cookie,source)
+                        secrets.extend(value.split(';',1)[0].split('=',1)[1]
+                                       for key,value in headers if key.lower()=='set-cookie')
+                        return {'principal':principal,'status':status,'seconds':elapsed,'retry_after':dict((k.lower(),v) for k,v in headers).get('retry-after')}
                     attempts.extend(pool.map(attempt,range(20)))
+                    if args.realm_auth:
+                        sample = json.loads(sql("""SELECT json_build_object(
+                            'all_hash_work', (SELECT count(*) FROM bloc.administrator_admission_bucket b,
+                                unnest(b.admitted_at) e WHERE b.scope='hash_work' AND e>clock_timestamp()-interval '60 seconds'),
+                            'realm_hash_work', (SELECT count(*) FROM bloc.realm_admission_bucket b,
+                                unnest(b.admitted_at) e WHERE b.scope='public_work' AND e>clock_timestamp()-interval '60 seconds'))"""))
+                        assert sample['all_hash_work'] <= 30 and sample['realm_hash_work'] <= 20, sample
+                        admission_samples.append(sample)
                     (args.output/'raw.json').write_text(json.dumps({'attempts':attempts,'health':health},indent=2)+'\n')
                     remaining=started+(batch+1)*3-time.monotonic()
                     if remaining>0:time.sleep(remaining)
@@ -108,14 +148,16 @@ with tempfile.TemporaryDirectory(prefix='bloc-native-service-') as temp:
         # Separate successful complete-credential latency samples from overloaded
         # burst requests. Wait for the declared rolling allowances; do not relax them.
         time.sleep(61)
-        latency=[]
+        latency=[];latency_principals=[]
         latency_started=time.monotonic()
         for sample in range(20):
-            cookie,token=state('/admin/login','192.0.2.2')
-            body=urlencode({'csrf':token,'email':'Owner@example.test','password':'a synthetic password'})
-            status,_,_,seconds=request('POST','/admin/login',body,cookie,'192.0.2.2')
+            path,email,principal=workload(sample)
+            cookie,token=state(path,'192.0.2.2')
+            body=urlencode({'csrf':token,'email':email,'password':'a synthetic password'})
+            status,_,_,seconds=request('POST',path,body,cookie,'192.0.2.2')
             assert status==303,('latency sample not a complete successful sign-in',status)
             latency.append(seconds)
+            latency_principals.append(principal)
             remaining=latency_started+(sample+1)*6.1-time.monotonic()
             if remaining>0:time.sleep(remaining)
         inspect=json.loads(postgres.command('docker','inspect',service))[0]
@@ -125,6 +167,17 @@ with tempfile.TemporaryDirectory(prefix='bloc-native-service-') as temp:
         p95=successes[min(len(successes)-1,math.ceil(len(successes)*.95)-1)]
         raw=args.output/'raw.json';raw.write_text(json.dumps({'attempts':attempts,'credential_latency_seconds':latency,'health':health,'docker_state':inspect['State']},indent=2))
         record={'source_tree_sha256':source_tree_sha256,'working_tree_dirty':working_tree_dirty,'credential_sample_count':len(latency),'architecture':arch,'native':True,'service':True,'cpu_limit':1,'memory_limit_bytes':512*1024*1024,'swap_bytes':0,'simultaneous_submissions':20,'duration_seconds':elapsed,'peak_bytes':peak,'credential_p95_seconds':p95,'oom':inspect['State']['OOMKilled'],'failed_health_probes':sum(s!=200 for s in health),'immediate_overload':any(a['status']==503 for a in attempts) and all(a['seconds']<1 and a['retry_after'] for a in attempts if a['status']==503),'bounded_admission':all(a['status'] in [303,429,503] for a in attempts) and any(a['status']==429 for a in attempts),'raw_evidence':str(raw),'binary_sha256':postgres.command('docker','run','--rm','--entrypoint','/usr/bin/sha256sum',args.image,'/usr/local/bin/bloc').split()[0],'source_revision':postgres.command('git','rev-parse','HEAD')}
+        if args.realm_auth:
+            logs = subprocess.run(['docker','logs',service], check=True, text=True,
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+            audit = sql('SELECT row_to_json(e) FROM bloc.security_audit_event e')
+            assert all(secret not in logs and secret not in audit for secret in secrets if secret), 'secret redaction failed'
+            assert {a['principal'] for a in attempts} == {'realm','administrator'}
+            assert set(latency_principals) == {'realm','administrator'}
+            assert any(s['realm_hash_work'] > 0 for s in admission_samples), 'realm admission not exercised'
+            assert any(s['all_hash_work'] > s['realm_hash_work'] for s in admission_samples), 'shared administrator work not observed'
+            record.update(realm_authentication=True, redaction=True, admission_samples=admission_samples,
+                          credential_sample_principals=latency_principals)
         assert source_fingerprint()==source_tree_sha256,'source changed during capacity measurement; evidence invalid'
         (args.output/'record.json').write_text(json.dumps(record,indent=2)+'\n')
         assert peak<=384*1024*1024 and p95<1 and not record['oom'] and record['failed_health_probes']==0 and record['immediate_overload'] and record['bounded_admission'],record
