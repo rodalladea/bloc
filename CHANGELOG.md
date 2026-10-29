@@ -15,6 +15,42 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 - Show field validation inline across access, account and directory forms; move
   general errors above page content and focus the relevant feedback.
 
+### Added
+
+- Realm authentication settings, optional self-registration, administrator-issued
+  activation and password-reset links, and independent realm-user sign-in.
+- My Account profile, password changes, and session management, backed by guarded
+  PostgreSQL authority and migration 0005. Paired native capacity acceptance remains
+  pending matching final-source native amd64 and arm64 evidence; functional
+  verification passes.
+
+### Fixed
+
+- Allow native administrator logout from realm Authentication and User access
+  pages while retaining no-referrer, ingress and session-bound CSRF protections.
+
+## 0.4.3 - 2026-10-26
+
+### Changed
+
+- Avoid exporting and replacing the native build cache on exact cache hits while
+  preserving attested image generation and cache refreshes for partial/missing hits.
+- Run cluster lifecycle/ingress, probes with automatic rollback, and disconnected
+  recovery in three isolated groups, preserving every C9–C21 check and removing
+  unrelated repeated rollouts from the failure scenarios.
+
+## 0.4.2 - 2026-10-25
+
+### Changed
+
+- Build native release images once and run capacity measurements alongside source
+  and Kubernetes validation, with final evidence bound to the exact platform
+  manifests and source revision.
+- Warm native build and disposable Kubernetes node caches from main, and reuse
+  compatible Rust check caches during release validation.
+- Use one-minute timeouts for deliberately failing upgrade/recovery fixtures while
+  preserving five-minute waits for normal operations and operator procedures.
+
 ## 0.4.1 - 2026-10-24
 
 ### Changed

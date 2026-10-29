@@ -3,12 +3,18 @@
 #[cfg(test)]
 extern crate self as bloc;
 
+#[cfg(test)]
+#[path = "../tests/common/mod.rs"]
+mod test_common;
+
 pub mod administrator;
 pub mod config;
 pub mod credentials;
 mod directory;
 mod directory_storage;
 pub mod operator;
+mod realm_authentication;
+mod realm_storage;
 pub mod request_security;
 pub mod storage;
 
@@ -31,9 +37,11 @@ async fn security_headers(request: Request, next: Next) -> Response {
         ("cache-control", "no-store"),
         ("x-frame-options", "DENY"),
     ] {
-        response
-            .headers_mut()
-            .insert(name, HeaderValue::from_static(value));
+        if name != "referrer-policy" || !response.headers().contains_key(name) {
+            response
+                .headers_mut()
+                .insert(name, HeaderValue::from_static(value));
+        }
     }
     response
 }

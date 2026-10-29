@@ -80,6 +80,14 @@ pub fn origin(config: &Config, headers: &HeaderMap) -> bool {
         .and_then(|value| authority_url(value, referer))
         .is_some_and(|url| url.origin().ascii_serialization() == config.origin)
 }
+pub(crate) fn native_origin(headers: &HeaderMap) -> bool {
+    // no-referrer serializes native form Origin as null. Fetch Metadata is
+    // browser-controlled; canonical HTTPS ingress and CSRF remain mandatory.
+    one(headers, "origin") == Some("null")
+        && one(headers, "sec-fetch-site") == Some("same-origin")
+        && one(headers, "sec-fetch-mode") == Some("navigate")
+        && one(headers, "sec-fetch-dest") == Some("document")
+}
 pub fn random() -> Result<[u8; 32], StatusCode> {
     let mut value = [0u8; 32];
     getrandom::fill(&mut value).map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;

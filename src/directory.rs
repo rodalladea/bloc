@@ -1,4 +1,4 @@
-//! Installation-administrator directory management. Users have no authentication capability.
+//! Installation-administrator directory management and lifecycle control.
 use crate::{
     administrator::{Application, cookie, expired, navigation},
     credentials,
@@ -159,7 +159,7 @@ fn storage_failure(e: DirectoryError, path: &str, hx: bool) -> Response {
 fn field<'a>(f: &'a BTreeMap<String, String>, name: &str) -> &'a str {
     f.get(name).map(String::as_str).unwrap_or("")
 }
-fn uuid(s: &str) -> bool {
+pub(crate) fn uuid(s: &str) -> bool {
     s.len() == 36
         && s.bytes().enumerate().all(|(i, c)| {
             if [8, 13, 18, 23].contains(&i) {
@@ -186,7 +186,7 @@ fn new_uuid() -> Result<String, ()> {
         &h[20..]
     ))
 }
-fn name(value: &str, optional: bool) -> Result<String, ()> {
+pub(crate) fn name(value: &str, optional: bool) -> Result<String, ()> {
     if value.chars().any(char::is_control) {
         return Err(());
     }
@@ -242,6 +242,11 @@ async fn token(
     Ok((sec::encode(&t), Some(browser)))
 }
 pub(crate) async fn handler(State(app): State<Application>, request: Request) -> Response {
+    if request.uri().path().ends_with("/authentication")
+        || request.uri().path().ends_with("/access-links")
+    {
+        return crate::realm_authentication::admin_handler(State(app), request).await;
+    }
     let category = if request.uri().path().contains("/users") {
         "realm_user_management"
     } else {
@@ -432,7 +437,7 @@ async fn handle(app: &Application, request: Request) -> Response {
     };
     p.intro = if p.list {
         if p.user {
-            "Independent users belonging to this realm. Directory records do not authenticate anyone."
+            "Independent users belonging to this realm. New directory records need activation before sign-in."
         } else {
             "Independent directories managed by the installation administrator."
         }
@@ -536,13 +541,20 @@ async fn handle(app: &Application, request: Request) -> Response {
             if creating {
                 vec!["csrf", "creation_id", "email", "display_name"]
             } else {
-                vec!["csrf", "version", "email", "display_name"]
+                vec![
+                    "csrf",
+                    "version",
+                    "email",
+                    "display_name",
+                    "email_confirmed",
+                ]
             }
         } else if creating {
             vec!["csrf", "creation_id", "name"]
         } else {
             vec!["csrf", "version", "name"]
         };
+        let original_email = p.record.email.clone();
         let mut invalid = false;
         if form.keys().any(|k| !allowed.contains(&k.as_str())) {
             p.fail(
@@ -597,6 +609,17 @@ async fn handle(app: &Application, request: Request) -> Response {
                     }
                 }
             }
+        }
+        if !invalid
+            && p.user
+            && !creating
+            && !status_route
+            && p.record.email != original_email
+            && field(&form, "email_confirmed") != "true"
+        {
+            p.invalid = "email";
+            p.error = "Confirm the email change. Existing sessions and access links will end; the new email remains unverified.";
+            invalid = true;
         }
         if invalid {
             response_status = StatusCode::UNPROCESSABLE_ENTITY;

@@ -13,4 +13,14 @@ for r in records:
     assert r['oom'] is False and r['failed_health_probes']==0
     assert r['immediate_overload'] is True and r['bounded_admission'] is True
     assert r['raw_evidence'] and r['binary_sha256'] and r['source_revision']
+    if '--realm-auth' in sys.argv[2:]:
+        assert r.get('realm_authentication') is True and r.get('redaction') is True
+        principals = r['credential_sample_principals']
+        assert principals.count('realm') >= 10 and principals.count('administrator') >= 10
+        samples = r['admission_samples']
+        assert len(samples) >= 20
+        assert all(0 <= s['realm_hash_work'] <= 20 and
+                   s['realm_hash_work'] <= s['all_hash_work'] <= 30 for s in samples)
+        assert any(s['realm_hash_work'] > 0 for s in samples)
+        assert any(s['all_hash_work'] > s['realm_hash_work'] for s in samples)
 print('Native full-service amd64+arm64 capacity records satisfy the declared bounds')

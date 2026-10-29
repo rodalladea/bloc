@@ -2,8 +2,8 @@ apiVersion: v2
 name: bloc
 description: bloc identity service with installation administrator access; identity protocols are not implemented.
 type: application
-version: 0.4.1
-appVersion: "0.4.1"
+version: 0.4.3
+appVersion: "0.4.3"
 home: https://github.com/rodalladea/bloc
 sources:
   - https://github.com/rodalladea/bloc

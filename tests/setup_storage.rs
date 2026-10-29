@@ -155,7 +155,9 @@ async fn issue_and_replace() {
             "outcome",
             "request_id",
             "realm_id",
-            "realm_user_id"
+            "realm_user_id",
+            "actor_realm_id",
+            "actor_user_id"
         ]
     );
 }

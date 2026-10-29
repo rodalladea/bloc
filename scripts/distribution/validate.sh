@@ -10,7 +10,6 @@ source_checks() {
   RUSTDOCFLAGS='-D warnings' cargo doc --locked --no-deps 2>&1 | tee evidence/documentation.log
   source scripts/ci/install-auditor.sh
   cargo audit 2>&1 | tee evidence/audit.log
-  cargo test --locked --test administrator_access native_service_capacity -- --ignored --exact 2>&1 | tee evidence/native-capacity.log
 }
 source_checks >evidence/source-validation.log 2>&1 &
 source_pid=$!
@@ -32,22 +31,19 @@ python3 scripts/distribution/candidate.py --platform platforms/amd64/image --pla
 bash tests/distribution/setup-cluster.sh candidate/image
 finish_source
 python3 tests/distribution/source.py 2>&1 | tee evidence/source-startup.log
-printf 'Source checks and all cluster suites passed; completing candidate evidence.\n'
+printf 'Source checks and all cluster suites passed; awaiting native measurements.\n'
 python3 tests/distribution/registry.py --layout candidate/image --revision "$revision" 2>&1 | tee evidence/registry.log
-cp platforms/amd64/smoke.log evidence/amd64.log
-cp platforms/arm64/smoke.log evidence/arm64.log
 cp -R evidence candidate/evidence
 python3 - <<'PY'
 import json, subprocess, sys, tomllib
 from pathlib import Path
 sys.path.insert(0,'scripts/distribution')
 from oci import Layout
-from release import REQUIRED, evidence
+from release import REQUIRED
 record={'revision':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         'version':tomllib.load(open('Cargo.toml','rb'))['package']['version'],
         'image':Layout('candidate/image').root()['digest'],
         'chart':Layout('candidate/chart').root()['digest'],
-        'helm':'4.3.1','kubernetes':'1.36.5','passed':sorted(REQUIRED)}
-Path('candidate/evidence.json').write_text(json.dumps(record,indent=2)+'\n')
-evidence(Path('candidate'),record['revision'],record['version'])
+        'helm':'4.3.1','kubernetes':'1.36.5','passed':sorted(REQUIRED-{'linux/amd64','linux/arm64'})}
+Path('candidate/validation.json').write_text(json.dumps(record,indent=2)+'\n')
 PY

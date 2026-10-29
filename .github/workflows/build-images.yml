@@ -1,0 +1,65 @@
+name: Native image builds
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - id: build_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/buildkit-cache
+          key: buildkit-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Dockerfile', 'Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-${{ github.sha }}
+          restore-keys: |
+            buildkit-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Dockerfile', 'Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-
+            buildkit-${{ runner.os }}-${{ runner.arch }}-
+      - name: Build attested image on native platform
+        env:
+          ARCH: ${{ matrix.arch }}
+          CACHE_HIT: ${{ steps.build_cache.outputs.cache-hit }}
+        run: |
+          mkdir -p platform/image
+          docker buildx create --name bloc --driver docker-container --driver-opt image=moby/buildkit@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea --use
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml","rb"))["package"]["version"])')
+          fingerprint=$(python3 -c 'import sys; sys.path.insert(0,"tests/support"); from application_fingerprint import source_fingerprint; print(source_fingerprint())')
+          cache_export=()
+          if [[ "$CACHE_HIT" != true ]]; then
+            cache_export=(--cache-to "type=local,dest=${RUNNER_TEMP}/buildkit-cache-new,mode=max")
+          fi
+          docker buildx build \
+            --cache-from "type=local,src=${RUNNER_TEMP}/buildkit-cache" \
+            "${cache_export[@]}" \
+            --label "org.bloc.source-tree-sha256=$fingerprint" \
+            --platform "linux/$ARCH" \
+            --build-arg "VERSION=$version" --build-arg "REVISION=$GITHUB_SHA" \
+            --provenance=mode=max \
+            --attest type=sbom,generator=docker/buildkit-syft-scanner@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9 \
+            --output type=oci,dest=platform/image.tar .
+          if [[ "$CACHE_HIT" != true ]]; then
+            rm -rf "${RUNNER_TEMP}/buildkit-cache"
+            mv "${RUNNER_TEMP}/buildkit-cache-new" "${RUNNER_TEMP}/buildkit-cache"
+          fi
+          tar -xf platform/image.tar -C platform/image
+          rm platform/image.tar
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: platform-build-${{ matrix.arch }}
+          path: platform/
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+          compression-level: 0

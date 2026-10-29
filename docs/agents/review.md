@@ -18,6 +18,11 @@ responsibilities are cohesive, dependencies are explicit, abstractions solve a
 present need, and tests verify outcomes. Check error handling and ownership where
 relevant; do not require new layers or traits merely to satisfy a pattern.
 
+Flag newly added or expanded production modules over 1,000 lines for a
+responsibility review. Split unrelated responsibilities; record an explicit
+waiver when a cohesive module justifies its size. The threshold is a review
+prompt, not a reason to divide files arbitrarily.
+
 For HTMX changes, use the [2.0.8 guidance](development.md#htmx-practices-208).
 Check fallback behavior, fragment errors, browser navigation and focus, and
 preservation of the existing security configuration. Distinguish HTTP-test

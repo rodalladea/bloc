@@ -23,7 +23,7 @@
 {% if p.list %}{% if p.feedback.is_empty() %}{% if p.rows.is_empty() %}<section class="panel ui-panel empty">
 <span class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 8h-6a2 2 0 0 1-1.6-.8l-1.8-2.4A2 2 0 0 0 8 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2H3"/></svg></span>
 <h2>{% if p.user %}No users yet{% else %}No realms yet{% endif %}</h2>
-<p>{% if p.user %}Create the first user in this realm. Directory users cannot sign in.{% else %}Create an independent directory to start managing users.{% endif %}</p>
+<p>{% if p.user %}Create the first user in this realm. New directory users need an activation link before signing in.{% else %}Create an independent directory to start managing users.{% endif %}</p>
 <a class="button ui-button" href="{{ p.list_path }}/new">{% if p.user %}Create user{% else %}Create realm{% endif %}</a>
 </section>{% else %}<div class="table-wrap ui-table-scroll" role="region" aria-label="{% if p.user %}Realm users{% else %}Realms{% endif %}" tabindex="0">
 <table class="ui-table">
@@ -66,6 +66,7 @@
 <label for="name">Realm name</label>
 <input id="name" placeholder="e.g. Acme" name="name" value="{% if !p.create || !p.record.name.is_empty() %}{{ p.record.name }}{% endif %}" aria-describedby="name-help{% if p.invalid == "name" %} name-error{% endif %}" {% if p.invalid == "name" %}aria-invalid="true" autofocus{% endif %}>
 <p id="name-help" class="help ui-help">1–128 characters, up to 512 UTF-8 bytes. Names do not need to be unique.</p>{% if p.invalid == "name" %}<p id="name-error" class="field-error ui-field-error">{{ p.error }}</p>{% endif %}</div>{% endif %}
+{% if p.user && !p.create %}<div class="field ui-field"><label><input type="checkbox" name="email_confirmed" value="true"> Confirm email change: end current sessions and access links. The new address remains unverified.</label></div>{% endif %}
 <div class="actions">
 <button type="submit" data-pending-label="{% if p.create %}{% if p.user %}Creating user…{% else %}Creating realm…{% endif %}{% else %}Saving changes…{% endif %}">{% if p.create %}{% if p.user %}Create user{% else %}Create realm{% endif %}{% else %}Save changes{% endif %}</button>
 <a href="{% if p.create %}{{ p.list_path }}{% else %}{{ p.detail_path }}{% endif %}">Cancel</a>
@@ -73,6 +74,7 @@
 <p class="working ui-sr-only" role="status" hidden>Saving… Wait for a result before submitting again.</p>
 </form>
 </section>
+{% if !p.create %}<section class="panel ui-panel"><h2>{% if p.user %}User access{% else %}Authentication{% endif %}</h2><a class="ui-button" hx-boost="false" href="{{ p.detail_path }}/{% if p.user %}access-links{% else %}authentication{% endif %}">{% if p.user %}Manage user access{% else %}Authentication settings{% endif %}</a>{% if !p.user %}<p><a href="/realms/{{ p.realm.id }}/login" hx-boost="false">Public realm sign-in</a></p>{% endif %}</section>{% endif %}
 {% if !p.create %}<section class="panel ui-panel" {% if p.confirm %}id="confirmation" tabindex="-1"{% endif %}>{% if p.confirm %}<h2>{% if p.status == "active" %}Reactivate{% else %}Suspend{% endif %} this {% if p.user %}user{% else %}realm{% endif %}?</h2>
 <p>{% if p.user %}Only this user’s directory status will change. Realm status stays unchanged.{% else if p.status == "active" %}The realm will become active. Individually suspended users will remain suspended.{% else %}The realm will become suspended. Individual user statuses will remain unchanged.{% endif %}</p>
 <p class="mono ui-mono">{{ p.record.id }}</p>
@@ -94,7 +96,7 @@
 <dt>Combined directory status</dt>
 <dd>{{ p.combined }}</dd>
 </dl>
-<p class="help ui-help">Directory status only. This user cannot sign in.</p>{% else %}<p>Realm status does not change individual user statuses. Suspended realms remain editable.</p>{% endif %}<a class="button ui-button secondary ui-button--secondary" id="status-action" href="{{ p.detail_path }}/status?status={% if p.record.status == "active" %}suspended{% else %}active{% endif %}&amp;version={{ p.version }}" hx-get="{{ p.detail_path }}/status?status={% if p.record.status == "active" %}suspended{% else %}active{% endif %}&amp;version={{ p.version }}" {% if p.cancel_focus %}data-focus="true"{% endif %}>{% if p.record.status == "active" %}Suspend{% else %}Reactivate{% endif %} {% if p.user %}user{% else %}realm{% endif %}</a>{% endif %}</section>{% endif %}
+<p class="help ui-help">Sign-in also requires credentials and an active realm. Suspension ends sessions and access links.</p>{% else %}<p>Realm status does not change individual user statuses. Suspended realms remain editable.</p>{% endif %}<a class="button ui-button secondary ui-button--secondary" id="status-action" href="{{ p.detail_path }}/status?status={% if p.record.status == "active" %}suspended{% else %}active{% endif %}&amp;version={{ p.version }}" hx-get="{{ p.detail_path }}/status?status={% if p.record.status == "active" %}suspended{% else %}active{% endif %}&amp;version={{ p.version }}" {% if p.cancel_focus %}data-focus="true"{% endif %}>{% if p.record.status == "active" %}Suspend{% else %}Reactivate{% endif %} {% if p.user %}user{% else %}realm{% endif %}</a>{% endif %}</section>{% endif %}
 </div>{% if !p.create %}<aside>
 <section class="panel ui-panel">
 <h2>Record</h2>

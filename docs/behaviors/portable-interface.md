@@ -409,6 +409,10 @@ cover full-page and fragment HTML, field association, absence of duplicate alert
 alert ordering and recovery links. Both tests failed before implementation.
 Browser fixture expectations were updated for invalid-field focus; live browser/TLS
 fixtures have not been rerun. HTML assertions do not prove browser focus behavior.
+`tests/administrator_access.rs::credential_validation_http` covers rejected setup
+submissions through the HTTP/storage boundary: one associated inline email or
+password error without a summary, cleared secrets, no administrator created and
+an unconsumed setup code.
 
 ### interface-09: loading inside the action button
 

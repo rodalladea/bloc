@@ -2,17 +2,25 @@
 set -euo pipefail
 mkdir -p evidence
 lifecycle=()
-for check in {9..18} 20 21; do lifecycle+=(--check "C$check"); done
-printf 'Starting lifecycle/C18 and disconnected-recovery/C19 in separate namespaces; both retain five-minute timeouts.\n'
+for check in 9 10 11 12 13 14 15 17 20 21; do lifecycle+=(--check "C$check"); done
+printf 'Starting lifecycle, probes/automatic rollback, and disconnected recovery in separate namespaces; intentional upgrade failures use 60-second fixture timeouts.\n'
 python3 -u tests/distribution/cluster.py "$@" "${lifecycle[@]}" 2>&1 | tee evidence/cluster-lifecycle.log &
 lifecycle_pid=$!
+python3 -u tests/distribution/cluster.py "$@" --check C16 --check C18 2>&1 | tee evidence/cluster-resilience.log &
+resilience_pid=$!
 python3 -u tests/distribution/cluster.py "$@" --check C19 2>&1 | tee evidence/cluster-recovery.log &
 recovery_pid=$!
 status=0
 if wait "$lifecycle_pid"; then
-  printf 'Lifecycle/C18 suite passed.\n'
+  printf 'Lifecycle suite passed.\n'
 else
-  printf 'Lifecycle/C18 suite failed; see evidence/cluster-lifecycle.log.\n' >&2
+  printf 'Lifecycle suite failed; see evidence/cluster-lifecycle.log.\n' >&2
+  status=1
+fi
+if wait "$resilience_pid"; then
+  printf 'Probes/automatic-rollback suite passed.\n'
+else
+  printf 'Probes/automatic-rollback suite failed; see evidence/cluster-resilience.log.\n' >&2
   status=1
 fi
 if wait "$recovery_pid"; then

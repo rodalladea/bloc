@@ -1,0 +1,42 @@
+name: Release cache warming
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - Dockerfile
+      - .dockerignore
+      - src/**
+      - templates/**
+      - assets/**
+      - migrations/**
+      - LICENSE
+      - THIRD_PARTY_NOTICES.md
+      - scripts/distribution/node-image.sh
+      - scripts/distribution/install-tools.sh
+      - .github/workflows/build-images.yml
+      - .github/workflows/release-cache.yml
+permissions:
+  contents: read
+concurrency:
+  group: release-cache-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  images:
+    uses: ./.github/workflows/build-images.yml
+  node:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/node-image
+          key: kind-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/distribution/node-image.sh', 'scripts/distribution/install-tools.sh') }}
+      - run: bash scripts/distribution/install-tools.sh
+      - run: bash scripts/distribution/node-image.sh
