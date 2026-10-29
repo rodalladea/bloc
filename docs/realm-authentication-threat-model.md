@@ -21,7 +21,11 @@ canonical HTTPS ingress plus single exact `Sec-Fetch-Site: same-origin`,
 `Sec-Fetch-Mode: navigate` and `Sec-Fetch-Dest: document` headers. Browser scripts
 cannot set these forbidden headers. Null Origin alone, same-site requests,
 ambiguous headers and missing metadata are refused; valid server-side CSRF is
-still required. Existing administrator setup/login/account validation is unchanged.
+still required. The shared administrator logout uses this same bounded fallback
+for native forms on Authentication and User access; `realm_auth_c09` checks
+revocation and rejected metadata/CSRF, and `realm_auth_c19` exercises both pages
+with JavaScript disabled. Existing administrator setup/login/account validation
+is unchanged.
 This is a browser-origin defense, not authentication of arbitrary HTTP clients.
 
 See [ADR 0007](adr/0007-realm-user-authentication.md) and the

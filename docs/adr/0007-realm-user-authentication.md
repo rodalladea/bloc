@@ -68,6 +68,11 @@ Fetch Metadata headers and unchanged synchronizer CSRF. It applies to the new
 realm forms, including administrator settings/issuance; existing administrator
 setup/login/account guards remain unchanged. Null Origin alone is never sufficient.
 
+PR #27 review correction: the same bounded fallback also applies to the shared
+administrator logout endpoint, so native logout from Authentication and User access
+pages remains usable without weakening their no-referrer policy. Canonical ingress,
+current administrator authority and session-bound synchronizer CSRF still apply.
+
 Realm admission uses fixed keyed dimensions and bounded temporary state. Public
 hash work is limited to 20 units per rolling 60 seconds; existing administrator
 and public work share one 30-unit total. Password change reserves two before

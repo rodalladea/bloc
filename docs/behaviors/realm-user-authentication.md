@@ -55,6 +55,13 @@ Given untrusted ingress, malformed/oversized/unsupported forms or mismatched rea
 When a request reaches a credential or account endpoint.
 Then existing400/403/413/415 precedence applies before password work; invalid CSRF makes zero mutations and provides fresh-GET guidance.
 
+### realm-auth-administrator-native-logout
+
+Decision source: [PR #27 review](https://github.com/rodalladea/bloc/pull/27#discussion_r4408094605).
+Given an authenticated administrator on Authentication or User access with no-referrer protection.
+When they submit the shared logout form with JavaScript disabled.
+Then exact same-origin/navigate/document Fetch Metadata permits a null Origin, valid session-bound CSRF revokes the administrator session and redirects to sign-in; invalid CSRF or foreign metadata returns 403 without revocation. Other administrator forms retain their existing strict origin guard.
+
 ### realm-auth-admission
 
 Given two replicas sharing fixed rolling 60-second budgets, one local worker each and bounded temporary state.
@@ -148,11 +155,23 @@ target. Each named proof must exist, run, and assert every mapped contract claus
 on PostgreSQL 17 and 18. Browser and native scenarios require actual runtime
 measurements, beyond HTML/source inspection.
 
+PR #27 correction: the native administrator logout regression reproduced a 403
+before the fix. C9 now asserts revocation and rejects foreign metadata/invalid
+CSRF from both administrator pages; C19 exercises native submissions with
+JavaScript disabled. C17 pauses verification before returning its result while
+the competing invalidation completes, then checks the original denial status
+and absence of issued sessions. Splitting the HTTP module changes no other
+agreed behavior. All 64 named realm database/browser proofs were rerun locally
+on PostgreSQL 17.11 and 18.6 after these corrections and passed on both. Native
+capacity records must be regenerated for the changed application fingerprint on
+both Linux architectures before acceptance.
+
 | Scenario | Task criteria | Exact integration tests | Coverage |
 | --- | --- | --- | --- |
 | realm-auth-settings | C1, C2, C3, C4 | `realm_auth_c01`, `realm_auth_c02`, `realm_auth_c03`, `realm_auth_c04` | Verified, round 2 |
 | realm-auth-session-policy | C5, C6, C7 | `realm_auth_c05`, `realm_auth_c06`, `realm_auth_c07` | Verified, round 2 |
 | realm-auth-password-policy | C8 | `realm_auth_c08` | Verified, round 2 |
+| realm-auth-administrator-native-logout | PR #27 F2 | `realm_auth_c09` (`administrator_native_logout`), `realm_auth_c19` (native browser checks on both pages) | Verified on PostgreSQL 17 and 18, including native browser submissions |
 | realm-auth-request-authority | C9, C15 | `realm_auth_c09`, `realm_auth_c15` | Verified, round 2 |
 | realm-auth-admission | C10, C11, C12, C13, C14, C63 | `realm_auth_c10`, `realm_auth_c11`, `realm_auth_c12`, `realm_auth_c13`, `realm_auth_c14`, `realm_auth_c63` | Verified, round 2 |
 | realm-auth-atomicity | C16, C17, C18, C19 | `realm_auth_c16`, `realm_auth_c17`, `realm_auth_c18`, `realm_auth_c19` | Verified, round 2 |

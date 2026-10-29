@@ -209,6 +209,31 @@ def issue(admin,purpose):
 def bound_password(page,password=PASSWORD):
     fields(page,{'password':password,'password_confirmation':password});submit(page,'Save password')
 
+def administrator_native_logout(browser, admin):
+    for path in [ADMIN+'/authentication', ADMIN+f'/users/{USER}/access-links']:
+        native=browser.new_context(java_script_enabled=False)
+        native.add_cookies(admin.context.cookies())
+        native.on('response',response_policy)
+        plain=native.new_page()
+        response=plain.goto(path)
+        assert response.status==200
+        assert response.all_headers()['referrer-policy']=='no-referrer'
+        plain.get_by_label('Workspace menu',exact=True).click()
+        with plain.expect_response(lambda r:urlparse(r.url).path=='/admin/logout') as logout:
+            plain.get_by_role('button',name='Log out',exact=True).click()
+        assert logout.value.status==303
+        headers=logout.value.request.all_headers()
+        assert headers['origin']=='null'
+        assert headers['sec-fetch-site']=='same-origin'
+        plain.wait_for_url(ORIGIN+'/admin/login')
+        assert not any(c['name']=='__Host-bloc-admin' for c in native.cookies())
+        native.close()
+        reset_limits()
+        admin.goto(ORIGIN+'/admin/login')
+        fields(admin,{'email':'Owner@example.test','password':'a synthetic password'})
+        submit(admin,'Sign in')
+        admin.wait_for_url(ORIGIN+'/admin')
+
 with sync_playwright() as pw:
     browser=pw.chromium.launch(executable_path=pw.chromium.executable_path,headless=True,args=['--no-proxy-server','--host-resolver-rules=MAP bloc.example.test 127.0.0.1','--ignore-certificate-errors-spki-list='+os.environ['BLOC_TEST_SPKI']])
     context=browser.new_context(viewport={'width':1440,'height':1000},reduced_motion='reduce')
@@ -219,6 +244,7 @@ with sync_playwright() as pw:
     code=subprocess.run([os.environ['BLOC_TEST_BINARY'],'admin','setup-code'],check=True,capture_output=True,text=True).stdout.splitlines()[0][5:]
     admin.goto(ORIGIN+'/admin/setup');fields(admin,{'code':code,'email':'Owner@example.test','password':'a synthetic password','password_confirmation':'a synthetic password'});submit(admin,'Create administrator');admin.wait_for_url(ORIGIN+'/admin/login');fields(admin,{'email':'Owner@example.test','password':'a synthetic password'});submit(admin,'Sign in');admin.wait_for_url(ORIGIN+'/admin')
     sql(f"INSERT INTO bloc.realm(id,name,created_at,updated_at) VALUES('{REALM}','Acme',clock_timestamp(),clock_timestamp()),('{OTHER}','Other',clock_timestamp(),clock_timestamp()); INSERT INTO bloc.realm_user(id,realm_id,email,created_at,updated_at) VALUES('{USER}','{REALM}','pending@example.test',clock_timestamp(),clock_timestamp());")
+    administrator_native_logout(browser,admin)
     if len(sys.argv)>1 and sys.argv[1].startswith('transport'):
         code,link=issue(admin,'activation');reset_limits();page.goto(link)
         expect(page.locator('[name=code]')).to_have_attribute('type','password')

@@ -224,14 +224,12 @@ async fn realm_suspension_verify_race_contract() {
                 ("password", "a synthetic realm password"),
             ])
             .finish();
-        let before = app.worker.observed_work();
+        let gate = app.worker.pause_verification();
         let cloned = app.clone();
         let task = tokio::spawn(async move { request(&cloned, "", Some(body), &[]).await });
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-        while app.worker.observed_work()[2] == before[2] {
-            assert!(std::time::Instant::now() < deadline);
-            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
-        }
+        tokio::time::timeout(std::time::Duration::from_secs(10), gate.wait())
+            .await
+            .expect("verification did not reach the commit boundary");
         match mutation {
             "suspension" => {
                 sqlx::query("UPDATE bloc.realm_user SET status='suspended',version=version+1 WHERE email='active@example.test'").execute(&f.admin).await.unwrap();
@@ -247,6 +245,7 @@ async fn realm_suspension_verify_race_contract() {
             }
             _ => unreachable!(),
         }
+        gate.wait().await;
         assert_eq!(
             task.await.unwrap().status(),
             if mutation == "restore" { 503 } else { 422 },

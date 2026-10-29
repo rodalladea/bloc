@@ -117,6 +117,7 @@ async fn realm_auth_c09() {
     prove_protected_refusals("refusals_c09").await;
     realm_private_proof("realm_request_order_contract").await;
     realm_private_proof("realm_native_origin_contract").await;
+    administrator_native_logout().await;
     let (f, mut b) = realm_fixture("rac09").await;
     let path = format!("/realms/{REALM}/login");
     let (s, h, _) = b
@@ -1584,3 +1585,44 @@ async fn realm_private_proof(name: &str) {
 }
 
 include!("realm_authentication_extended.rs");
+
+async fn administrator_native_logout() {
+    let (f, mut b, access_path, _) = realm_link_fixture("admin_native_logout").await;
+    let native = [
+        ("origin", "null"),
+        ("sec-fetch-site", "same-origin"),
+        ("sec-fetch-mode", "navigate"),
+        ("sec-fetch-dest", "document"),
+    ];
+    for path in [
+        format!("/admin/realms/{REALM}/authentication"),
+        access_path,
+    ] {
+        let (_, html, headers) = b.request("GET", &path, &[]).await;
+        assert_eq!(headers["referrer-policy"], "no-referrer");
+        assert!(html.contains("action=\"/admin/logout\""));
+        let csrf = b.token(&path).await;
+        let old_session = sec::digest(&b.cookies["__Host-bloc-admin"]);
+        for (name, value) in [
+            ("sec-fetch-site", "cross-site"),
+            ("sec-fetch-site", "same-site"),
+            ("sec-fetch-mode", "cors"),
+            ("sec-fetch-dest", "iframe"),
+            ("origin", "https://foreign.example"),
+        ] {
+            let mut invalid = native.to_vec();
+            invalid.retain(|(key, _)| *key != name);
+            invalid.push((name, value));
+            assert_eq!(b.request_headers("POST", "/admin/logout", &[("csrf", &csrf)], &invalid).await.0, 403);
+        }
+        assert_eq!(b.request_headers("POST", "/admin/logout", &[("csrf", "invalid")], &native).await.0, 403);
+        // The exception belongs only to logout; other administrator forms retain strict origin checks.
+        assert_eq!(b.request_headers("POST", "/admin/password", &[("csrf", &csrf)], &native).await.0, 403);
+        let (status, _, headers) = b.request_headers("POST", "/admin/logout", &[("csrf", &csrf)], &native).await;
+        assert_eq!(status, 303);
+        assert_eq!(headers["location"], "/admin/login");
+        assert!(!b.cookies.contains_key("__Host-bloc-admin"));
+        assert!(f.runtime.authorize(&old_session).await.unwrap().is_none());
+        b.login().await;
+    }
+}

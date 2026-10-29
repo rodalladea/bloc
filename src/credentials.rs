@@ -64,6 +64,8 @@ fn algorithm() -> Result<Argon2<'static>, Error> {
 pub struct PasswordWorker {
     slot: Arc<Semaphore>,
     #[cfg(test)]
+    verification_gate: Arc<std::sync::Mutex<Option<Arc<tokio::sync::Barrier>>>>,
+    #[cfg(test)]
     work: Arc<[std::sync::atomic::AtomicUsize; 4]>,
 }
 impl Default for PasswordWorker {
@@ -75,6 +77,8 @@ impl PasswordWorker {
     pub fn new() -> Self {
         Self {
             slot: Arc::new(Semaphore::new(1)),
+            #[cfg(test)]
+            verification_gate: Arc::new(std::sync::Mutex::new(None)),
             #[cfg(test)]
             work: Arc::new(std::array::from_fn(|_| {
                 std::sync::atomic::AtomicUsize::new(0)
@@ -88,6 +92,13 @@ impl PasswordWorker {
     #[cfg(test)]
     pub(crate) fn occupy(&self) -> tokio::sync::OwnedSemaphorePermit {
         self.slot.clone().try_acquire_owned().unwrap()
+    }
+    /// Pause the next verification before returning its result to the caller.
+    #[cfg(test)]
+    pub(crate) fn pause_verification(&self) -> Arc<tokio::sync::Barrier> {
+        let gate = Arc::new(tokio::sync::Barrier::new(2));
+        *self.verification_gate.lock().unwrap() = Some(gate.clone());
+        gate
     }
     pub async fn hash(&self, password: String) -> Result<String, Error> {
         let permit = self
@@ -122,7 +133,9 @@ impl PasswordWorker {
             .map_err(|_| Error::Capacity)?;
         #[cfg(test)]
         let work = self.work.clone();
-        tokio::task::spawn_blocking(move || {
+        #[cfg(test)]
+        let gate = self.verification_gate.lock().unwrap().take();
+        let result = tokio::task::spawn_blocking(move || {
             let _permit = permit;
             let hash = PasswordHash::new(&phc).map_err(|_| Error::Unavailable)?;
             #[cfg(test)]
@@ -135,6 +148,12 @@ impl PasswordWorker {
             result
         })
         .await
-        .map_err(|_| Error::Unavailable)?
+        .map_err(|_| Error::Unavailable)?;
+        #[cfg(test)]
+        if let Some(gate) = gate {
+            gate.wait().await;
+            gate.wait().await;
+        }
+        result
     }
 }

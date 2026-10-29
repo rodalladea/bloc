@@ -40,6 +40,15 @@ impl Browser {
         path: &str,
         fields: &[(&str, &str)],
     ) -> (StatusCode, String, axum::http::HeaderMap) {
+        self.request_headers(method, path, fields, &[]).await
+    }
+    async fn request_headers(
+        &mut self,
+        method: &str,
+        path: &str,
+        fields: &[(&str, &str)],
+        headers: &[(&str, &str)],
+    ) -> (StatusCode, String, axum::http::HeaderMap) {
         let encoded = url::form_urlencoded::Serializer::new(String::new())
             .extend_pairs(fields.iter().copied())
             .finish();
@@ -61,6 +70,12 @@ impl Browser {
             )
             .body(Body::from(encoded))
             .unwrap();
+        for (name, value) in headers {
+            request.headers_mut().insert(
+                axum::http::HeaderName::from_bytes(name.as_bytes()).unwrap(),
+                value.parse().unwrap(),
+            );
+        }
         request.extensions_mut().insert(ConnectInfo(
             "127.0.0.1:54321".parse::<std::net::SocketAddr>().unwrap(),
         ));

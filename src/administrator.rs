@@ -424,7 +424,9 @@ async fn handle_request(State(app): State<Application>, request: Request) -> Res
         )
         .await;
     }
-    if !security::origin(&app.config, &headers) {
+    if !security::origin(&app.config, &headers)
+        && !(path == "/admin/logout" && security::native_origin(&headers))
+    {
         return StatusCode::FORBIDDEN.into_response();
     }
     if security::one(&headers, "content-type").and_then(|v| v.split(';').next())
