@@ -5,6 +5,8 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+## 0.5.1 - 2026-10-29
+
 ### Changed
 
 - Show a shared, theme-aware spinner inside submitting buttons with specific
