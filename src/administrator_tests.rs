@@ -361,3 +361,80 @@ async fn http_worker_saturation_and_authority_order() {
     assert_eq!(after[2] - before[2], 1);
     assert_eq!(after[3] - before[3], 1);
 }
+
+#[test]
+fn form_feedback_separates_field_and_general_errors() {
+    for path in [
+        "/admin/login",
+        "/admin/setup",
+        "/admin/recovery",
+        "/admin/password",
+    ] {
+        let mut page = Page::new(path);
+        page.invalid = if path == "/admin/login" {
+            "email"
+        } else {
+            "password"
+        };
+        page.field_error = "Correct this value.";
+        for html in [
+            Full { page: &page }.render().unwrap(),
+            Fragment { page: &page }.render().unwrap(),
+        ] {
+            assert!(!html.contains("role=\"alert\""));
+            assert!(
+                html.contains("aria-invalid=\"true\" aria-describedby=\"field-error\" autofocus")
+            );
+            assert!(html.contains("Correct this value."));
+        }
+        page.invalid = "";
+        page.feedback = "Your request could not be completed.".into();
+        for html in [
+            Full { page: &page }.render().unwrap(),
+            Fragment { page: &page }.render().unwrap(),
+        ] {
+            assert!(
+                html.find("id=\"feedback\"").unwrap()
+                    < html.find("class=\"page-heading\"").unwrap()
+            );
+            assert_eq!(html.matches("role=\"alert\"").count(), 1);
+        }
+    }
+    for (path, unavailable, reload) in [
+        ("/admin", false, false),
+        ("/admin/login", true, false),
+        ("/admin/setup", false, true),
+    ] {
+        let mut page = Page::new(path);
+        page.unavailable = unavailable;
+        page.reload = reload;
+        page.feedback = "Try again shortly.".into();
+        for html in [
+            Full { page: &page }.render().unwrap(),
+            Fragment { page: &page }.render().unwrap(),
+        ] {
+            assert_eq!(html.matches("id=\"feedback\"").count(), 1);
+            assert!(
+                html.find("id=\"feedback\"").unwrap()
+                    < html.find("class=\"page-heading\"").unwrap()
+            );
+        }
+    }
+}
+
+#[test]
+fn form_actions_expose_accessible_pending_labels() {
+    for (path, label) in [
+        ("/admin/login", "Signing in…"),
+        ("/admin/setup", "Creating administrator…"),
+        ("/admin/recovery", "Resetting password…"),
+        ("/admin/password", "Changing password…"),
+        ("/admin", "Signing out…"),
+    ] {
+        let page = Page::new(path);
+        let html = Fragment { page: &page }.render().unwrap();
+        assert!(html.contains(&format!("data-pending-label=\"{label}\"")));
+        assert!(html.contains("ui-sr-only working\" role=\"status\" hidden"));
+        assert!(!html.contains("aria-busy=\"true\""));
+    }
+}

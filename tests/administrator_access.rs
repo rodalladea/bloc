@@ -2313,13 +2313,27 @@ async fn credential_validation_http() {
         .await
         .unwrap();
     let csrf = browser.token("/admin/setup").await;
-    for (email, password, confirmation) in [
-        ("invalid", "a synthetic password", "a synthetic password"),
-        ("Owner@example.test", "short", "short"),
+    for (email, password, confirmation, invalid_field, message) in [
+        (
+            "invalid",
+            "a synthetic password",
+            "a synthetic password",
+            "email",
+            "Enter an email address.",
+        ),
+        (
+            "Owner@example.test",
+            "short",
+            "short",
+            "password",
+            "Choose a password with 15–128 characters and matching confirmation.",
+        ),
         (
             "Owner@example.test",
             "a synthetic password",
             "a different password",
+            "password",
+            "Choose a password with 15–128 characters and matching confirmation.",
         ),
     ] {
         let (s, html, _) = browser
@@ -2336,8 +2350,21 @@ async fn credential_validation_http() {
             )
             .await;
         assert_eq!(s, 422);
-        assert!(html.contains("role=\"alert\""));
+        assert!(!html.contains("role=\"alert\""));
+        assert_eq!(html.matches("aria-invalid=\"true\"").count(), 1);
+        let input = html
+            .split(&format!("<input id=\"{invalid_field}\""))
+            .nth(1)
+            .unwrap()
+            .split('>')
+            .next()
+            .unwrap();
+        assert!(input.contains("aria-invalid=\"true\" aria-describedby=\"field-error\""));
+        assert_eq!(html.matches("id=\"field-error\"").count(), 1);
+        assert_eq!(html.matches(message).count(), 1);
         assert!(!html.contains(&format!("value=\"{code}\"")));
+        assert!(!html.contains(&format!("value=\"{password}\"")));
+        assert!(!html.contains(&format!("value=\"{confirmation}\"")));
         assert!(
             f.runtime
                 .code_usable("setup", &sec::digest(&code))

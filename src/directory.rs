@@ -622,9 +622,6 @@ async fn handle(app: &Application, request: Request) -> Response {
             invalid = true;
         }
         if invalid {
-            if p.feedback.is_empty() {
-                p.feedback = "Review the highlighted field. Nothing was changed.".into();
-            }
             response_status = StatusCode::UNPROCESSABLE_ENTITY;
         } else {
             let id = if creating {
@@ -745,5 +742,78 @@ fn realm_creation_has_one_entry_per_list_state() {
         assert_eq!(html.matches("href=\"/admin/realms/new\"").count(), 2);
         let fragment = Fragment { p: &p }.render().unwrap();
         assert_eq!(fragment.matches("href=\"/admin/realms/new\"").count(), 1);
+    }
+}
+
+#[test]
+fn directory_feedback_separates_field_and_general_errors() {
+    for creating in [false, true] {
+        for field in ["name", "email", "display-name"] {
+            let mut p = Page::new();
+            p.create = creating;
+            p.user = field != "name";
+            p.invalid = field;
+            p.error = "Correct this value.";
+            for html in [
+                Full { p: &p }.render().unwrap(),
+                Fragment { p: &p }.render().unwrap(),
+            ] {
+                assert!(!html.contains("role=\"alert\""));
+                assert!(html.contains("aria-invalid=\"true\" autofocus"));
+                assert!(html.contains("Correct this value."));
+            }
+            p.fail(
+                "The record changed. Reload before saving.",
+                "/admin/realms",
+                "Reload",
+            );
+            for html in [
+                Full { p: &p }.render().unwrap(),
+                Fragment { p: &p }.render().unwrap(),
+            ] {
+                assert!(
+                    html.find("id=\"feedback\"").unwrap()
+                        < html.find("class=\"breadcrumbs\"").unwrap()
+                );
+                assert!(html.contains("The record changed. Reload before saving."));
+                assert!(html.contains(">Reload</a>"));
+            }
+        }
+    }
+}
+
+#[test]
+fn directory_actions_expose_pending_labels() {
+    for user in [false, true] {
+        for create in [false, true] {
+            let mut p = Page::new();
+            p.user = user;
+            p.create = create;
+            let html = Fragment { p: &p }.render().unwrap();
+            let label = match (user, create) {
+                (true, true) => "Creating user…",
+                (false, true) => "Creating realm…",
+                (_, false) => "Saving changes…",
+            };
+            assert!(html.contains(&format!("data-pending-label=\"{label}\"")));
+            assert!(html.contains("working ui-sr-only\" role=\"status\" hidden"));
+        }
+        for status in ["active", "suspended"] {
+            let mut p = Page::new();
+            p.user = user;
+            p.confirm = true;
+            p.status = status.into();
+            let label = if status == "active" {
+                "Reactivating…"
+            } else {
+                "Suspending…"
+            };
+            assert!(
+                Fragment { p: &p }
+                    .render()
+                    .unwrap()
+                    .contains(&format!("data-pending-label=\"{label}\""))
+            );
+        }
     }
 }

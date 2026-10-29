@@ -52,6 +52,7 @@ links have the base appearance. Compose the following classes with semantic HTML
 | Secondary / ghost button | `ui-button--secondary`, `ui-button--ghost` | Choose one main action per group |
 | Field group | `ui-field` | Visible label and control association |
 | Settings row | `ui-field ui-field--row` | Label, input, help and error; stacks below 1000px |
+| Busy button | `button[aria-busy="true"]` | Disable during submission; supply an action label and a polite live status; clear busy state on completion |
 | Help / error | `ui-help`, `ui-field-error` | Consumer supplies `aria-describedby` and `aria-invalid`; classes only style the text |
 | Notice | `ui-notice`, `ui-notice--error` | Appropriate alert/status role and focus policy |
 | Panel | `ui-panel` | Heading and meaningful grouping |
@@ -72,8 +73,11 @@ the button-height token. Light controls use cool neutral tones; dark controls us
 graphite/zinc tones matching the workspace and its lime accents. Focused
 fields keep their fill and use a 3px ring in the focused border's hue at 24%
 opacity. Invalid inputs and textareas retain their error border and use an
-error-colour ring at 16% opacity; selects have no dedicated invalid-state rule. Keyboard focus
+error-colour ring at 16% opacity, with an inset outline while resting; selects have no dedicated invalid-state rule. Keyboard focus
 on links/buttons retains an outline, and forced-colours mode also outlines fields.
+
+Error notices use a muted tint in both themes, neutral body text, red links and a
+subtle, even border. `--ui-error-line` supplies the quieter surrounding border.
 
 Primary and secondary buttons share a thin outline, inset top highlight and
 short shadow for subtle relief. The `--ui-button-*` tokens define their theme
@@ -84,6 +88,11 @@ Native disabled controls, invalid inputs/textareas, focus and hover receive
 corresponding styling. Directory forms associate help and error text with their
 fields. Administrator access/password forms currently associate errors only;
 their visible password guidance is not linked through `aria-describedby`.
+Use inline field errors for validation, without a duplicate notice. General errors
+use `ui-notice ui-notice--error` as the first element in the main content, above
+headings and form fields. Retain recovery actions. bloc focuses the invalid field
+after validation and prioritizes a general alert when one is present.
+
 The consumer owns pending state, validation semantics, focus after navigation,
 confirmation and the effect of an action. No authentication or mutation policy
 belongs in these assets. Do not load the script more than once or inject it with
@@ -123,3 +132,16 @@ the picker, updates `aria-pressed` and preserves the same storage contract. A
 native `details` marked `data-ui-dropdown` closes on Escape (returning focus to
 its summary), outside clicks and appearance selection. These disclosures retain
 ordinary Tab navigation; they do not claim ARIA menu/arrow-key semantics.
+
+## Button loading
+
+A busy button shows a 16px neutral spinner before its label using only `ui.css`.
+Keep the action visible (for example “Signing in…” or “Saving changes…”), set
+`aria-busy="true"` and `disabled`, and remove both when the request finishes.
+Reduced motion replaces rotation with a static indicator. No progress percentage
+is implied. The styles use theme tokens and need no initialization.
+
+bloc's request scripts read `data-pending-label`, restore the original label after
+failure, and announce the pending action through a separate `.ui-sr-only` status
+region. This replaces the visible message beneath submit buttons. Native forms
+remain usable without JavaScript; directory navigation keeps its existing status.

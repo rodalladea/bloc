@@ -486,7 +486,6 @@ async fn handle_request(State(app): State<Application>, request: Request) -> Res
     if matches!(path.as_str(), "/admin/setup" | "/admin/login") && email.is_err() {
         page.invalid = "email";
         page.field_error = "Enter an email address.";
-        page.feedback = "Check the highlighted field.".into();
         return form_page(
             &app,
             page,
@@ -510,7 +509,6 @@ async fn handle_request(State(app): State<Application>, request: Request) -> Res
     {
         page.invalid = "password";
         page.field_error = "Choose a password with 15–128 characters and matching confirmation.";
-        page.feedback = "Check the highlighted field.".into();
         return form_page(
             &app,
             page,
