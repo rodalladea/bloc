@@ -12,7 +12,7 @@ import tempfile
 from support import postgres as fixtures
 
 ROOT = Path(__file__).resolve().parents[1]
-REALM_BASELINE_REVISION = "ed500d00c6f89b5ca119a581353d5e412d9148cb"
+REALM_BASELINE_REVISION = "acc8c5fa3a27fece3dec1c19d68bfdedc3d8477f"
 REALM_AUTH_TESTS = tuple(f"realm_auth_c{i:02}" for i in range(1,64) if i not in (19,30,39,62)) + ("realm_auth_upgrade_roles",)
 REALM_AUTH_BROWSER_TESTS = ("realm_auth_c19", "realm_auth_c30", "realm_auth_c39", "realm_auth_c62")
 DIRECTORY_TESTS = tuple(f"directory_c{i:02}" for i in range(1,38)) + ("directory_input_refusals", "directory_response_policy", "directory_realm_upgrade")
