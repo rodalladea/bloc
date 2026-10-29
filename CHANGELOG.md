@@ -15,6 +15,8 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 - Show field validation inline across access, account and directory forms; move
   general errors above page content and focus the relevant feedback.
 
+## 0.5.0 - 2026-10-29
+
 ### Added
 
 - Realm authentication settings, optional self-registration, administrator-issued
@@ -23,6 +25,13 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
   PostgreSQL authority and migration 0005. Paired native capacity acceptance remains
   pending matching final-source native amd64 and arm64 evidence; functional
   verification passes.
+
+### Upgrade and limitations
+
+- Run explicit migration 0005 before starting the new binary. Mixed-version
+  deployment and binary-only rollback are unsupported; recovery requires matching
+  database/schema restoration. This release remains for development and evaluation;
+  MFA and maintainer production-security approval remain required.
 
 ### Fixed
 
