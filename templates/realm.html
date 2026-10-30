@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="ui"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer">
+<html lang="en" class="ui"{% if !p.protected %} data-ui-theme="system" data-ui-theme-fixed{% endif %}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer">
 <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true,"historyCacheSize":0,"includeIndicatorStyles":false,"historyRestoreAsHxRequest":false}'>
 <title>bloc — {{ p.title }}</title><link rel="stylesheet" href="/assets/ui.css"><link rel="stylesheet" href="/assets/admin.css"><link rel="stylesheet" href="/assets/directory.css"><link rel="stylesheet" href="/assets/realm.css"><script src="/assets/realm.js"></script><script src="/assets/ui.js"></script><script src="/assets/navigation.js" defer></script><script src="/assets/htmx.min.js" defer></script></head>
 <body class="{% if p.protected %}application{% else %}access{% endif %}"><a class="skip-link" href="#content">Skip to content</a>

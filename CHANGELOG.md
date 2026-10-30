@@ -5,6 +5,13 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+### Fixed
+
+- Align realm-account appearance controls with the administrator menu and keep
+  public access screens on system appearance.
+- Restore spacing around realm access links, confirmation actions and account
+  form footers, including narrow layouts and long account details.
+
 ## 0.5.2 - 2026-10-29
 
 ### Changed

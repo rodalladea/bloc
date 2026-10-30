@@ -11,6 +11,24 @@
 .two-inputs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
 .setting-control{min-width:0}.settings-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:24px}
 .inline-confirm{margin:24px 0;padding:24px;border:1px solid var(--hairline);border-radius:var(--ui-radius)}
-.info-grid{padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:16px}.info-grid dd{margin:0}
+.info-grid{padding:20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.info-grid dt,.info-grid dd{margin:0}
 .readonly{padding:12px 0;overflow-wrap:anywhere}.below{margin-top:20px}
-@media(min-width:1000px){.form-group .ui-field--row{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px}.form-group .ui-field--row label{grid-column:1;grid-row:1}.form-group .ui-field--row>.ui-help{grid-column:1;grid-row:2}.form-group .ui-field--row>input,.form-group .ui-field--row>.setting-control,.form-group .ui-field--row>.readonly{grid-column:2;grid-row:1 / span 2}.form-group .ui-field--row>.ui-field-error{grid-column:2}}
+@media(min-width:1000px){.form-group .ui-field--row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 24px}.form-group .ui-field--row label{grid-column:1;grid-row:1}.form-group .ui-field--row>.ui-help{grid-column:1;grid-row:2}.form-group .ui-field--row>input,.form-group .ui-field--row>.setting-control,.form-group .ui-field--row>.readonly{grid-column:2;grid-row:1 / span 2}.form-group .ui-field--row>.ui-field-error{grid-column:2}}
+
+.account-context,.public-realm,.inline-confirm { overflow-wrap:anywhere; }
+.form-group .ui-field--row > * { min-width:0; }
+.readonly-label { display:block; margin-bottom:7px; color:var(--ink); font-size:13px; }
+.readonly { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:5px 0; }
+.inline-confirm h2 { margin-bottom:12px; }
+.inline-confirm form { margin-top:24px; }
+.ui .inline-confirm form > .actions { margin-top:24px; padding:0; justify-content:flex-start; }
+.inline-confirm dl { margin-bottom:20px; }
+.access-link-field { margin-bottom:24px; }
+.settings-actions { border-top:1px solid var(--hairline); padding-top:20px; }
+.ui .settings-actions > .ui-help { margin:0; }
+@media(min-width:1000px) { .form-group .ui-field--row > .readonly-label { grid-column:1; grid-row:1; margin:0; } }
+@media(max-width:639px) {
+  .settings-actions { align-items:stretch; flex-direction:column; gap:12px; }
+  .settings-actions > button,.settings-actions > .ui-button { width:100%; }
+  .inline-confirm { padding:20px; }
+}
