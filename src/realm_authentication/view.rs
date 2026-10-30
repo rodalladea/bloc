@@ -22,6 +22,7 @@ pub(super) struct Lifetime {
     pub(super) error: String,
 }
 pub(super) struct Page {
+    pub(super) workspace: crate::workspace::Workspace,
     pub(super) title: String,
     pub(super) intro: String,
     pub(super) state: &'static str,
@@ -54,6 +55,7 @@ pub(super) struct Page {
 impl Page {
     pub(super) fn new(r: &str, path: &str) -> Self {
         Self {
+            workspace: crate::workspace::Workspace::default(),
             title: String::new(),
             intro: String::new(),
             state: "login",

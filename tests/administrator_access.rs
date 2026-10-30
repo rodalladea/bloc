@@ -310,7 +310,7 @@ async fn login_success_rotation() {
     b.login().await;
     assert_ne!(b.cookies.get("__Host-bloc-admin"), Some(&first));
     assert_ne!(b.cookies.get("__Host-bloc-csrf"), previous.as_ref());
-    let (s, html, _) = b.request("GET", "/admin", &[]).await;
+    let (s, html, _) = b.request("GET", "/admin?installation=1", &[]).await;
     assert_eq!(s, 200);
     assert!(html.contains("Owner@example.test"));
 }
@@ -383,13 +383,13 @@ async fn logout_replay() {
     b.setup(&f).await;
     b.login().await;
     let old = b.cookies.clone();
-    let csrf = b.token("/admin").await;
+    let csrf = b.token("/admin?installation=1").await;
     let (s, _, _) = b.request("POST", "/admin/logout", &[("csrf", &csrf)]).await;
     assert_eq!(s, 303);
     assert!(!b.cookies.contains_key("__Host-bloc-admin"));
     let mut other = Browser::new(&f).await;
     other.cookies = old;
-    let (s, _, h) = other.request("GET", "/admin", &[]).await;
+    let (s, _, h) = other.request("GET", "/admin?installation=1", &[]).await;
     assert_eq!(s, 303);
     assert!(
         h.get("location")
@@ -435,7 +435,10 @@ async fn password_change_success() {
         0
     );
     assert!(!f.runtime.code_usable("recovery", &[81; 32]).await.unwrap());
-    assert_eq!(second.request("GET", "/admin", &[]).await.0, 303);
+    assert_eq!(
+        second.request("GET", "/admin?installation=1", &[]).await.0,
+        303
+    );
     let owner = f.runtime.owner().await.unwrap().unwrap();
     assert_eq!(owner.version, 2);
     assert!(
@@ -445,7 +448,7 @@ async fn password_change_success() {
             .unwrap()
     );
     b.cookies = old;
-    assert_eq!(b.request("GET", "/admin", &[]).await.0, 303);
+    assert_eq!(b.request("GET", "/admin?installation=1", &[]).await.0, 303);
 }
 #[tokio::test]
 #[ignore = "TLS fixture"]
@@ -537,10 +540,13 @@ async fn recovery_success() {
         0
     );
     assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM bloc.security_audit_event WHERE action='recovery' AND outcome='success'").fetch_one(&f.admin).await.unwrap(),1);
-    assert_eq!(second.request("GET", "/admin", &[]).await.0, 303);
+    assert_eq!(
+        second.request("GET", "/admin?installation=1", &[]).await.0,
+        303
+    );
     assert_eq!(f.runtime.owner().await.unwrap().unwrap().version, 2);
     b.cookies = old;
-    assert_eq!(b.request("GET", "/admin", &[]).await.0, 303);
+    assert_eq!(b.request("GET", "/admin?installation=1", &[]).await.0, 303);
     assert!(
         !f.runtime
             .code_usable("recovery", &sec::digest(&code))
@@ -561,7 +567,7 @@ async fn restore_invalidation() {
     assert_eq!(after.phc, before.phc);
     assert_eq!(after.version, before.version + 1);
     assert!(after.recovery_required);
-    assert_eq!(b.request("GET", "/admin", &[]).await.0, 303);
+    assert_eq!(b.request("GET", "/admin?installation=1", &[]).await.0, 303);
     let csrf = b.token("/admin/login").await;
     assert_eq!(
         b.request(
@@ -752,9 +758,12 @@ async fn session_deadlines() {
             .cookies
             .insert("__Host-bloc-admin".into(), sec::encode(&[3; 32]));
         sqlx::query(pre).execute(&f.admin).await.unwrap();
-        assert_eq!(browser.request("GET", "/admin", &[]).await.0, 200);
+        assert_eq!(
+            browser.request("GET", "/admin?installation=1", &[]).await.0,
+            200
+        );
         sqlx::query(post).execute(&f.admin).await.unwrap();
-        let (status, _, headers) = browser.request("GET", "/admin", &[]).await;
+        let (status, _, headers) = browser.request("GET", "/admin?installation=1", &[]).await;
         assert_eq!(status, 303);
         assert!(
             headers["location"]
@@ -1348,7 +1357,7 @@ async fn logout_failure() {
     let mut b = Browser::new(&f).await;
     b.setup(&f).await;
     b.login().await;
-    let csrf = b.token("/admin").await;
+    let csrf = b.token("/admin?installation=1").await;
     f.fail_audit(true).await;
     let (s, html, _) = b.request("POST", "/admin/logout", &[("csrf", &csrf)]).await;
     assert_eq!(s, 503);
@@ -1472,7 +1481,7 @@ async fn administration_home() {
     .execute(&f.admin)
     .await
     .unwrap();
-    let (s, html, _) = b.request("GET", "/admin", &[]).await;
+    let (s, html, _) = b.request("GET", "/admin?installation=1", &[]).await;
     assert_eq!(s, 200);
     for value in [
         "Installation administrator",
@@ -2103,7 +2112,7 @@ fn wire(port: u16, cookie: Option<&str>) -> String {
         .set_read_timeout(Some(std::time::Duration::from_secs(5)))
         .unwrap();
     let request = format!(
-        "GET /admin HTTP/1.1\r\nHost: bloc.example.test:4443\r\nX-Forwarded-Proto: https\r\nX-Forwarded-For: 192.0.2.4\r\nConnection: close\r\nCookie: __Host-bloc-admin={}\r\n\r\n",
+        "GET /admin?installation=1 HTTP/1.1\r\nHost: bloc.example.test:4443\r\nX-Forwarded-Proto: https\r\nX-Forwarded-For: 192.0.2.4\r\nConnection: close\r\nCookie: __Host-bloc-admin={}\r\n\r\n",
         cookie.unwrap_or("")
     );
     stream.write_all(request.as_bytes()).unwrap();
@@ -2673,7 +2682,7 @@ async fn authority_http_matrix() {
     .await
     .unwrap();
     disconnect_runtime(&f).await;
-    assert_eq!(b.request("GET", "/admin", &[]).await.0, 503);
+    assert_eq!(b.request("GET", "/admin?installation=1", &[]).await.0, 503);
     assert_probe(&mut b, 503, "unavailable\n").await;
     sqlx::query(sqlx::AssertSqlSafe(format!(
         "ALTER DATABASE {} ALLOW_CONNECTIONS true",
@@ -2683,7 +2692,7 @@ async fn authority_http_matrix() {
     .await
     .unwrap();
     assert_probe(&mut b, 200, "ready\n").await;
-    assert_eq!(b.request("GET", "/admin", &[]).await.0, 303);
+    assert_eq!(b.request("GET", "/admin?installation=1", &[]).await.0, 303);
     assert!(f.runtime.authorize(&s).await.unwrap().is_none());
 }
 async fn disconnect_runtime(f: &Fixture) {
@@ -2871,14 +2880,14 @@ async fn throttled_form_issuance_requires_reload() {
             "/admin/login",
             "/admin/recovery",
             "/admin/password",
-            "/admin",
+            "/admin?installation=1",
         ]
         .iter()
         .enumerate()
         {
             let f = Fixture::new(&format!("throttleissue{index}{}", u8::from(hx))).await;
             let mut b = Browser::new(&f).await;
-            if matches!(*path, "/admin/password" | "/admin") {
+            if matches!(*path, "/admin/password" | "/admin?installation=1") {
                 b.setup(&f).await;
                 b.login().await;
             }
@@ -2913,13 +2922,20 @@ async fn throttled_form_issuance_requires_reload() {
             sqlx::query("UPDATE bloc.administrator_admission_bucket SET admitted_at=array_fill(clock_timestamp()-interval '61 seconds',ARRAY[cardinality(admitted_at)])").execute(&f.admin).await.unwrap();
             let token = b.token(path).await;
             assert!(!token.is_empty());
-            let post_path = if *path == "/admin" {
+            let post_path = if *path == "/admin?installation=1" {
                 "/admin/logout"
             } else {
                 path
             };
             let (status, _, _) = b.request("POST", post_path, &[("csrf", &token)]).await;
-            assert_eq!(status, if *path == "/admin" { 303 } else { 422 });
+            assert_eq!(
+                status,
+                if *path == "/admin?installation=1" {
+                    303
+                } else {
+                    422
+                }
+            );
         }
     }
 }

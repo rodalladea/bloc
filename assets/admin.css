@@ -237,3 +237,10 @@ dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) {
   .sidebar[data-menu-motion]::before { transition: none; }
 }
+
+.workspace-menu-panel { max-height:calc(100dvh - 100px); overflow-y:auto; }
+.workspace-realms { max-height:280px; overflow-y:auto; }
+.realm-choice { min-width:0; }
+.realm-choice strong { display:block; font-weight:500; }
+.realm-choice small { display:block; color:var(--muted); font-size:10px; overflow-wrap:anywhere; }
+.workspace-realms [aria-current] { background:var(--surface-muted); }

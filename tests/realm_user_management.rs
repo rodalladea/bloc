@@ -691,7 +691,7 @@ check!(directory_c13, f, b, {
     for i in 1..=50 {
         let id = format!("00000000-0000-4000-8000-{i:012}");
         assert!(h.contains(&id));
-        assert!(!last.contains(&id));
+        assert!(!row_ids(&last).contains(&id));
     }
     assert!(last.contains("00000000-0000-4000-8000-000000000051"));
     assert!(!last.contains("rel=\"next\""));
@@ -1335,8 +1335,8 @@ check!(directory_c29, f, b, {
     let (_, last, _) = b.request("GET", &next(&first), &[]).await;
     assert_eq!(row_ids(&first), expected[..50]);
     assert_eq!(row_ids(&last), expected[50..]);
-    assert!(!first.contains(OTHER));
-    assert!(!last.contains(OTHER));
+    assert!(!first.split("<main").nth(1).unwrap().contains(OTHER));
+    assert!(!last.split("<main").nth(1).unwrap().contains(OTHER));
     assert!(!last.contains("rel=\"next\""));
     no_extra_list_controls(&first);
     no_extra_list_controls(&last);
@@ -1916,15 +1916,15 @@ check!(directory_c36, f, b, {
     assert_eq!(maintenance.maintain_access().await.unwrap(), 2);
     let nulls:bool=sqlx::query_scalar("SELECT bool_and(realm_id IS NULL AND realm_user_id IS NULL) FROM bloc.security_audit_event").fetch_one(&f.admin).await.unwrap();
     assert!(nulls);
-    assert_eq!(b.request("GET", "/admin", &[]).await.0, 200);
-    let csrf = b.token("/admin").await;
+    assert_eq!(b.request("GET", "/admin?installation=1", &[]).await.0, 200);
+    let csrf = b.token("/admin?installation=1").await;
     assert_eq!(
         b.request("POST", "/admin/logout", &[("csrf", &csrf)])
             .await
             .0,
         303
     );
-    assert_eq!(b.request("GET", "/admin", &[]).await.0, 303);
+    assert_eq!(b.request("GET", "/admin?installation=1", &[]).await.0, 303);
     b.login().await;
     let csrf = b.token("/admin/password").await;
     let (status, _, headers) = b
@@ -1956,15 +1956,15 @@ check!(directory_c36, f, b, {
         .0,
         303
     );
-    assert_eq!(b.request("GET", "/admin", &[]).await.0, 200);
-    let csrf = b.token("/admin").await;
+    assert_eq!(b.request("GET", "/admin?installation=1", &[]).await.0, 200);
+    let csrf = b.token("/admin?installation=1").await;
     assert_eq!(
         b.request("POST", "/admin/logout", &[("csrf", &csrf)])
             .await
             .0,
         303
     );
-    assert_eq!(b.request("GET", "/admin", &[]).await.0, 303);
+    assert_eq!(b.request("GET", "/admin?installation=1", &[]).await.0, 303);
 });
 check!(directory_c37, f, _b, {
     for role in [
@@ -2599,4 +2599,75 @@ async fn directory_realm_upgrade() {
             "00000000-0000-4000-8000-000000000002".into()
         )
     );
+}
+
+#[tokio::test]
+#[ignore = "TLS fixture"]
+async fn directory_workspace_navigation() {
+    let (f, mut b) = signed("workspace_navigation").await;
+    let (s, _, h) = b.request("GET", "/admin", &[]).await;
+    assert_eq!(s, StatusCode::SEE_OTHER);
+    assert_eq!(h["location"], "/admin/realms");
+    create_realm(&mut b, REALM, "Acme").await;
+    let (_, _, h) = b.request("GET", "/admin", &[]).await;
+    assert_eq!(h["location"], format!("/admin/realms/{REALM}/users"));
+    create_realm(&mut b, OTHER, "Acme").await;
+    let (_, _, h) = b.request("GET", "/admin", &[]).await;
+    assert_eq!(h["location"], "/admin/realms");
+    let (s, html, h) = b
+        .request("GET", &format!("/admin/realms/{OTHER}/users"), &[])
+        .await;
+    assert_eq!(s, StatusCode::OK);
+    assert!(html.contains("aria-label=\"Workspace menu\""));
+    assert!(html.contains(&format!("href=\"/admin/realms/{REALM}/users\"")));
+    assert!(html.contains(&format!("href=\"/admin/realms/{OTHER}/authentication\"")));
+    assert!(
+        h.get_all("set-cookie")
+            .iter()
+            .any(|v| v.to_str().unwrap().contains("__Host-bloc-workspace="))
+    );
+    let (_, _, h) = b.request("GET", "/admin", &[]).await;
+    assert_eq!(h["location"], format!("/admin/realms/{OTHER}/users"));
+    let (s, _, h) = raw(
+        &b,
+        "GET",
+        "/admin",
+        String::new(),
+        &[("hx-request", "true")],
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(h["hx-redirect"], format!("/admin/realms/{OTHER}/users"));
+    sqlx::query("UPDATE bloc.realm SET status='suspended' WHERE id=$1::text::uuid")
+        .bind(OTHER)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let (s, html, _) = b
+        .request("GET", &format!("/admin/realms/{OTHER}/users"), &[])
+        .await;
+    assert_eq!(s, StatusCode::OK);
+    assert!(html.contains("Realm · Suspended"));
+    let (_, _, h) = b.request("GET", "/admin", &[]).await;
+    assert_eq!(h["location"], format!("/admin/realms/{OTHER}/users"));
+    let (s, html, _) = b.request("GET", "/admin?installation=1", &[]).await;
+    assert_eq!(s, StatusCode::OK);
+    assert!(html.contains("Installation details"));
+    for preference in ["https://example.test", "../../login", USER] {
+        b.cookies
+            .insert("__Host-bloc-workspace".into(), preference.into());
+        let (_, _, h) = b.request("GET", "/admin", &[]).await;
+        assert_eq!(h["location"], "/admin/realms");
+    }
+    b.cookies
+        .insert("__Host-bloc-workspace".into(), OTHER.into());
+    b.cookies.remove("__Host-bloc-admin");
+    let (_, _, h) = b.request("GET", "/admin", &[]).await;
+    assert_eq!(h["location"], "/admin/login?expired=1");
+}
+
+#[tokio::test]
+#[ignore = "real browser and TLS proxy"]
+async fn directory_browser_workspace() {
+    browser_proof("workspace").await;
 }

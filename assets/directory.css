@@ -48,3 +48,5 @@ td:first-child a:hover { text-decoration: underline; }
 
 @media (max-width: 900px) { .directory-settings { padding: 24px; } .ui .directory-page .ui-table :where(th, td):first-child { padding-left: 24px; } }
 @media (max-width: 639px) { .directory-settings { padding: 24px 16px; } .breadcrumbs { margin-bottom: 20px; } .context { align-items: flex-start; flex-direction: column; gap: 6px; } .ui .directory-page .empty { padding: 36px 16px; } .pagination { flex-direction: column; align-items: flex-start; } .ui .directory-page .ui-table :where(th, td) { padding: 12px 16px; } .ui .directory-page .ui-table :where(th, td):first-child { padding-left: 16px; } }
+
+.realm-actions { display:flex; gap:8px; flex-wrap:wrap; }

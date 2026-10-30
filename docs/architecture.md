@@ -51,6 +51,13 @@ budget, while principal authority remains separate. See
 [authentication runbook](realm-user-authentication.md). Browser, native capacity
 and independent security acceptance remain pending.
 
+Administrator workspace navigation is assembled in `workspace.rs` from guarded
+realm reads. A Secure, HttpOnly, SameSite=Strict browser-session cookie remembers
+only a realm UUID. It is never an authentication credential: entry reauthorizes
+the administrator and checks the selected record before choosing a local users
+URL. The bounded selector shares the directory's pagination rules; no new schema
+or privilege is introduced. See [workspace navigation](behaviors/realm-workspace-navigation.md).
+
 ## Planned boundaries
 
 - Domain: external identities, clients, roles, grants; realm/user directories are implemented.

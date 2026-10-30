@@ -225,6 +225,11 @@ async fn admin_handle(
         .await?
         .ok_or_else(|| Failure::new(StatusCode::NOT_FOUND, "This realm is unavailable."))?;
     let mut p = Page::new(r, path);
+    if !hx {
+        p.workspace = crate::workspace::Workspace::load(&app.storage, &session, realm.clone())
+            .await
+            .map_err(|_| realm_storage::Error::Storage)?;
+    }
     p.name = realm.name;
     p.admin = true;
     p.protected = true;
@@ -326,6 +331,7 @@ async fn admin_handle(
     p.csrf = sec::encode(&token);
     if get {
         let mut response = render(&p, StatusCode::OK, hx);
+        crate::administrator::cookie(&mut response, crate::workspace::COOKIE, r);
         if let Some(b) = browser_cookie {
             crate::administrator::cookie(&mut response, "__Host-bloc-csrf", &b)
         }

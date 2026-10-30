@@ -66,7 +66,7 @@ def verify():
                 assert page.locator('.workspace').bounding_box()['x'] == 307
                 assert page.locator('.sidebar-header').bounding_box()['x'] == 307
                 assert_corner_continuity(page)
-                expect(page.get_by_role('link', name='Overview', exact=True)).to_be_focused()
+                expect(page.get_by_role('link', name='Realms', exact=True)).to_be_focused()
                 expect(page.locator('.mobile-menu-close')).to_have_count(0)
                 assert page.locator('.sidebar').evaluate("e => getComputedStyle(e, '::before').borderBottomLeftRadius") == '28px'
                 expect(page.locator('.sidebar-header')).to_have_css('border-bottom-color', 'rgba(0, 0, 0, 0)')
@@ -74,7 +74,7 @@ def verify():
                 page.keyboard.press('Shift+Tab')
                 expect(page.get_by_role('link', name='Help', exact=True)).to_be_focused()
                 page.keyboard.press('Tab')
-                expect(page.get_by_role('link', name='Overview', exact=True)).to_be_focused()
+                expect(page.get_by_role('link', name='Realms', exact=True)).to_be_focused()
                 page.keyboard.press('Escape')
                 expect(nav).to_be_hidden()
                 expect(toggle).to_be_focused()
@@ -82,8 +82,8 @@ def verify():
                 page.locator('.mobile-menu-backdrop').click(position={'x': 34, 'y': 400})
                 expect(nav).to_be_hidden()
                 toggle.click()
-                page.get_by_role('link', name='Overview', exact=True).evaluate("e => e.addEventListener('click', event => event.preventDefault())")
-                page.get_by_role('link', name='Overview', exact=True).click()
+                page.get_by_role('link', name='Realms', exact=True).evaluate("e => e.addEventListener('click', event => event.preventDefault())")
+                page.get_by_role('link', name='Realms', exact=True).click()
                 expect(toggle).to_have_attribute('aria-expanded', 'false')
                 page.set_viewport_size({'width': 1280, 'height': 900})
                 expect(nav).to_be_visible()

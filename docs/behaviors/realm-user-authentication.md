@@ -209,3 +209,28 @@ issues; both are corrected. Independent round 2 proves 65/66 whole criteria,
 including all 64 named database/browser proofs on each supported PostgreSQL
 version. No further implementation defect was found. C65 remains unproven until
 matching final-source native arm64 and amd64 capacity evidence is available.
+
+## Interface consistency follow-up (2026-10-29)
+
+Maintainer-requested presentation correction; authentication rules are unchanged.
+
+### realm-auth-interface-consistency
+
+- **Given** a realm user viewing My Account, **when** they open Appearance,
+  **then** the shared administrator-style menu offers System, Light and Dark,
+  persists the selection and returns focus to its trigger after selection/Escape.
+- **Given** public access, **when** an authenticated workspace has a saved theme,
+  **then** the public page still follows system appearance without a selector.
+- **Given** account forms, link delivery or confirmation screens, **when** viewed
+  on desktop or mobile, **then** actions have space from adjacent content, long
+  details wrap and the page does not overflow horizontally.
+
+Manual/browser-script coverage: 54 synthetic render variants (nine representative
+states × 375/768/1440px × light/dark), appearance persistence, keyboard dismissal,
+public system appearance and no-JavaScript selector fallback passed. Actual
+Askama templates were rendered with synthetic data; this is presentation evidence,
+not a repeat of database/TLS or authenticated navigation acceptance. No new
+business-rule test is needed for the spacing/component reuse.
+
+Evidence and reproduction scripts:
+[projects/bloc/.checks/realm-interface-review-2026-10-29.zip](https://drive.catap.io/s/24c13732f9478655a99ae9cd3eac7dcbdf7ece27d9edd394?file=74657d31db5b4ef33910ec0c43796dd7481844cfe1cc8146).

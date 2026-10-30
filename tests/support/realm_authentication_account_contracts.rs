@@ -606,7 +606,7 @@ async fn prove_clean_signin_recovery() {
         200
     );
     assert_eq!(original.cookies, cookies);
-    assert_eq!(original.request("GET", "/admin", &[]).await.0, 200);
+    assert_eq!(original.request("GET", "/admin?installation=1", &[]).await.0, 200);
     assert_eq!(
         original
             .request("GET", &format!("/realms/{OTHER}/account/profile"), &[])

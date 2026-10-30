@@ -2,10 +2,15 @@
 <div class="sidebar-header">
 <button class="shell-icon mobile-menu-toggle" type="button" aria-label="Navigation menu" aria-expanded="false" aria-controls="sidebar-content" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
 <details class="shell-menu workspace-menu" data-ui-dropdown>
-<summary aria-label="Workspace menu"><span class="workspace-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="14" rx="3"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M4 12h16"/></svg></span><span class="workspace-name"><strong>bloc</strong><small>Installation</small></span><svg class="menu-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></summary>
+<summary aria-label="Workspace menu"><span class="workspace-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="14" rx="3"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M4 12h16"/></svg></span><span class="workspace-name"><strong>{% if workspace.current.id.is_empty() %}bloc{% else %}{{ workspace.current.name }}{% endif %}</strong><small>{% if workspace.current.id.is_empty() %}Installation{% else %}Realm · {% if workspace.current.status == "active" %}Active{% else %}Suspended{% endif %}{% endif %}</small></span><svg class="menu-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></summary>
 <div class="shell-menu-panel workspace-menu-panel">
 <p class="menu-label">Workspace</p>
-<a href="/admin"><span class="workspace-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="14" rx="3"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M4 12h16"/></svg></span><span>bloc installation</span><span class="menu-check" aria-hidden="true">✓</span></a>
+<a href="/admin?installation=1">Installation{% if workspace.current.id.is_empty() %}<span class="menu-check" aria-hidden="true">✓</span>{% endif %}</a>
+<p class="menu-label">Realms</p>
+<div class="workspace-realms">
+{% for realm in workspace.realms %}<a href="/admin/realms/{{ realm.id }}/users" {% if workspace.current.id == realm.id %}aria-current="true"{% endif %}><span class="realm-choice"><strong>{{ realm.name }}</strong><small>{{ realm.id }}</small>{% if realm.status == "suspended" %}<small>Suspended</small>{% endif %}</span>{% if workspace.current.id == realm.id %}<span class="menu-check" aria-hidden="true">✓</span>{% endif %}</a>{% endfor %}
+</div>
+<a href="/admin/realms">{% if workspace.more %}Browse all realms{% else %}Manage realms{% endif %}</a>
 <a href="/admin/realms/new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Create realm</a>
 <div class="menu-account"><p class="menu-label">Account</p><p class="menu-identity">{{ shell_email }}</p><a href="/admin/password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6z"/></svg>Account security</a>
 {% if !shell_csrf.is_empty() %}<form method="post" action="/admin/logout"><input type="hidden" name="csrf" value="{{ shell_csrf }}"><button type="submit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M14 7l5 5-5 5M9 12h10"/></svg>Log out</button></form>{% endif %}</div>
@@ -16,20 +21,21 @@
 <div class="sidebar-content" id="sidebar-content" tabindex="-1">
 <div class="drawer-heading"><strong>bloc</strong></div>
 <nav class="sidebar-nav" aria-label="Administration">
-<p class="nav-label">Workspace</p>
-<a href="/admin" {% if active == "overview" %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Overview</a>
-<p class="nav-label account-label">Settings</p>
-<a href="/admin/realms" {% if active == "realms" %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8h-6a2 2 0 0 1-1.6-.8l-1.8-2.4A2 2 0 0 0 8 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2H3"/></svg>Manage realms</a>
+{% if workspace.current.id.is_empty() %}
+<p class="nav-label">Installation</p>
+<a href="/admin/realms" {% if active == "realms" %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8h-6a2 2 0 0 1-1.6-.8l-1.8-2.4A2 2 0 0 0 8 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2H3"/></svg>Realms</a>
+<a href="/admin?installation=1" {% if active == "overview" %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Installation details</a>
 <a href="/admin/password" {% if active == "account" %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></svg>Account security</a>
+{% else %}
+<p class="nav-label">Realm</p>
+<a href="/admin/realms/{{ workspace.current.id }}/users" {% if active == "users" %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M21 21v-2a6 6 0 0 0-4-5"/></svg>Users</a>
+<p class="nav-label account-label">Settings</p>
+<a href="/admin/realms/{{ workspace.current.id }}" {% if active == "settings" %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 15h5"/></svg>General</a>
+<a href="/admin/realms/{{ workspace.current.id }}/authentication" {% if active == "authentication" %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></svg>Authentication</a>
+{% endif %}
 </nav>
 <div class="sidebar-footer">
-<details class="shell-menu appearance-menu" data-ui-dropdown data-ui-theme-picker hidden>
-<summary class="shell-icon" aria-label="Appearance" data-tooltip="Appearance"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="3"/><path d="M9 21h6M12 17v4"/></svg></summary>
-<div class="shell-menu-panel appearance-panel" role="group" aria-label="Appearance">
-<button type="button" data-ui-theme-choice="system" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="3"/><path d="M9 21h6M12 17v4"/></svg>System<span class="menu-check" aria-hidden="true">✓</span></button>
-<button type="button" data-ui-theme-choice="light" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1 1M18 18l1 1M5 19l1-1M18 6l1-1"/></svg>Light<span class="menu-check" aria-hidden="true">✓</span></button>
-<button type="button" data-ui-theme-choice="dark" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z"/></svg>Dark<span class="menu-check" aria-hidden="true">✓</span></button>
-</div></details>
+{% include "appearance.html" %}
 <a class="shell-icon feedback-link" href="https://github.com/rodalladea/bloc/issues/new" aria-label="Feedback" data-tooltip="Feedback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M9 16v-1a3 3 0 0 0-1.2-2.4 6 6 0 1 1 8.4 0A3 3 0 0 0 15 15v1"/></svg></a>
 <a class="shell-icon" href="https://github.com/rodalladea/bloc#readme" aria-label="Help" data-tooltip="Help"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .5-1.5 1-1.5 2M12 16h.01"/></svg></a>
 </div>

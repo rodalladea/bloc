@@ -59,7 +59,7 @@ def setup(page):
     page.locator('[name=email]').fill('Owner@example.test')
     page.locator('[name=password]').fill('a synthetic password')
     submit(page, 'Sign in')
-    page.wait_for_url(ORIGIN + '/admin')
+    page.wait_for_url(ORIGIN + '/admin/realms')
 
 
 def realm(page, name='Acme'):
@@ -292,7 +292,10 @@ with sync_playwright() as playwright:
     page = context.new_page()
     page.set_default_timeout(10000)
     setup(page)
-    if MODE == 't1':
+    if MODE == 'workspace':
+        from workspace_browser import verify
+        verify(page, browser, ORIGIN, realm, user, sql)
+    elif MODE == 't1':
         page.goto(ORIGIN + '/admin/realms')
         expect(page.get_by_role('heading', name='No realms yet')).to_be_visible()
         capture(page, 'empty')
@@ -300,13 +303,13 @@ with sync_playwright() as playwright:
         second = realm(page)
         assert first != second
         page.goto(ORIGIN + '/admin/realms')
-        expect(page.locator('th')).to_have_text(['Name / realm ID', 'Status', 'Created (UTC)'])
+        expect(page.locator('th')).to_have_text(['Name / realm ID', 'Status', 'Created (UTC)', 'Actions'])
         expect(page.locator('tbody tr')).to_have_count(2)
         expect(page.locator('.heading h1')).to_have_text('Realms')
         expect(page.locator('.heading .button')).to_have_text('Create realm')
         assert page.locator('.heading h1').bounding_box()['x'] < page.locator('.heading .button').bounding_box()['x']
         expect(page.locator('tbody .badge')).to_have_text(['Active', 'Active'])
-        for value in page.locator('tbody tr td:last-child').all_text_contents():
+        for value in page.locator('tbody tr td:nth-child(3)').all_text_contents():
             assert re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z', value.strip())
         for target in [first, second]:
             expect(page.locator('main')).to_contain_text(target.rsplit('/', 1)[1])
@@ -545,13 +548,14 @@ with sync_playwright() as playwright:
         capture(page, 'invalid-cursor')
         page.get_by_role('link', name='First page', exact=True).click()
         expect(page.locator('tbody tr')).not_to_have_count(0)
-    keyboard(page)
-    arrangement(page)
-    capture(page, 'result')
-    if MODE != 'interactions':
+    if MODE != 'workspace':
+        keyboard(page)
+        arrangement(page)
+        capture(page, 'result')
+    if MODE not in ('interactions', 'workspace'):
         loading(page)
         unavailable(page)
         expired(page)
-    print(json.dumps({'mode': MODE, 'widths': [1280, 390], 'production_https': True}))
+    print(json.dumps({'mode': MODE, 'widths': [375, 768, 1440] if MODE == 'workspace' else [1280, 390], 'production_https': True}))
     context.close()
     browser.close()

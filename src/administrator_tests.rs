@@ -44,13 +44,13 @@ fn dashboard_navigation_and_actions() {
     page.email = "Owner@example.test".into();
     let html = Full { page: &page }.render().unwrap();
     assert!(html.contains("aria-label=\"Administration\""));
-    assert!(html.contains("href=\"/admin\" aria-current=\"page\""));
+    assert!(html.contains("href=\"/admin?installation=1\" aria-current=\"page\""));
     assert!(html.contains("href=\"/admin/realms/new\""));
     let menu = html.split("<nav class=\"sidebar-nav\"").next().unwrap();
-    assert!(!menu.contains("href=\"/admin/realms\""));
+    assert!(menu.contains("href=\"/admin/realms\""));
     let nav = html.split("<nav class=\"sidebar-nav\"").nth(1).unwrap();
-    let settings = nav.find(">Settings</p>").unwrap();
-    let realms = nav.find(">Manage realms</a>").unwrap();
+    let settings = nav.find(">Installation</p>").unwrap();
+    let realms = nav.find(">Realms</a>").unwrap();
     assert!(settings < realms);
     assert!(html.contains("href=\"/admin/realms\""));
     assert!(html.contains("href=\"/admin/password\""));

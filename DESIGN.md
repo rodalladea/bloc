@@ -261,3 +261,16 @@ button with an action-specific label. Keep the button geometry and rounded
 corners, disable repeat submission, and restore the label when a request fails.
 Avoid a second visible loading message below the button; retain a polite hidden
 status for assistive technology. Reduced motion uses a static indicator.
+
+## Realm workspace navigation
+
+The administrator's entry prioritizes users: reopen the last available realm in
+this browser, open a sole realm automatically, or show the realm list when a
+choice is needed. The workspace menu switches between realms and explicit
+installation administration. Within a realm, Users is the primary destination;
+General and Authentication are secondary navigation items. Keep the realm name
+and lifecycle visible. Distinguish duplicate realm names with immutable IDs in
+the selector. Limit menu choices to 50 and link to the paginated realm list.
+Cross-context links load the complete shell; in-context forms retain enhanced
+fragments and ordinary HTML fallback. See the
+[navigation behavior record](docs/behaviors/realm-workspace-navigation.md).

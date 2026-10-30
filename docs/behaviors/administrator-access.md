@@ -118,7 +118,7 @@ Then the password remains unchanged.
 ### administrator-access-07: administration home and email semantics
 
 Given successful setup without email delivery or mailbox verification
-When the administrator signs in through the built-in interface
+When the administrator opens Installation from the workspace menu
 Then they see their account and installation status with password-change and
 sign-out actions
 And the email address is not treated as verified or as account-linking authority
@@ -302,3 +302,7 @@ not cover the subsequent F1 application change: fresh source-matched native
 capacity and full Distribution validation remain publication gates. This record
 retains its scenario mappings and evidence limitations; architectural acceptance
 does not authorize release, deployment, or production authentication use.
+
+The 2026-10-29 [workspace navigation agreement](realm-workspace-navigation.md)
+supersedes the original overview landing: `/admin` resolves the realm workspace;
+`/admin?installation=1` retains explicit installation/account details.
