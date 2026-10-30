@@ -12,6 +12,11 @@ on full acceptance and MFA. Realm-user authentication and My Account are under
 acceptance testing; provider configuration, OIDC/OAuth token issuance and SAML
 are not implemented.
 
+Administrator entry opens the last available realm in this browser, the sole
+realm, or the realm list. The workspace menu switches realms and exposes explicit
+Installation details; each realm opens Users with General and Authentication
+settings in its sidebar. See the [navigation behavior](docs/behaviors/realm-workspace-navigation.md).
+
 Realm and realm-bound user directories are managed at `/admin/realms`; directory
 records alone do not authenticate users. The realm authentication increment adds
 opt-in registration, administrator activation/reset links, separate realm sessions

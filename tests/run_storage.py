@@ -15,8 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 REALM_BASELINE_REVISION = "acc8c5fa3a27fece3dec1c19d68bfdedc3d8477f"
 REALM_AUTH_TESTS = tuple(f"realm_auth_c{i:02}" for i in range(1,64) if i not in (19,30,39,62)) + ("realm_auth_upgrade_roles",)
 REALM_AUTH_BROWSER_TESTS = ("realm_auth_c19", "realm_auth_c30", "realm_auth_c39", "realm_auth_c62")
-DIRECTORY_TESTS = tuple(f"directory_c{i:02}" for i in range(1,38)) + ("directory_input_refusals", "directory_response_policy", "directory_realm_upgrade")
-DIRECTORY_BROWSER_TESTS = tuple("directory_screen_"+s for s in ("t1","t2","t3","u1","u2","u3")) + ("directory_browser_interactions",)
+DIRECTORY_TESTS = tuple(f"directory_c{i:02}" for i in range(1,38)) + ("directory_input_refusals", "directory_response_policy", "directory_realm_upgrade", "directory_workspace_navigation")
+DIRECTORY_BROWSER_TESTS = tuple("directory_screen_"+s for s in ("t1","t2","t3","u1","u2","u3")) + ("directory_browser_interactions", "directory_browser_workspace")
 
 ADMIN_TESTS = (
     "throttled_post_forms_remain_usable", "throttled_form_issuance_requires_reload", "admission_full_contract", "admission_http_retry_capacity", "authority_http_matrix", "streaming_form_bounds",

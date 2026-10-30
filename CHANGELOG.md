@@ -5,6 +5,16 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+## 0.6.0 - 2026-10-29
+
+### Changed
+
+- Open administration at the last available realm's users, the sole realm's users,
+  or the realm list when a choice is needed. Keep installation details explicitly
+  accessible from the workspace menu.
+- Switch realms from the shared workspace menu and navigate directly to Users,
+  General settings and Authentication; add direct actions to the realm list.
+
 ### Fixed
 
 - Align realm-account appearance controls with the administrator menu and keep

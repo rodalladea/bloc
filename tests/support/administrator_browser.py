@@ -26,7 +26,7 @@ def login(page,password='a synthetic password'):
     page.goto(origin+'/admin/login')
     fill(page,{'email':'Owner@example.test','password':password})
     submit(page,'Sign in')
-    page.wait_for_url(origin+'/admin')
+    page.wait_for_url(origin+'/admin/realms')
 
 def empty_secrets(page):
     for control in page.locator('input[type="password"],input[name="code"]').all():
@@ -148,18 +148,18 @@ with sync_playwright() as p:
     elif mode=='preview':
         for width in [375,639,640,1280]:
             page.set_viewport_size({'width':width,'height':1000})
-            for path,title,names in [('/admin','Overview',[]),('/admin/password','Change password',['current_password','password','password_confirmation']),('/admin/login','Sign in to bloc',['email','password']),('/admin/recovery','Recover administrator access',['code','password','password_confirmation']),('/admin/setup','Setup is complete',[])]:
+            for path,title,names in [('/admin?installation=1','Installation',[]),('/admin/password','Change password',['current_password','password','password_confirmation']),('/admin/login','Sign in to bloc',['email','password']),('/admin/recovery','Recover administrator access',['code','password','password_confirmation']),('/admin/setup','Setup is complete',[])]:
                 page.goto(origin+path)
                 expect(page.get_by_role('heading',name=title,exact=True)).to_be_visible()
-                assert page.locator('header').count() == (0 if path in ('/admin','/admin/password') else 1)
+                assert page.locator('header').count() == (0 if path in ('/admin?installation=1','/admin/password') else 1)
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
                 actual=page.locator('form .field input').evaluate_all('(els)=>els.map(e=>e.name)')
                 assert actual==names, (path, width, actual, page.locator('main').inner_text())
                 control_density(page)
-                if path in ('/admin','/admin/password'):
+                if path in ('/admin?installation=1','/admin/password'):
                     workspace_menus(page)
                     nav=page.get_by_role('navigation',name='Administration',exact=True)
-                    expect(nav.locator('[aria-current=page]')).to_have_text('Overview' if path=='/admin' else 'Account security')
+                    expect(nav.locator('[aria-current=page]')).to_have_text('Installation details' if path=='/admin?installation=1' else 'Account security')
                     expect(nav.get_by_role('link',name='Realms',exact=True)).to_be_visible()
                     expect(page.locator('.app-rail')).to_have_count(0)
                     expect(page.get_by_role('navigation',name='Administration',exact=True)).to_have_count(1)
@@ -169,7 +169,7 @@ with sync_playwright() as p:
                 else:
                     expect(page.locator('.sidebar')).to_have_count(0)
                     assert page.locator('main').evaluate('e=>e.clientWidth-parseFloat(getComputedStyle(e).paddingLeft)-parseFloat(getComputedStyle(e).paddingRight)')<=480
-                if path=='/admin':
+                if path=='/admin?installation=1':
                     expect(page.get_by_role('link',name='Create realm',exact=True)).to_be_visible()
                     expect(page.get_by_role('link',name='Browse realms',exact=True)).to_be_visible()
                     expect(page.get_by_role('button',name='Sign out',exact=True)).to_be_visible()

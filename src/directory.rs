@@ -15,6 +15,7 @@ use axum::{
 use std::{collections::BTreeMap, net::SocketAddr};
 use subtle::ConstantTimeEq;
 struct Page {
+    workspace: crate::workspace::Workspace,
     title: String,
     intro: &'static str,
     list_path: String,
@@ -45,6 +46,7 @@ struct Page {
 impl Page {
     fn new() -> Self {
         Self {
+            workspace: crate::workspace::Workspace::default(),
             title: "Directory access".into(),
             intro: "",
             list_path: "/admin/realms".into(),
@@ -413,6 +415,18 @@ async fn handle(app: &Application, request: Request) -> Response {
     } else {
         p.record = p.realm.clone()
     }
+    if !hx {
+        p.workspace = match crate::workspace::Workspace::load(
+            &app.storage,
+            &session,
+            p.realm.clone(),
+        )
+        .await
+        {
+            Ok(workspace) => workspace,
+            Err(e) => return storage_failure(e, &path, hx),
+        };
+    }
     p.version = p.record.version.to_string();
     p.creation = match new_uuid() {
         Ok(id) => id,
@@ -698,6 +712,9 @@ async fn handle(app: &Application, request: Request) -> Response {
         Ok((t, browser)) => {
             p.csrf = t;
             let mut r = render(&p, response_status, hx);
+            if is_get && response_status == StatusCode::OK && !p.realm.id.is_empty() {
+                cookie(&mut r, crate::workspace::COOKIE, &p.realm.id);
+            }
             if let Some(browser) = browser {
                 cookie(&mut r, "__Host-bloc-csrf", &browser);
             }

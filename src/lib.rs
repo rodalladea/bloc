@@ -17,6 +17,7 @@ mod realm_authentication;
 mod realm_storage;
 pub mod request_security;
 pub mod storage;
+mod workspace;
 
 use axum::{Router, extract::Request, http::HeaderValue, middleware::Next, response::Response};
 

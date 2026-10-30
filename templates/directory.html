@@ -17,7 +17,8 @@
 </head>
 <body class="application">
 <a class="skip-link" href="#content">Skip to content</a>
-{% let active = "realms" %}
+{% let workspace = &p.workspace %}
+{% let active = p.realm.id.is_empty().then_some("realms").unwrap_or(p.user.then_some("users").unwrap_or("settings")) %}
 {% let shell_email = p.email.as_str() %}
 {% let shell_csrf = p.csrf.as_str() %}
 {% include "sidebar.html" %}

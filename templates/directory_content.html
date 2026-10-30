@@ -2,10 +2,10 @@
 {% if !p.feedback.is_empty() %}<div class="notice ui-notice error ui-notice--error" role="alert" id="feedback" tabindex="-1">
 <p>{{ p.feedback }}</p>{% if !p.recovery.is_empty() %}<a href="{{ p.recovery }}">{{ p.recovery_label }}</a>{% endif %}</div>{% endif %}
 <nav class="breadcrumbs" aria-label="Breadcrumb">
-<a href="/admin" hx-boost="false">Administration</a>
+<a href="/admin?installation=1" hx-boost="false">Installation</a>
 <span>/</span>
-<a href="/admin/realms">Realms</a>{% if !p.hidden %}{% if p.user %}<span>/</span>
-<a href="{{ p.realm_path }}">{{ p.realm.name }}</a>
+<a href="/admin/realms" hx-boost="false">Realms</a>{% if !p.hidden %}{% if p.user %}<span>/</span>
+<a href="{{ p.realm_path }}/users" hx-boost="false">{{ p.realm.name }}</a>
 <span>/</span>
 <a href="{{ p.list_path }}">Users</a>{% endif %}{% if !p.list %}<span>/</span>
 <span>{% if p.create %}Create{% else if p.user %}User details{% else %}Realm details{% endif %}</span>{% endif %}{% endif %}</nav>
@@ -18,7 +18,7 @@
 <div>
 <h1 tabindex="-1">{{ p.title }}</h1>
 <p class="intro">{{ p.intro }}</p>{% if !p.hidden && !p.user && !p.list && !p.create %}<p class="mono ui-mono">{{ p.record.id }} <span class="badge ui-badge {% if p.record.status == "active" %}active ui-badge--positive{% endif %}">{% if p.record.status == "active" %}Active{% else %}Suspended{% endif %}</span>
-</p>{% endif %}</div>{% if !p.hidden && p.list && (!p.rows.is_empty() || !p.feedback.is_empty()) %}<a class="button ui-button" href="{{ p.list_path }}/new">{% if p.user %}Create user{% else %}Create realm{% endif %}</a>{% else if !p.hidden && !p.user && !p.list && !p.create %}<a class="button ui-button" href="{{ p.realm_path }}/users">View users <span aria-hidden="true">→</span></a>{% endif %}</div>
+</p>{% endif %}</div>{% if !p.hidden && p.list && (!p.rows.is_empty() || !p.feedback.is_empty()) %}<a class="button ui-button" href="{{ p.list_path }}/new">{% if p.user %}Create user{% else %}Create realm{% endif %}</a>{% else if !p.hidden && !p.user && !p.list && !p.create %}<a class="button ui-button" href="{{ p.realm_path }}/users" hx-boost="false">View users <span aria-hidden="true">→</span></a>{% endif %}</div>
 {% if !p.hidden %}
 {% if p.list %}{% if p.feedback.is_empty() %}{% if p.rows.is_empty() %}<section class="panel ui-panel empty">
 <span class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 8h-6a2 2 0 0 1-1.6-.8l-1.8-2.4A2 2 0 0 0 8 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2H3"/></svg></span>
@@ -30,17 +30,17 @@
 <thead>
 <tr>
 <th scope="col">{% if p.user %}Email / user ID{% else %}Name / realm ID{% endif %}</th>{% if p.user %}<th scope="col">Display name</th>{% endif %}<th scope="col">{% if p.user %}User status{% else %}Status{% endif %}</th>
-<th scope="col">Created (UTC)</th>
+<th scope="col">Created (UTC)</th>{% if !p.user %}<th scope="col">Actions</th>{% endif %}
 </tr>
 </thead>
 <tbody>{% for row in p.rows %}<tr data-record="{{ row.id }}">
 <td>
-<a href="{{ p.list_path }}/{{ row.id }}">{% if p.user %}{{ row.email }}{% else %}{{ row.name }}{% endif %}</a>
+<a href="{{ p.list_path }}/{{ row.id }}{% if !p.user %}/users{% endif %}" {% if !p.user %}hx-boost="false"{% endif %}>{% if p.user %}{{ row.email }}{% else %}{{ row.name }}{% endif %}</a>
 <span class="mono ui-mono">{{ row.id }}</span>
 </td>{% if p.user %}<td>{% if row.display_name.is_empty() %}—{% else %}{{ row.display_name }}{% endif %}</td>{% endif %}<td>
 <span class="badge ui-badge {% if row.status == "active" %}active ui-badge--positive{% endif %}">{% if row.status == "active" %}Active{% else %}Suspended{% endif %}</span>
 </td>
-<td>{{ row.created }}</td>
+<td>{{ row.created }}</td>{% if !p.user %}<td><div class="realm-actions"><a class="ui-button ui-button--secondary" hx-boost="false" href="/admin/realms/{{ row.id }}/users">Users</a><a class="ui-button ui-button--secondary" hx-boost="false" href="/admin/realms/{{ row.id }}">Settings</a><a class="ui-button ui-button--secondary" hx-boost="false" href="/admin/realms/{{ row.id }}/authentication">Authentication</a></div></td>{% endif %}
 </tr>{% endfor %}</tbody>
 </table>
 </div>

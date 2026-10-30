@@ -16,6 +16,7 @@
 <a class="skip-link" href="#content">Skip to content</a>
 {% if page.home || page.path == "/admin/password" %}
 {% let active = page.home.then_some("overview").unwrap_or("account") %}
+{% let workspace = &page.workspace %}
 {% let shell_email = page.email.as_str() %}
 {% let shell_csrf = page.csrf.as_str() %}
 {% include "sidebar.html" %}

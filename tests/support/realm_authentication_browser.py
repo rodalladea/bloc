@@ -232,7 +232,7 @@ def administrator_native_logout(browser, admin):
         admin.goto(ORIGIN+'/admin/login')
         fields(admin,{'email':'Owner@example.test','password':'a synthetic password'})
         submit(admin,'Sign in')
-        admin.wait_for_url(ORIGIN+'/admin')
+        admin.wait_for_url(ORIGIN+'/admin/realms')
 
 with sync_playwright() as pw:
     browser=pw.chromium.launch(executable_path=pw.chromium.executable_path,headless=True,args=['--no-proxy-server','--host-resolver-rules=MAP bloc.example.test 127.0.0.1','--ignore-certificate-errors-spki-list='+os.environ['BLOC_TEST_SPKI']])
@@ -242,7 +242,7 @@ with sync_playwright() as pw:
     page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
     admin_context=browser.new_context(viewport={'width':1440,'height':1000},reduced_motion='reduce');admin_context.on('response',response_policy);admin=admin_context.new_page();admin.on('pageerror',lambda e:errors.append(str(e)))
     code=subprocess.run([os.environ['BLOC_TEST_BINARY'],'admin','setup-code'],check=True,capture_output=True,text=True).stdout.splitlines()[0][5:]
-    admin.goto(ORIGIN+'/admin/setup');fields(admin,{'code':code,'email':'Owner@example.test','password':'a synthetic password','password_confirmation':'a synthetic password'});submit(admin,'Create administrator');admin.wait_for_url(ORIGIN+'/admin/login');fields(admin,{'email':'Owner@example.test','password':'a synthetic password'});submit(admin,'Sign in');admin.wait_for_url(ORIGIN+'/admin')
+    admin.goto(ORIGIN+'/admin/setup');fields(admin,{'code':code,'email':'Owner@example.test','password':'a synthetic password','password_confirmation':'a synthetic password'});submit(admin,'Create administrator');admin.wait_for_url(ORIGIN+'/admin/login');fields(admin,{'email':'Owner@example.test','password':'a synthetic password'});submit(admin,'Sign in');admin.wait_for_url(ORIGIN+'/admin/realms')
     sql(f"INSERT INTO bloc.realm(id,name,created_at,updated_at) VALUES('{REALM}','Acme',clock_timestamp(),clock_timestamp()),('{OTHER}','Other',clock_timestamp(),clock_timestamp()); INSERT INTO bloc.realm_user(id,realm_id,email,created_at,updated_at) VALUES('{USER}','{REALM}','pending@example.test',clock_timestamp(),clock_timestamp());")
     administrator_native_logout(browser,admin)
     if len(sys.argv)>1 and sys.argv[1].startswith('transport'):

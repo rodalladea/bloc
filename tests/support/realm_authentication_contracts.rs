@@ -1105,7 +1105,7 @@ async fn realm_auth_c43() {
     assert!(!cookie.contains("Domain="));
     assert!(admin.cookies.contains_key("__Host-bloc-admin"));
     assert!(admin.cookies.contains_key(&name));
-    assert_eq!(admin.request("GET", "/admin", &[]).await.0, 200);
+    assert_eq!(admin.request("GET", "/admin?installation=1", &[]).await.0, 200);
     assert_eq!(
         admin
             .request("GET", &format!("/realms/{REALM}/account/profile"), &[])
@@ -1303,7 +1303,7 @@ async fn realm_auth_c46() {
         .await,
         0
     );
-    assert_eq!(b.request("GET", "/admin", &[]).await.0, 200);
+    assert_eq!(b.request("GET", "/admin?installation=1", &[]).await.0, 200);
 }
 #[tokio::test]
 #[ignore = "TLS fixture"]
@@ -1600,7 +1600,7 @@ async fn contract_logout_other_realm() {
             .0,
         200
     );
-    assert_eq!(b.request("GET", "/admin", &[]).await.0, 200);
+    assert_eq!(b.request("GET", "/admin?installation=1", &[]).await.0, 200);
     assert_eq!(
         b.request("GET", &format!("/realms/{REALM}/account/profile"), &[])
             .await

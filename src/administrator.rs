@@ -44,6 +44,7 @@ struct Field {
     autocomplete: &'static str,
 }
 struct Page {
+    workspace: crate::workspace::Workspace,
     title: &'static str,
     intro: &'static str,
     path: String,
@@ -66,6 +67,7 @@ struct Page {
 }
 impl Page {
     fn new(path: &str) -> Self {
+        let path = path.split('?').next().unwrap_or(path);
         let (title, intro, action, names, command) = match path {
             "/admin/setup" => (
                 "Set up bloc",
@@ -89,8 +91,8 @@ impl Page {
                 "",
             ),
             "/admin" | "/admin/logout" => (
-                "Overview",
-                "Manage your installation and its directories.",
+                "Installation",
+                "Manage realms and installation details.",
                 "Sign out",
                 vec![],
                 "",
@@ -134,6 +136,7 @@ impl Page {
             })
             .collect();
         Self {
+            workspace: crate::workspace::Workspace::default(),
             title,
             intro,
             action,
@@ -315,7 +318,14 @@ async fn form_page(
         Err(_) => return unavailable(&page.path, hx),
     };
     if let Err(error) = admission(app, &[("form_issue_source", source_key, 1)]).await {
-        return error.response(if page.home { "/admin" } else { &page.path }, hx);
+        return error.response(
+            if page.home {
+                "/admin?installation=1"
+            } else {
+                &page.path
+            },
+            hx,
+        );
     }
     let (browser, token) = match (security::random(), security::random()) {
         (Ok(b), Ok(t)) => (security::encode(&b), t),
@@ -407,6 +417,32 @@ async fn handle_request(State(app): State<Application>, request: Request) -> Res
             }
             Ok(None) => {}
             Err(_) => return unavailable(&path, hx),
+        }
+    }
+    if protected {
+        let Some(ref session) = session else {
+            return expired(hx);
+        };
+        page.workspace = match crate::workspace::Workspace::load(
+            &app.storage,
+            session,
+            Default::default(),
+        )
+        .await
+        {
+            Ok(workspace) => workspace,
+            Err(crate::directory_storage::DirectoryError::Authority) => return expired(hx),
+            Err(_) => return unavailable(&path, hx),
+        };
+        if request.method() == Method::GET
+            && path == "/admin"
+            && request.uri().query() != Some("installation=1")
+        {
+            return match page.workspace.entry(&app.storage, session, &headers).await {
+                Ok(target) => navigation(&target, hx),
+                Err(crate::directory_storage::DirectoryError::Authority) => expired(hx),
+                Err(_) => unavailable(&path, hx),
+            };
         }
     }
     if request.method() == Method::GET {
