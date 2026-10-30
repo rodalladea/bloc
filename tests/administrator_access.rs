@@ -2112,7 +2112,7 @@ fn wire(port: u16, cookie: Option<&str>) -> String {
         .set_read_timeout(Some(std::time::Duration::from_secs(5)))
         .unwrap();
     let request = format!(
-        "GET /admin HTTP/1.1\r\nHost: bloc.example.test:4443\r\nX-Forwarded-Proto: https\r\nX-Forwarded-For: 192.0.2.4\r\nConnection: close\r\nCookie: __Host-bloc-admin={}\r\n\r\n",
+        "GET /admin?installation=1 HTTP/1.1\r\nHost: bloc.example.test:4443\r\nX-Forwarded-Proto: https\r\nX-Forwarded-For: 192.0.2.4\r\nConnection: close\r\nCookie: __Host-bloc-admin={}\r\n\r\n",
         cookie.unwrap_or("")
     );
     stream.write_all(request.as_bytes()).unwrap();
