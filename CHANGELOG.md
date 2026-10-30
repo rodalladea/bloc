@@ -5,6 +5,12 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+## 0.5.2 - 2026-10-29
+
+### Changed
+
+- Update Tokio from 1.53.3 to 1.54.1.
+
 ## 0.5.1 - 2026-10-29
 
 ### Changed
