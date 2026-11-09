@@ -10,11 +10,17 @@ import tarfile
 import tempfile
 
 from support import postgres as fixtures
+from support import mfa_legacy
 
 ROOT = Path(__file__).resolve().parents[1]
 REALM_BASELINE_REVISION = "acc8c5fa3a27fece3dec1c19d68bfdedc3d8477f"
 REALM_AUTH_TESTS = tuple(f"realm_auth_c{i:02}" for i in range(1,64) if i not in (19,30,39,62)) + ("realm_auth_upgrade_roles",)
-REALM_AUTH_BROWSER_TESTS = ("realm_auth_c19", "realm_auth_c30", "realm_auth_c39", "realm_auth_c62")
+MFA_POLICY_TESTS = ('realm_mfa_c01', 'realm_mfa_c02', 'realm_mfa_c03', 'realm_mfa_c04_disallowed', 'realm_mfa_c05', 'realm_mfa_c06', 'realm_mfa_c09', 'realm_mfa_c10', 'realm_mfa_c11', 'realm_mfa_c13', 'realm_mfa_c14', 'realm_mfa_c15', 'realm_mfa_c16', 'realm_mfa_c18', 'realm_mfa_c19', 'realm_mfa_c20', 'realm_mfa_c22', 'realm_mfa_c24', 'realm_mfa_c25', 'realm_mfa_c26', 'realm_mfa_c27')
+REALM_AUTH_TESTS += MFA_POLICY_TESTS + ("realm_mfa_c47", "realm_mfa_admission_contract", "realm_mfa_security_contract", "realm_mfa_cleanup_categories", "realm_mfa_owner_relations")
+REALM_AUTH_TESTS += tuple(f"realm_mfa_c{i:02}" for i in range(49,59))
+REALM_AUTH_TESTS += tuple(f"realm_mfa_c{i:02}" for i in range(36,49) if i != 47) + ("realm_mfa_saved_code_race",)
+REALM_AUTH_TESTS += ("realm_mfa_c04", "realm_mfa_c17", "realm_mfa_c63", "realm_mfa_c07", "realm_mfa_c08", "realm_mfa_c12", "realm_mfa_c21", "realm_mfa_c23", "realm_mfa_operator_contract", "realm_mfa_c59", "realm_mfa_c60", "realm_mfa_c61", "realm_mfa_c62", "realm_mfa_c64", "realm_mfa_c65", "realm_mfa_c66", "realm_mfa_c67", "realm_mfa_privilege_audit_contract", "realm_mfa_rotation_races")
+REALM_AUTH_BROWSER_TESTS = ("realm_mfa_screen_contract", "realm_mfa_browser_contract","realm_mfa_account_browser",) + tuple(f"realm_mfa_c{i:02}" for i in range(28,36)) + ("realm_auth_c19", "realm_auth_c30", "realm_auth_c39", "realm_auth_c62")
 DIRECTORY_TESTS = tuple(f"directory_c{i:02}" for i in range(1,38)) + ("directory_input_refusals", "directory_response_policy", "directory_realm_upgrade", "directory_workspace_navigation")
 DIRECTORY_BROWSER_TESTS = tuple("directory_screen_"+s for s in ("t1","t2","t3","u1","u2","u3")) + ("directory_browser_interactions", "directory_browser_workspace")
 
@@ -100,7 +106,27 @@ def main():
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--browser-python", help="Playwright Python; requires a pinned local HTTPS proxy on4443")
     parser.add_argument("--tls-spki", help="Explicit synthetic local HTTPS SPKI pin; never disable verification globally")
+    parser.add_argument("--mfa-operations", action="store_true", help="Batch the named realm MFA operations proofs")
+    parser.add_argument("--mfa-webauthn",action="store_true",help="Batch exact realm MFA WebAuthn browser proofs")
+    parser.add_argument("--mfa-account", action="store_true", help="Batch exact realm MFA own-account proofs")
+    parser.add_argument("--mfa-policy", action="store_true", help="Batch exact realm MFA policy, flow and TOTP proofs")
+    parser.add_argument("--mfa-recovery",action="store_true",help="Batch exact factor recovery proofs")
+    parser.add_argument("--mfa-security",action="store_true",help="Batch exact MFA lifecycle and security bounds proofs")
     args = parser.parse_args()
+    security_tests=("realm_mfa_c47", "realm_mfa_admission_contract", "realm_mfa_security_contract")
+    if args.mfa_security and (args.proof or args.mfa_operations or args.mfa_webauthn or args.mfa_account or args.mfa_policy or args.mfa_recovery or args.target != "realm_authentication"):
+        parser.error("--mfa-security requires realm_authentication target without other selections")
+    recovery_tests=tuple(f"realm_mfa_c{i:02}" for i in range(36,49) if i != 47) + ("realm_mfa_saved_code_race", "realm_mfa_privilege_audit_contract")
+    if args.mfa_recovery and (args.proof or args.mfa_operations or args.mfa_webauthn or args.mfa_account or args.mfa_policy or args.target != "realm_authentication"):
+        parser.error("--mfa-recovery requires realm_authentication target without other selections")
+    if args.mfa_policy and (args.proof or args.mfa_operations or args.mfa_webauthn or args.mfa_account or args.target != "realm_authentication"):
+        parser.error("--mfa-policy requires realm_authentication target without other selections")
+    if args.mfa_account and (args.proof or args.mfa_operations or args.mfa_webauthn or args.target != "realm_authentication"):
+        parser.error("--mfa-account requires realm_authentication target without other selections")
+    if args.mfa_webauthn and (args.proof or args.mfa_operations or args.target != "realm_authentication" or not args.browser_python):
+        parser.error("--mfa-webauthn requires realm_authentication target and browser configuration, without other selections")
+    if args.mfa_operations and (args.proof or args.target != "realm_authentication"):
+        parser.error("--mfa-operations requires --target realm_authentication and no --proof")
     if bool(args.browser_python) != bool(args.tls_spki):
         parser.error("--browser-python and --tls-spki are required together")
     if args.proof and not args.target:
@@ -109,8 +135,11 @@ def main():
         parser.error("this proof requires --browser-python and --tls-spki")
     args.output.mkdir(parents=True, exist_ok=False)
     legacy = None
-    if args.target in (None, "realm_authentication") and args.proof in (None, "realm_auth_upgrade_roles"):
+    if args.target in (None, "realm_authentication") and args.proof in (None, "realm_auth_upgrade_roles") and not args.mfa_operations and not args.mfa_webauthn and not args.mfa_account and not args.mfa_policy and not args.mfa_recovery and not args.mfa_security:
         legacy = realm_legacy_binary(args.output)
+    retained_mfa = None
+    if args.target in (None,"realm_authentication") and (args.proof in ("realm_mfa_c59","realm_mfa_c65") or (not args.proof and not any((args.mfa_webauthn,args.mfa_account,args.mfa_policy,args.mfa_recovery,args.mfa_security)))):
+        retained_mfa=mfa_legacy.ensure_binary(args.output)
     results = []
     for major, image in zip((17, 18), fixtures.IMAGES):
         if args.major and args.major != major:
@@ -140,9 +169,11 @@ def main():
                 }
                 if legacy:
                     environment["BLOC_REALM_LEGACY_BINARY"] = legacy
+                if retained_mfa:
+                    environment["BLOC_MFA_LEGACY_BINARY"]=retained_mfa
                 if args.browser_python:
                     environment |= {"BLOC_BROWSER_PYTHON": args.browser_python, "BLOC_TEST_SPKI": args.tls_spki, "BLOC_DIRECTORY_BROWSER_EVIDENCE":str(args.output / f"browser-{major}")}
-                selection = ["--skip", "native_service_capacity", "--skip", "realm_auth_native_capacity"]
+                selection = ["--skip", "realm_mfa_browser_reference_code", "--skip", "native_service_capacity", "--skip", "realm_auth_native_capacity", "--skip", "realm_mfa_native_capacity"]
                 if not args.browser_python:
                     selection += ["--skip", "browser_", "--skip", "directory_screen_"]
                     for proof in REALM_AUTH_BROWSER_TESTS:
@@ -150,8 +181,8 @@ def main():
                 targets = ["--test", args.target] if args.target else ["--lib", "--test", "setup_storage", "--test", "operator", "--test", "storage_tls", "--test", "administrator_access", "--test", "administrator_operations", "--test", "realm_user_management", "--test", "realm_authentication"]
                 print(f"Running PostgreSQL {major} regression tests", flush=True)
                 run = run_logged(
-                    ["cargo", "test", "--locked", *targets, *([args.proof] if args.proof else []),
-                     "--", "--ignored", "--test-threads=1", *(["--exact"] if args.proof else []), *selection],
+                    ["cargo", "test", "--locked", *targets, *(["realm_mfa_"] if args.mfa_operations else [args.proof] if args.proof else []),
+                     "--", "--ignored", "--test-threads=1", *(["--exact"] if args.proof or args.mfa_webauthn or args.mfa_account or args.mfa_policy or args.mfa_recovery or args.mfa_security else []), *([f"realm_mfa_c{i:02}" for i in range(28,36)] if args.mfa_webauthn else []), *([f"realm_mfa_c{i:02}" for i in range(49,59)] if args.mfa_account else []), *(list(MFA_POLICY_TESTS) if args.mfa_policy else []), *(list(recovery_tests) if args.mfa_recovery else []), *(list(security_tests) if args.mfa_security else []), *selection],
                     args.output / f"postgres-{major}.txt", cwd=ROOT, env=environment,
                 )
                 version = fixtures.command("docker", "exec", containers[0], "psql", "-U", "probe",
@@ -160,9 +191,9 @@ def main():
                                 "repo_digests": identity.get("RepoDigests"), "exit_code": run.returncode})
                 (args.output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
                 run.check_returncode()
-                inventory = (args.proof,) if args.proof else (REALM_AUTH_TESTS if args.target == "realm_authentication" else DIRECTORY_TESTS) if args.target else TESTS + ADMIN_TESTS + OPERATIONS_TESTS + WORKER_TESTS + DIRECTORY_TESTS + REALM_AUTH_TESTS
+                inventory = security_tests if args.mfa_security else recovery_tests if args.mfa_recovery else MFA_POLICY_TESTS if args.mfa_policy else tuple(f"realm_mfa_c{i:02}" for i in range(49,59)) if args.mfa_account else tuple(f"realm_mfa_c{i:02}" for i in range(28,36)) if args.mfa_webauthn else tuple(t for t in REALM_AUTH_TESTS if t.startswith("realm_mfa_")) if args.mfa_operations else (args.proof,) if args.proof else (REALM_AUTH_TESTS if args.target == "realm_authentication" else DIRECTORY_TESTS) if args.target else TESTS + ADMIN_TESTS + OPERATIONS_TESTS + WORKER_TESTS + DIRECTORY_TESTS + REALM_AUTH_TESTS
                 browser_inventory = REALM_AUTH_BROWSER_TESTS if args.target == "realm_authentication" else DIRECTORY_BROWSER_TESTS if args.target else BROWSER_TESTS + DIRECTORY_BROWSER_TESTS + REALM_AUTH_BROWSER_TESTS
-                for test in inventory + (() if args.proof else browser_inventory if args.browser_python else ()):
+                for test in inventory + (() if args.proof or args.mfa_operations or args.mfa_webauthn or args.mfa_account or args.mfa_policy or args.mfa_recovery or args.mfa_security else browser_inventory if args.browser_python else ()):
                     if f"test {test} ... ok" not in run.stdout:
                         raise RuntimeError(f"named proof did not run: {test}")
         finally:

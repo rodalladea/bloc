@@ -1,0 +1,6 @@
+[advisories]
+# Maintainer-approved 2026-11-08. The locked WebAuthn 0.6.2 path uses
+# rsa 0.10.0-rc.19 for public verification only; this advisory concerns
+# private-key timing. Re-review any change to the chain or RSA use, and remove
+# the exception when a fixed version is available. See the MFA threat model.
+ignore = ["RUSTSEC-2023-0071"]

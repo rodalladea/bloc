@@ -19,6 +19,8 @@ import time
 from http.cookies import SimpleCookie
 from urllib.parse import urlencode
 
+from mfa_fixture import write_keyring
+
 BINARY = os.environ["BLOC_TEST_BINARY"]
 ORIGIN = "https://operations.example.test"
 EMAIL = "AuditMarker+owner@example.test"
@@ -71,12 +73,16 @@ class Environment:
             self.urls[role] = path
         self.abuse = self.directory / "abuse"
         self.abuse.write_bytes(bytes(range(32)))
+        key_id, self.keyring = write_keyring(self.directory)
+        initialized = self.cli("mfa", "keys", "initialize", "--key-id", key_id)
+        assert initialized.returncode == 0, initialized.stderr
 
     def variables(self, role="runtime"):
         return os.environ | {
             "BLOC_DATABASE_URL_FILE": str(self.urls[role]),
             "BLOC_DATABASE_CA_FILE": os.environ["BLOC_TEST_CA"],
             "BLOC_ABUSE_KEY_FILE": str(self.abuse),
+            "BLOC_MFA_KEYRING_FILE": str(self.keyring),
             "BLOC_CANONICAL_ORIGIN": ORIGIN,
             "BLOC_TRUSTED_PROXY_CIDRS": "127.0.0.1/32",
             "RUST_LOG": "info",
@@ -233,6 +239,7 @@ def startup(environment):
         ("BLOC_CANONICAL_ORIGIN", "http://operations.example.test"),
         ("BLOC_TRUSTED_PROXY_CIDRS", "invalid proxy"),
         ("BLOC_ABUSE_KEY_FILE", str(short_key)),
+        ("BLOC_MFA_KEYRING_FILE", str(short_key)),
     ]
     for key, value in cases:
         variables = environment.variables() | {key: value}
@@ -426,7 +433,8 @@ DEPLOYMENT_CONTRACT = r"""
 {{- $env := dict -}}{{- range $runtime.env -}}{{- $_ := set $env .name .value -}}{{- end -}}
 {{- range $key, $expected := dict "BLOC_DATABASE_URL_FILE" "/run/bloc/runtime-url" "BLOC_DATABASE_CA_FILE" "/run/bloc/ca.crt" "BLOC_ABUSE_KEY_FILE" "/run/bloc/abuse-key" "BLOC_CANONICAL_ORIGIN" "https://ops.example.test:9443" "BLOC_TRUSTED_PROXY_CIDRS" "192.0.2.0/24" "MALLOC_MMAP_THRESHOLD_" "131072" -}}
 {{- if ne (index $env $key) $expected -}}{{ fail (print "runtime env " $key) }}{{- end -}}{{- end -}}
-{{- $secret := (first $pod.volumes).secret -}}
+{{- $volumes := dict -}}{{- range $pod.volumes -}}{{- $_ := set $volumes .name .secret -}}{{- end -}}
+{{- $secret := index $volumes "authority" -}}
 {{- if ne $secret.secretName "ops-authority" -}}{{ fail "operator-owned runtime Secret" }}{{- end -}}
 {{- $keys := list -}}{{- range $secret.items -}}{{- $keys = append $keys .key -}}{{- end -}}
 {{- if ne (join "," (sortAlpha $keys)) "abuse-key,ca.crt,runtime-url" -}}{{ fail "runtime-only credentials" }}{{- end -}}

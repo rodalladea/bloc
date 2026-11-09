@@ -1,5 +1,19 @@
 "use strict";
 (() => {
+  const pendingHeadings = new WeakMap();
+  document.addEventListener("ui:pending", event => {
+    const form = event.target.closest?.("[data-ui-pending-heading]");
+    const heading = form?.closest("main")?.querySelector("h1");
+    if (!heading) return;
+    if (event.detail?.active) {
+      if (!pendingHeadings.has(form)) pendingHeadings.set(form, { text: heading.textContent, title: document.title });
+      heading.textContent = form.dataset.uiPendingHeading;
+      document.title = "bloc — " + heading.textContent;
+    } else {
+      const previous = pendingHeadings.get(form);
+      if (previous) { heading.textContent = previous.text; document.title = previous.title; pendingHeadings.delete(form); }
+    }
+  });
   const key = "bloc-ui.appearance";
   const root = document.documentElement;
   const valid = value => ["system", "light", "dark"].includes(value);
@@ -48,5 +62,34 @@
   });
   window.addEventListener("storage", event => {
     if (!root.hasAttribute("data-ui-theme-fixed") && (event.key === key || event.key === null)) apply(event.newValue);
+  });
+})();
+
+(() => {
+  document.addEventListener("click", async event => {
+    const button = event.target.closest?.("[data-ui-copy-codes], [data-ui-download-codes]");
+    const handoff = button?.closest(".ui .ui-recovery-handoff");
+    if (!handoff || button.disabled) return;
+    const codes = handoff.querySelector("textarea[readonly]");
+    const feedback = handoff.querySelector('[role="status"]');
+    if (!codes || !feedback) return;
+    try {
+      if (button.hasAttribute("data-ui-copy-codes")) {
+        await navigator.clipboard.writeText(codes.value);
+        feedback.textContent = "Recovery codes copied.";
+      } else {
+        const url = URL.createObjectURL(new Blob([codes.value + "\n"], {type: "text/plain;charset=utf-8"}));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "bloc-recovery-codes.txt";
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        feedback.textContent = "Recovery code download started. Check that you saved the file.";
+      }
+    } catch {
+      feedback.textContent = "Select and save the codes manually, then confirm that you saved them.";
+      codes.focus();
+      codes.select();
+    }
   });
 })();

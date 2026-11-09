@@ -43,6 +43,11 @@ spec:
 {{- end }}
 {{- $_ := set $body "containers" (list $container) }}
 {{- $_ := set $body "volumes" (list (dict "name" "authority" "secret" (dict "secretName" $.Values.access.secretName "items" (list (dict "key" (printf "%s-url" $role) "path" "url") (dict "key" "ca.crt" "path" "ca.crt"))))) }}
+{{- if eq $kind "operator" }}
+{{- $_ := set $container "env" (append $container.env (dict "name" "BLOC_MFA_KEYRING_FILE" "value" "/run/bloc-mfa/keyring.json")) }}
+{{- $_ := set $container "volumeMounts" (append $container.volumeMounts (dict "name" "mfa-keyring" "mountPath" "/run/bloc-mfa" "readOnly" true)) }}
+{{- $_ := set $body "volumes" (append $body.volumes (dict "name" "mfa-keyring" "secret" (dict "secretName" $.Values.mfa.keyringSecretName "items" (list (dict "key" $.Values.mfa.keyringSecretKey "path" "keyring.json"))))) }}
+{{- end }}
 {{ toYaml $body | indent $indent }}
 {{- end }}
 {{- end }}

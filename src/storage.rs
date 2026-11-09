@@ -135,6 +135,34 @@ impl Storage {
                     )),
                     false,
                 ),
+                sqlx::migrate::Migration::new(
+                    6,
+                    "realm_mfa".into(),
+                    sqlx::migrate::MigrationType::Simple,
+                    sqlx::SqlStr::from_static(include_str!("../migrations/0006_realm_mfa.sql")),
+                    false,
+                ),
+                sqlx::migrate::Migration::new(
+                    7,
+                    "webauthn".into(),
+                    sqlx::migrate::MigrationType::Simple,
+                    sqlx::SqlStr::from_static(include_str!("../migrations/0007_webauthn.sql")),
+                    false,
+                ),
+                sqlx::migrate::Migration::new(
+                    8,
+                    "mfa_account".into(),
+                    sqlx::migrate::MigrationType::Simple,
+                    sqlx::SqlStr::from_static(include_str!("../migrations/0008_mfa_account.sql")),
+                    false,
+                ),
+                sqlx::migrate::Migration::new(
+                    9,
+                    "mfa_recovery".into(),
+                    sqlx::migrate::MigrationType::Simple,
+                    sqlx::SqlStr::from_static(include_str!("../migrations/0009_mfa_recovery.sql")),
+                    false,
+                ),
             ]
             .into(),
             ..Migrator::DEFAULT

@@ -22,6 +22,10 @@ records alone do not authenticate users. The realm authentication increment adds
 opt-in registration, administrator activation/reset links, separate realm sessions
 and profile/password/session controls. See [directory management](docs/realm-user-management.md)
 and the [authentication runbook and pending acceptance](docs/realm-user-authentication.md).
+Realm users also have policy-controlled TOTP and WebAuthn second factors,
+recovery and personal factor management. These changes remain under validation;
+see the [agreed behavior](docs/behaviors/realm-two-factor-authentication.md) and
+[MFA operations runbook](docs/realm-mfa-operations.md) for the acceptance gates.
 
 ## Run locally
 
@@ -35,8 +39,20 @@ Run explicit migrations with migrator credentials before starting runtime replic
 
 ```sh
 cargo run --locked -- database migrate
-cargo run --locked
 ```
+
+Provision the operator-owned MFA keyring, configure `BLOC_MFA_KEYRING_FILE`, and
+initialize its database registry with operator credentials before first startup:
+
+```sh
+cargo run --locked -- mfa keys initialize --key-id UUID
+```
+
+Use an ID from the provisioned keyring. Follow the
+[MFA provisioning instructions](docs/realm-mfa-operations.md#provisioning-and-upgrade)
+for its exact format, backup and permissions. Switch to runtime credentials and
+run `cargo run --locked` to serve requests. Missing required keys or an
+uninitialized registry refuse readiness.
 
 The canonical root redirects to `/admin/login`. Initial ownership requires an
 attached `bloc admin setup-code` invocation and explicit `/admin/setup` access.
@@ -198,3 +214,15 @@ set `BLOC_REALM_NATIVE_SERVICE_EVIDENCE` to that file and run
 `cargo test --locked --test realm_authentication realm_auth_native_capacity -- --ignored --exact`.
 The manual `Realm authentication service capacity` workflow runs those native
 measurements; adding the workflow does not establish acceptance.
+
+For complete realm MFA capacity, use `--realm-mfa` instead of `--realm-auth`.
+This measures a 50/50 mix of administrator passwords and complete TOTP sign-ins,
+using 420 distinct synthetic users without resetting admission or replay state.
+The collector builds a private pipe-only fixture helper locally; it is not part
+of the service image. Combine the native amd64 and arm64 records, set
+`BLOC_MFA_NATIVE_SERVICE_EVIDENCE`, and run
+`cargo test --locked --test realm_authentication realm_mfa_native_capacity -- --ignored --exact`.
+The validator requires the current application and MFA workload fingerprints,
+completed-factor latency witnesses and matching database session/audit counts.
+A single architecture or an older password-only record does not establish C77.
+This workload measures TOTP, not WebAuthn capacity.

@@ -12,6 +12,7 @@ pub mod config;
 pub mod credentials;
 mod directory;
 mod directory_storage;
+mod mfa;
 pub mod operator;
 mod realm_authentication;
 mod realm_storage;

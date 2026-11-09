@@ -19,8 +19,12 @@ type Form = BTreeMap<String, String>;
 mod access;
 mod account;
 mod admin;
+mod mfa;
+mod recovery;
+mod security;
 mod submission;
 mod view;
+mod webauthn;
 pub(crate) use admin::admin_handler;
 use view::*;
 fn cookie_name(r: &str, p: Option<&str>) -> String {
@@ -89,15 +93,30 @@ impl Failure {
         let mut p = Page::new(r, path);
         p.hidden = true;
         p.state = self.state;
+        let mfa_route = path.contains("/mfa")
+            || path.contains("/recover-mfa")
+            || path.contains("/account/security");
         p.title = match self.state {
             "link-invalid" => "This link can’t be used",
             "unavailable" => "This realm is unavailable",
             "registration-disabled" => "Registration is unavailable",
+            "throttled" if mfa_route => "Try again later",
             "throttled" => "Try again shortly",
             _ => "Temporarily unavailable",
         }
         .into();
-        p.feedback = self.message.into();
+        p.feedback = if let Some(seconds) = self.retry {
+            format!("{} Try again in {seconds} seconds.", self.message)
+        } else {
+            self.message.into()
+        };
+        p.link = if path.contains("/recover-mfa") {
+            format!("/realms/{r}/recover-mfa")
+        } else if path.contains("/mfa") || path.contains("/account/security/") {
+            format!("/realms/{r}/mfa")
+        } else {
+            path.into()
+        };
         p.error = true;
         let mut response = render(&p, self.status, hx);
         if let Some(s) = self.retry
@@ -110,10 +129,30 @@ impl Failure {
 }
 impl From<realm_storage::Error> for Failure {
     fn from(e: realm_storage::Error) -> Self {
+        let known = matches!(
+            &e,
+            realm_storage::Error::Aborted
+                | realm_storage::Error::BeforeCommit
+                | realm_storage::Error::Capacity
+                | realm_storage::Error::Authority
+        );
+        if known {
+            tracing::warn!("realm authority transition aborted");
+        } else {
+            tracing::warn!("realm authority outcome unavailable");
+        }
         Self {
             status: StatusCode::SERVICE_UNAVAILABLE,
-            state: "service-unavailable",
-            message: "bloc cannot confirm this request. Try again shortly.",
+            state: if known {
+                "service-unavailable"
+            } else {
+                "outcome-unconfirmed"
+            },
+            message: if known {
+                "bloc cannot complete this request. No authentication success was recorded."
+            } else {
+                "bloc cannot confirm the outcome; this response granted no new access. Try again shortly."
+            },
             retry: if matches!(e, realm_storage::Error::Capacity) {
                 Some(60)
             } else {
@@ -272,22 +311,37 @@ pub(crate) async fn handler(State(app): State<Application>, request: Request) ->
     let hx = sec::one(request.headers(), "hx-request") == Some("true");
     let parts: Vec<_> = path.trim_matches('/').split('/').collect();
     let realm = parts.get(1).copied().unwrap_or("");
-    let action = match parts.last().copied().unwrap_or("") {
-        "register" => "registration",
-        "login" => "sign_in",
-        "logout" => "sign_out",
-        "exchange" => "link_exchange",
-        "activate" => "activation",
-        "reset-password" => "reset",
-        "profile" => "profile",
-        "password" => "password_change",
-        "revoke" | "revoke-others" => "session_revoke",
-        _ => "form_issue",
+    let action = if path.contains("/recover-mfa") || path.contains("/recovery-code") {
+        "mfa_recovery"
+    } else if path.contains("/account/security/totp") || path.contains("/account/security/webauthn")
+    {
+        "mfa_enrollment"
+    } else if path.contains("/account/security") {
+        "mfa_account"
+    } else if path.contains("/mfa") {
+        "mfa_proof"
+    } else {
+        match parts.last().copied().unwrap_or("") {
+            "register" => "registration",
+            "login" => "sign_in",
+            "logout" => "sign_out",
+            "exchange" => "link_exchange",
+            "activate" => "activation",
+            "reset-password" => "reset",
+            "profile" => "profile",
+            "password" => "password_change",
+            "revoke" | "revoke-others" => "session_revoke",
+            _ => "form_issue",
+        }
     };
     let mut response = match handle(&app, request, &path, hx).await {
         Ok(r) => r,
         Err(f) => f.response(realm, &path, hx),
     };
+    response.headers_mut().insert(
+        header::REFERRER_POLICY,
+        HeaderValue::from_static("no-referrer"),
+    );
     if path.ends_with("/logout") && response.status() == StatusCode::SERVICE_UNAVAILABLE {
         clear(&mut response, realm)
     }
@@ -343,6 +397,14 @@ async fn handle(
     }
     let r = parts[1];
     let route = parts[2..].join("/");
+    if route == "mfa"
+        || route.starts_with("mfa/")
+        || route == "account/security"
+        || route.starts_with("account/security/")
+        || route.starts_with("recover-mfa")
+    {
+        return mfa::handle(app, request, r, &route, hx).await;
+    }
     let target = if parts.len() == 6
         && parts[2] == "account"
         && parts[3] == "sessions"
@@ -411,6 +473,21 @@ async fn handle(
         }
         .unwrap_or_default();
         if p.account.user.is_empty() {
+            if !get && mfa::bearer(&h, r).is_some() {
+                return Err(Failure::new(
+                    StatusCode::FORBIDDEN,
+                    "Complete the required verification before changing your account.",
+                ));
+            }
+            if !get
+                && let Some(s) = session.as_ref()
+                && app.storage.realm_mfa_noncompliant(r, s).await?
+            {
+                return Err(Failure::new(
+                    StatusCode::FORBIDDEN,
+                    "Your security requirements changed. Sign in again before continuing.",
+                ));
+            }
             return Ok(nav(&format!("{}/login?expired=1", p.base), hx));
         }
     }

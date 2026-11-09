@@ -45,12 +45,36 @@ fn populate(p: &mut Page, policy: &Policy, form: &Form, query: &str, purpose: &s
         "login" => {
             p.title = format!("Sign in to {}", p.name);
             p.intro = "Use your realm account to continue.".into();
-            p.field("email", "Email address", "email", val(form, "email"), "");
+            p.field(
+                "email",
+                if query == "mfa-canceled=1" {
+                    "Email"
+                } else {
+                    "Email address"
+                },
+                "email",
+                val(form, "email"),
+                "",
+            );
             p.field("password", "Password", "password", "", "");
             p.action = "Sign in";
             if query == "expired=1" {
                 p.state = "expired";
                 p.feedback = "Your session ended. Sign in again.".into()
+            }
+            if query == "expired=mfa" {
+                p.hidden = true;
+                p.title = "Sign in again".into();
+                p.state = "expired";
+                p.feedback =
+                    "This verification flow expired or changed. No new access was granted.".into();
+            }
+            if query == "mfa-canceled=1" {
+                p.state = "login-canceled";
+                p.title = "Sign in".into();
+                p.feedback =
+                    "You have left the verification flow. Existing factors have not changed."
+                        .into();
             }
             if query == "registered=1" || query == "activated=1" {
                 p.title = "Your account is ready".into();

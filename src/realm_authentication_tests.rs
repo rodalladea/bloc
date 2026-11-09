@@ -730,7 +730,7 @@ async fn realm_registration_state_race_contract() {
                     .unwrap();
             }
             _ => {
-                sqlx::raw_sql("DELETE FROM bloc.realm_form_state;DELETE FROM bloc.realm_user_credential;DELETE FROM bloc.realm_user;DELETE FROM bloc.realm_authentication_settings;DELETE FROM bloc.realm;").execute(&f.admin).await.unwrap();
+                sqlx::raw_sql("DELETE FROM bloc.realm_form_state;DELETE FROM bloc.realm_user_credential;DELETE FROM bloc.realm_user_mfa_state;DELETE FROM bloc.realm_user;DELETE FROM bloc.realm_authentication_settings;DELETE FROM bloc.realm;").execute(&f.admin).await.unwrap();
             }
         }
         let response = task.await.unwrap();
@@ -811,5 +811,30 @@ async fn realm_profile_authority_race_contract() {
         .await
         .unwrap();
         assert_eq!(n, 0);
+    }
+}
+#[test]
+fn mfa_storage_outcome_copy_does_not_invent_rollback() {
+    let unknown = Failure::from(realm_storage::Error::Storage);
+    assert_eq!(unknown.status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(unknown.state, "outcome-unconfirmed");
+    assert!(unknown.message.contains("cannot confirm the outcome"));
+    assert!(
+        !unknown
+            .message
+            .contains("No authentication success was recorded")
+    );
+    for error in [
+        realm_storage::Error::Aborted,
+        realm_storage::Error::BeforeCommit,
+    ] {
+        let rejected = Failure::from(error);
+        assert_eq!(rejected.status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(rejected.state, "service-unavailable");
+        assert!(
+            rejected
+                .message
+                .contains("No authentication success was recorded")
+        );
     }
 }

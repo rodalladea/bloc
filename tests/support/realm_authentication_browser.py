@@ -29,7 +29,8 @@ HEADINGS={
     **dict.fromkeys(['profile','profile-saved','profile-conflict'],'Profile'),
     **dict.fromkeys(['password','password-saved'],'Password'),
     **dict.fromkeys(['sessions','revoke','revoke-current','revoke-one','sessions-ended'],'Sessions'),
-    **dict.fromkeys(['settings','settings-saved','settings-invalid','settings-conflict'],'Authentication'),
+    **dict.fromkeys(['settings','settings-saved','settings-invalid'],'Authentication'),
+    'settings-conflict':'This page is out of date',
     'settings-confirm':'Review session changes','issue':'User access','issue-activation':'User access',
     'link-output':'Password-reset link','activation-output':'Activation link','throttled':'Try again shortly','service-unavailable':'Temporarily unavailable',
 }
@@ -54,7 +55,12 @@ def diagnostics_redacted(contexts):
     logs=''.join(p.read_text() for p in Path(os.environ['BLOC_REALM_SERVICE_LOGS']).glob('service-*.*'))
     secrets=set(codes+[PASSWORD,'a synthetic password','a native transport password','pending@example.test','browser@example.test','Owner@example.test','nojs@example.test'])
     for ctx in contexts:
-        secrets.update(c['value'] for c in ctx.cookies() if c['value'])
+        for cookie in ctx.cookies():
+            if cookie['name'] == '__Host-bloc-workspace':
+                # The workspace preference holds the public realm identifier, also present in audit ownership fields.
+                assert cookie['value'] == REALM
+            elif cookie['value']:
+                secrets.add(cookie['value'])
         for p in ctx.pages:
             secrets.update(p.locator('input[name=csrf]').evaluate_all('es=>es.map(e=>e.value)'))
     secrets.update(sql("SELECT password_hash FROM bloc.realm_user_credential").splitlines())
@@ -276,9 +282,9 @@ with sync_playwright() as pw:
         if target:Path(target,'realm-'+sys.argv[1]+'.json').write_text(json.dumps(record,indent=2)+'\n')
         print(json.dumps(record));browser.close();sys.exit(0)
     admin.goto(ADMIN);admin.get_by_role('link',name='Authentication settings',exact=True).click();capture(admin,'settings');expect(admin.locator('script[src="/assets/realm.js"]')).to_have_count(1);expect(admin.locator('link[href="/assets/realm.css"]')).to_have_count(1)
-    admin.locator('[name=password_min_length]').fill('15');submit(admin,'Save settings');capture(admin,'settings-invalid');expect(admin.locator('[name=password_min_length]')).to_have_attribute('aria-invalid','true')
-    admin.goto(ADMIN+'/authentication');sql(f"UPDATE bloc.realm_authentication_settings SET version=version+1 WHERE realm_id='{REALM}'");submit(admin,'Save settings');capture(admin,'settings-conflict')
-    admin.goto(ADMIN+'/authentication');admin.locator('[name=session_idle_seconds]').fill('20');submit(admin,'Save settings');capture(admin,'settings-confirm');submit(admin,'Apply settings');admin.wait_for_url(ADMIN+'/authentication?saved=1');capture(admin,'settings-saved')
+    admin.locator('[name=password_min_length]').fill('15');submit(admin,'Review changes');capture(admin,'settings-invalid');expect(admin.locator('[name=password_min_length]')).to_have_attribute('aria-invalid','true')
+    admin.goto(ADMIN+'/authentication');sql(f"UPDATE bloc.realm_authentication_settings SET version=version+1 WHERE realm_id='{REALM}'");submit(admin,'Review changes');capture(admin,'settings-conflict')
+    admin.goto(ADMIN+'/authentication');admin.locator('[name=session_idle_seconds]').fill('20');submit(admin,'Review changes');capture(admin,'settings-confirm');submit(admin,'Apply settings');admin.wait_for_url(ADMIN+'/authentication?saved=1');capture(admin,'settings-saved')
     page.goto(BASE+'/register');capture(page,'registration-disabled')
     page.goto(f'{ORIGIN}/realms/99999999-9999-4999-8999-999999999999/login');capture(page,'unavailable')
     sql(f"UPDATE bloc.realm_authentication_settings SET registration_enabled=true,version=version+1 WHERE realm_id='{REALM}'")
@@ -323,7 +329,7 @@ with sync_playwright() as pw:
     login(plain,email='nojs@example.test',password='a native replacement password')
     plain.get_by_label('Account menu',exact=True).click();submit(plain,'Sign out');plain.wait_for_url(BASE+'/login')
     # No-JavaScript access-code transport is a native POST, with no secret query.
-    native_admin=nojs.new_page();nojs.add_cookies(admin_context.cookies());native_admin.goto(ADMIN+'/authentication');native_admin.locator('[name=activation_ttl_seconds]').fill('2');submit(native_admin,'Save settings');native_admin.wait_for_url(ADMIN+'/authentication?saved=1')
+    native_admin=nojs.new_page();nojs.add_cookies(admin_context.cookies());native_admin.goto(ADMIN+'/authentication');native_admin.locator('[name=activation_ttl_seconds]').fill('2');submit(native_admin,'Review changes');native_admin.wait_for_url(ADMIN+'/authentication?saved=1')
     code,link=issue(native_admin,'reset');reset_limits();plain.goto(BASE+'/reset-password');plain.locator('[name=code]').fill(code);submit(plain,'Continue');plain.wait_for_url(BASE+'/reset-password');bound_password(plain,'a nojavascript reset password');plain.wait_for_url(BASE+'/login?reset=1')
     native_user='44444444-4444-4444-8444-444444444444'
     sql(f"INSERT INTO bloc.realm_user(id,realm_id,email,created_at,updated_at) VALUES('{native_user}','{REALM}','native-activation@example.test',clock_timestamp(),clock_timestamp())")

@@ -2,9 +2,9 @@ name: Dependency audit
 on:
   push:
     branches: [main]
-    paths: [Cargo.toml, Cargo.lock, .github/workflows/audit.yml, scripts/ci/install-auditor.sh, rust-toolchain.toml]
+    paths: [Cargo.toml, Cargo.lock, .cargo/audit.toml, .github/workflows/audit.yml, scripts/ci/install-auditor.sh, rust-toolchain.toml]
   pull_request:
-    paths: [Cargo.toml, Cargo.lock, .github/workflows/audit.yml, scripts/ci/install-auditor.sh, rust-toolchain.toml]
+    paths: [Cargo.toml, Cargo.lock, .cargo/audit.toml, .github/workflows/audit.yml, scripts/ci/install-auditor.sh, rust-toolchain.toml]
   schedule:
     - cron: '23 8 * * 1'
   workflow_dispatch:

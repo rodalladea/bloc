@@ -11,7 +11,8 @@
     "tolerations",
     "affinity",
     "ingress",
-    "access"
+    "access",
+    "mfa"
   ],
   "properties": {
     "replicaCount": {
@@ -160,6 +161,24 @@
         },
         "maintenanceJob": {
           "type": "boolean"
+        }
+      }
+    },
+    "mfa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "keyringSecretName",
+        "keyringSecretKey"
+      ],
+      "properties": {
+        "keyringSecretName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "keyringSecretKey": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }
