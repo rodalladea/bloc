@@ -12,6 +12,7 @@ import tempfile
 import time
 
 from support import postgres as fixtures
+from support.mfa_fixture import write_keyring
 from run_storage import ROLES
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -66,13 +67,14 @@ def main():
                     return fixtures.command("docker", "exec", containers[0], "psql", "-U", "probe",
                                             "-d", "directory_compatibility", "-Atc", statement)
 
-                for role in ("migrator_user", "runtime_user"):
+                for role in ("migrator_user", "runtime_user", "operator_user"):
                     secret = directory / role
                     secret.write_text(f"postgres://{role}:synthetic-setup-only@127.0.0.1:{port}/directory_compatibility")
                     secret.chmod(0o600)
                 abuse = directory / "abuse"
                 abuse.write_bytes(bytes([7]) * 32)
                 abuse.chmod(0o600)
+                key_id, keyring = write_keyring(directory)
                 environment = os.environ | {
                     "BLOC_DATABASE_CA_FILE": str(directory / "ca.crt"),
                     "BLOC_ABUSE_KEY_FILE": str(abuse),
@@ -98,9 +100,13 @@ def main():
                 directory_before = sql("SELECT row_to_json(r)::text FROM bloc.realm r UNION ALL SELECT row_to_json(u)::text FROM bloc.realm_user u")
                 for name, listen in (("legacy", 38001), ("current", 38002)):
                     handle = (args.output / f"postgres-{major}-{name}.log").open("w")
-                    child = subprocess.Popen([str(binaries[name])], stdout=handle, stderr=handle,
-                                             env=environment | {"BLOC_DATABASE_URL_FILE": str(directory / "runtime_user"),
-                                                                "BLOC_BIND_ADDR": f"127.0.0.1:{listen}"})
+                    runtime = environment | {
+                        "BLOC_DATABASE_URL_FILE": str(directory / "runtime_user"),
+                        "BLOC_BIND_ADDR": f"127.0.0.1:{listen}",
+                    }
+                    if name == "current":
+                        runtime["BLOC_MFA_KEYRING_FILE"] = str(keyring)
+                    child = subprocess.Popen([str(binaries[name])], stdout=handle, stderr=handle, env=runtime)
                     children.append((child, handle))
                     deadline = time.monotonic() + 15
                     while True:
@@ -114,6 +120,17 @@ def main():
                 assert before["legacy"]["status"] == 200
                 assert before["current"]["status"] == 503
                 migrate("current")
+                before_key_initialization = response(38002, "/readyz")
+                assert before_key_initialization["status"] == 503
+                initialized = subprocess.run(
+                    [str(binaries["current"]), "mfa", "keys", "initialize", "--key-id", key_id],
+                    env=environment | {
+                        "BLOC_DATABASE_URL_FILE": str(directory / "operator_user"),
+                        "BLOC_MFA_KEYRING_FILE": str(keyring),
+                    },
+                    capture_output=True, text=True,
+                )
+                assert initialized.returncode == 0, initialized.stderr
                 after = {name: response(port, "/readyz") for name, port in (("legacy", 38001), ("current", 38002))}
                 assert after["legacy"]["status"] == 503
                 assert after["current"]["status"] == 200
@@ -121,12 +138,13 @@ def main():
                 assert live["legacy"]["status"] == live["current"]["status"] == 200
                 assert sql("SELECT version||':'||encode(checksum,'hex') FROM public._sqlx_migrations WHERE version<=4 ORDER BY version") == before_checksums
                 assert sql("SELECT count(*) FROM bloc.security_audit_event WHERE action='code_issue' AND realm_id IS NULL AND realm_user_id IS NULL") == "1"
-                assert sql("SELECT string_agg(version::text,',' ORDER BY version) FROM public._sqlx_migrations") == "1,2,3,4,5"
+                assert sql("SELECT string_agg(version::text,',' ORDER BY version) FROM public._sqlx_migrations") == "1,2,3,4,5,6,7,8,9"
                 assert sql("SELECT row_to_json(r)::text FROM bloc.realm r UNION ALL SELECT row_to_json(u)::text FROM bloc.realm_user u") == directory_before
                 assert sql("SELECT count(*) FROM bloc.realm_user_credential") == "0"
                 assert sql("SELECT count(*) FROM bloc.realm_authentication_settings WHERE NOT registration_enabled AND password_min_length=16 AND NOT require_uppercase AND NOT require_lowercase AND NOT require_number AND NOT require_special AND activation_ttl_seconds=86400 AND reset_ttl_seconds=1800 AND session_idle_seconds=1800 AND session_absolute_seconds=43200 AND session_limit=10") == "1"
                 record = {"major": major, "image_id": identity["Id"], "repo_digests": identity.get("RepoDigests"),
                           "revision": revision, "binary_sha256": fingerprints, "before_upgrade": before,
+                          "before_key_initialization": before_key_initialization,
                           "after_upgrade": after, "liveness": live, "migrations": migrations, "result": "PASS"}
                 records.append(record)
                 (args.output / "records.json").write_text(json.dumps(records, indent=2) + "\n")

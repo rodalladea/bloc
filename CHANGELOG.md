@@ -5,6 +5,12 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+### Added
+
+- Configure two-factor authentication per realm. Realm users can sign in with
+  a passkey or authenticator code after their password, manage their factors,
+  and regain access with saved codes or administrator-assisted recovery.
+
 ## 0.6.0 - 2026-10-29
 
 ### Changed

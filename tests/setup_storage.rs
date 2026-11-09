@@ -157,9 +157,17 @@ async fn issue_and_replace() {
             "realm_id",
             "realm_user_id",
             "actor_realm_id",
-            "actor_user_id"
+            "actor_user_id",
+            "mfa_factor_id"
         ]
     );
+    let factor_events: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM bloc.security_audit_event WHERE mfa_factor_id IS NOT NULL",
+    )
+    .fetch_one(&f.admin)
+    .await
+    .unwrap();
+    assert_eq!(factor_events, 0);
 }
 
 #[tokio::test]

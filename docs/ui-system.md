@@ -145,3 +145,57 @@ bloc's request scripts read `data-pending-label`, restore the original label aft
 failure, and announce the pending action through a separate `.ui-sr-only` status
 region. This replaces the visible message beneath submit buttons. Native forms
 remain usable without JavaScript; directory navigation keeps its existing status.
+
+## MFA screen composition
+
+MFA screens must consume the existing shared assets and application layouts.
+Reuse the workspace/account dropdown, `sidebar-nav` items and appearance picker
+from the shell templates, including their active, focus, Escape and mobile drawer
+behavior. Do not create parallel menu, dropdown, button or field styles for MFA.
+Use `ui-field--row`, `form-group`, `check-row` and `settings-actions` for settings;
+use the existing access layout and plain form fields for public verification.
+Notices, errors, tables, badges and loading buttons retain their shared contracts.
+
+New reusable presentation required by enrollment or recovery belongs in the UI
+system before screens consume it. The shared components include a setup-secret block
+(QR plus labeled manual value) and a one-time recovery-code handoff (code list,
+copy/download feedback and saved acknowledgment). Their contracts below cover light/dark,
+narrow/desktop, keyboard, focus, busy/error and no-JavaScript contracts and are documented
+and demonstrated in the plain HTML consumer fixture. These components are implemented in the shared assets. Keep enrollment authorization, expiration,
+secret retrieval, code generation and acknowledgment enforcement in the
+application; the reusable presentation must not grant authority.
+
+An existing component missing a needed state should be extended once and reused.
+Avoid screen-specific copies or overrides of shared control appearance. Visual
+previews must use the same assets and markup, identify proposed additions, and
+remain outside the repository in Drive as required by AGENTS.md.
+
+### Secret setup and recovery handoff components
+
+`.ui-setup-secret` presents a locally served QR image followed by a labeled
+manual setup key and explanatory text. Both regions stack on narrow screens;
+use existing labels, help text, notices and focus tokens. The image has an
+informative alt description and the code remains selectable without JavaScript.
+QR generation, allowed authority, fixed deadlines and no-store are application
+responsibilities. Never add remote QR services, secret URLs or history snapshots.
+
+`.ui-recovery-handoff` contains a labeled readonly textarea with ten full canonical
+codes, an optional `.ui-recovery-actions` copy/download group, polite status,
+saved acknowledgment and a normal submit action in that order. The application
+validates acknowledgment server-side. Copy/download use `data-ui-copy-codes` and
+`data-ui-download-codes` buttons and never persist codes to browser storage.
+Unavailable clipboard/download support leaves selectable text and ordinary forms
+usable. Use the existing form loading/error behavior; reduced motion and both
+themes inherit UI tokens. Secret pages render fully rather than as HTMX fragments.
+The [plain HTML consumer](../tests/fixtures/ui-consumer.html) contains synthetic
+markup examples; none grants authentication or issues working codes.
+
+The shared optional `data-ui-pending-heading` attribute works with a bubbling
+`ui:pending` event whose `detail.active` is a boolean. A busy form temporarily
+replaces its main heading and document title, then restores both when the event
+ends. It composes with the shared busy button, spinner and visually hidden polite
+status; it does not grant authority, extend deadlines or retain proof data.
+
+The recovery handoff acknowledgment uses `.ui-recovery-ack`: its checkbox and
+text remain adjacent in one aligned group with the shared twelve-pixel gap,
+including narrow layouts. The plain consumer uses the same markup and contract.

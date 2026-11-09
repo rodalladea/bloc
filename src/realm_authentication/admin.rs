@@ -1,5 +1,6 @@
 use super::*;
 fn settings_fields(p: &mut Page, policy: &Policy) {
+    p.mfa_policy = policy.mfa.clone();
     p.field(
         "password_min_length",
         "Minimum length",
@@ -157,7 +158,9 @@ pub(crate) async fn admin_handler(State(app): State<Application>, request: Reque
         Err(f) => f.response(&r, &path, hx),
     };
     if response.status().is_client_error() || response.status().is_server_error() {
-        let a = if path.ends_with("authentication") {
+        let a = if path.ends_with("mfa-recovery") {
+            "mfa_recovery"
+        } else if path.ends_with("authentication") {
             "settings"
         } else {
             "link_issue"
@@ -181,6 +184,9 @@ async fn admin_handle(
     path: &str,
     hx: bool,
 ) -> Result<Response, Failure> {
+    if path.ends_with("/mfa-recovery") {
+        return super::recovery::admin(app, request, path, hx).await;
+    }
     let source = source(app, &request)?;
     let h = request.headers().clone();
     let query = request.uri().query().unwrap_or("").to_owned();
@@ -275,7 +281,7 @@ async fn admin_handle(
         p.title = "Authentication".into();
         p.state = "settings";
         p.intro = format!("Configure access to the {} realm.", p.name);
-        p.action = "Save settings";
+        p.action = "Review changes";
         settings_fields(&mut p, &policy);
         if query == "saved=1" {
             p.state = "settings-saved";
@@ -428,6 +434,15 @@ async fn admin_handle(
         return Ok(render(&p, StatusCode::OK, hx));
     }
     let known = [
+        "mfa_mode",
+        "mfa_totp_allowed",
+        "mfa_webauthn_allowed",
+        "mfa_preferred_method",
+        "mfa_recovery_codes_enabled",
+        "mfa_admin_recovery_enabled",
+        "mfa_flow_ttl_seconds",
+        "mfa_admin_recovery_ttl_seconds",
+        "administrator_password",
         "csrf",
         "version",
         "confirmed",
@@ -453,7 +468,7 @@ async fn admin_handle(
             "This form contains unsupported fields.",
         ));
     }
-    let values = match settings_values(&form) {
+    let mut values = match settings_values(&form) {
         Ok(v) => v,
         Err(field) => {
             p.invalid(&field, "Enter a complete value within the allowed range.");
@@ -461,6 +476,49 @@ async fn admin_handle(
             return Ok(render(&p, StatusCode::UNPROCESSABLE_ENTITY, hx));
         }
     };
+    let mfa_values = match mfa_values(&form, &policy.mfa) {
+        Ok(values) => values,
+        Err(_) => {
+            p.error = true;
+            p.state = "settings-mfa-invalid";
+            p.title = "Choose an allowed method".into();
+            p.feedback="Allow at least one method when two-factor authentication is optional or required. Your policy has not changed.".into();
+            return Ok(render(&p, StatusCode::UNPROCESSABLE_ENTITY, hx));
+        }
+    };
+    let mfa_changed = mfa_values != policy.mfa.values();
+    values.extend(mfa_values);
+    if mfa_changed && val(&form, "confirmed") == "true" {
+        let wait = app
+            .storage
+            .reserve(&[
+                ("credential_source", key(app, "source", &source)?, 1),
+                ("hash_work", [0; 32], 1),
+                ("password_change", [0; 32], 1),
+            ])
+            .await
+            .map_err(|_| realm_storage::Error::Storage)?;
+        if wait != 0 {
+            return Err(Failure {
+                status: StatusCode::TOO_MANY_REQUESTS,
+                state: "throttled",
+                message: "Too many attempts. Wait before trying again.",
+                retry: Some(wait.max(1)),
+            });
+        }
+        if !app
+            .worker
+            .verify(
+                val(&form, "administrator_password").into(),
+                owner.phc.clone(),
+            )
+            .await?
+        {
+            p.error = true;
+            p.feedback = "Check your current administrator password.".into();
+            return Ok(render(&p, StatusCode::UNPROCESSABLE_ENTITY, hx));
+        }
+    }
     let out = app
         .storage
         .realm_save_settings(
@@ -478,6 +536,33 @@ async fn admin_handle(
         )
         .await?;
     match out.as_str() {
+        "mfa_confirm" => {
+            let (enrollment, stranded) = app
+                .storage
+                .realm_mfa_policy_impact(r, &session, &values[11], &values[12])
+                .await?;
+            p.state = "settings-mfa-confirm";
+            p.title = "Review policy change".into();
+            p.confirm = "Apply two-factor authentication policy?".into();
+            p.confirm_values = vec![
+                (
+                    "Accounts requiring enrollment".into(),
+                    enrollment.to_string(),
+                ),
+                (
+                    "Accounts with no allowed factor".into(),
+                    stranded.to_string(),
+                ),
+            ];
+            p.hidden_fields = form
+                .into_iter()
+                .filter(|(k, _)| {
+                    !matches!(k.as_str(), "csrf" | "confirmed" | "administrator_password")
+                })
+                .collect();
+            p.action = "Apply policy";
+            Ok(render(&p, StatusCode::OK, hx))
+        }
         "ok" => Ok(nav(&format!("{path}?saved=1"), hx)),
         "csrf" => Err(Failure::csrf()),
         "confirm" => {
@@ -510,11 +595,62 @@ async fn admin_handle(
         }
         _ => {
             p.state = "settings-conflict";
+            p.title = "This page is out of date".into();
             p.error = true;
             p.feedback =
-                "These settings changed. Reload and review the current values before saving again."
+                "These settings changed. Reload before continuing. Review the current values before saving again."
                     .into();
             Ok(render(&p, StatusCode::CONFLICT, hx))
         }
     }
+}
+
+fn mfa_values(form: &Form, current: &crate::mfa::policy::Policy) -> Result<Vec<String>, ()> {
+    if !form.contains_key("mfa_mode") {
+        return Ok(current.values());
+    }
+    let mode = crate::mfa::policy::Mode::parse(val(form, "mfa_mode")).ok_or(())?;
+    let checkbox = |name: &str| -> Result<bool, ()> {
+        match val(form, name) {
+            "true" | "on" => Ok(true),
+            "" | "false" => Ok(false),
+            _ => Err(()),
+        }
+    };
+    let mut methods = vec![];
+    for (name, method) in [
+        ("mfa_totp_allowed", "totp"),
+        ("mfa_webauthn_allowed", "webauthn"),
+    ] {
+        if checkbox(name)? {
+            methods.push(method.to_owned());
+        }
+    }
+    if mode != crate::mfa::policy::Mode::Disabled && methods.is_empty() {
+        return Err(());
+    }
+    let preferred = match val(form, "mfa_preferred_method") {
+        "" => None,
+        value if methods.iter().any(|m| m == value) => Some(value.to_owned()),
+        _ => return Err(()),
+    };
+    let ttl = val(form, "mfa_flow_ttl_seconds")
+        .parse::<i32>()
+        .map_err(|_| ())?;
+    let recovery_ttl = val(form, "mfa_admin_recovery_ttl_seconds")
+        .parse::<i32>()
+        .map_err(|_| ())?;
+    if !(120..=600).contains(&ttl) || !(300..=3600).contains(&recovery_ttl) {
+        return Err(());
+    }
+    Ok(crate::mfa::policy::Policy {
+        mode,
+        methods,
+        preferred,
+        codes: checkbox("mfa_recovery_codes_enabled")?,
+        assisted: checkbox("mfa_admin_recovery_enabled")?,
+        ttl,
+        recovery_ttl,
+    }
+    .values())
 }

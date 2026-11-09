@@ -9,9 +9,9 @@ use std::{
     path::PathBuf,
 };
 
-const HELP: &str = "Usage: bloc [--help | database migrate | admin setup-code | admin recovery-code | admin invalidate-access | database maintain]\n";
+const HELP: &str = "Usage: bloc [--help | database migrate | admin setup-code | admin recovery-code | admin invalidate-access | database maintain | mfa keys <initialize|status|stage|activate|reencrypt|retire>]\n";
 
-fn configuration() -> Result<(String, PathBuf), Error> {
+pub(crate) fn configuration() -> Result<(String, PathBuf), Error> {
     let url_file = env::var_os("BLOC_DATABASE_URL_FILE").ok_or(Error::Configuration)?;
     let ca = PathBuf::from(env::var_os("BLOC_DATABASE_CA_FILE").ok_or(Error::Configuration)?);
     let mut bytes = Vec::new();
@@ -39,6 +39,9 @@ pub async fn dispatch(args: Vec<String>) -> Option<i32> {
         } else {
             1
         });
+    }
+    if words.first() == Some(&"mfa") {
+        return Some(crate::mfa::operator::dispatch(&words).await);
     }
     let operation = match words.as_slice() {
         ["database", "migrate"] => "migrate",

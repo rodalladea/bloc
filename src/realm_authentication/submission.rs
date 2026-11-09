@@ -409,10 +409,22 @@ async fn commit(
             new_token: fresh.then_some(&new_token),
         })
         .await?;
+    if out == "mfa" {
+        let mut response = nav(&format!("{}/mfa", p.base), hx);
+        clear(&mut response, r);
+        super::mfa::flow_cookie(&mut response, r, &new_session);
+        return Ok(response);
+    }
     if out != "ok" {
         match out.as_str() {
             "csrf" => return Err(Failure::csrf()),
             "link" => return Err(Failure::link()),
+            "mfa_required" => {
+                return Ok(nav(
+                    &format!("/realms/{r}/account/security/reauthenticate?operation=password"),
+                    hx,
+                ));
+            }
             "credentials" if operation == "login" => {
                 p.state = "login-error";
                 p.error = true;
