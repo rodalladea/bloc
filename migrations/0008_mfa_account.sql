@@ -35,12 +35,12 @@ BEGIN
  RETURN CASE WHEN need_factor THEN 'mfa' ELSE 'ok' END;
 END $$;
 -- Private, exact-action proof consumer. A public UUID never authorizes a mutation.
-CREATE FUNCTION bloc.mfa_take_proof(r uuid,session_digest bytea,browser_digest bytea,operation text) RETURNS bloc.realm_mfa_flow LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,bloc,pg_temp AS $$
+CREATE FUNCTION bloc.mfa_take_proof(r uuid,session_digest bytea,browser_digest bytea,operation text,expected_flow uuid DEFAULT NULL) RETURNS bloc.realm_mfa_flow LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,bloc,pg_temp AS $$
 DECLARE s bloc.realm_user_session;f bloc.realm_mfa_flow;snapshot record;p bloc.realm_authentication_settings;checked timestamptz;
 BEGIN
  checked:=bloc.realm_lock();s:=bloc.realm_session(r,session_digest,false);IF s.id IS NULL THEN RETURN NULL;END IF;
  SELECT q.* INTO f FROM bloc.realm_mfa_flow q WHERE q.realm_id=r AND q.user_id=s.user_id AND q.session_id=s.id AND q.browser_digest=mfa_take_proof.browser_digest AND q.operation=mfa_take_proof.operation AND q.purpose='reauthenticate' AND q.consumed_at IS NULL ORDER BY q.created_at DESC,q.id DESC LIMIT 1;
- IF f.id IS NULL THEN RETURN NULL;END IF;
+ IF f.id IS NULL OR (expected_flow IS NOT NULL AND f.id<>expected_flow) THEN RETURN NULL;END IF;
  SELECT * INTO snapshot FROM bloc.mfa_flow_snapshot(r,f.bearer_digest,browser_digest,NULL);IF snapshot.status<>'ok' THEN RETURN NULL;END IF;
  IF f.password_verified_at<checked-interval '5 minutes' OR f.proof_verified_at IS NULL OR f.proof_verified_at<checked-interval '5 minutes' OR f.proof_verified_at>checked OR NOT bloc.mfa_account_operation(r,s.user_id,operation) THEN RETURN NULL;END IF;
  SELECT * INTO p FROM bloc.realm_authentication_settings WHERE realm_id=r;
@@ -79,11 +79,12 @@ BEGIN
  IF p.mfa_mode='required' AND eligible=0 THEN RETURN 'required';END IF;
  IF p.mfa_mode<>'disabled' AND remaining>0 AND eligible=0 THEN RETURN 'required';END IF;
  IF remaining=0 AND p.mfa_mode='optional' AND NOT confirmed THEN RETURN 'confirm';END IF;
- f:=bloc.mfa_take_proof(r,session,browser,'factor_remove:'||target::text);IF f.id IS NULL THEN RETURN 'stale';END IF;
  IF p.mfa_mode<>'disabled' AND remaining>0 THEN
   IF f.factor_id<>target THEN method:=f.verified_method;factor:=f.factor_id;factor_at:=f.proof_verified_at;
   ELSIF EXISTS(SELECT FROM bloc.realm_user_factor WHERE realm_id=r AND user_id=s.user_id AND id=s.mfa_factor_id AND id<>target AND revoked_at IS NULL AND kind=ANY(p.mfa_allowed_methods)) THEN method:=s.mfa_method;factor:=s.mfa_factor_id;factor_at:=s.mfa_verified_at;END IF;
+  IF factor IS NULL THEN RETURN 'remaining_factor';END IF;
  END IF;
+ f:=bloc.mfa_take_proof(r,session,browser,'factor_remove:'||target::text,f.id);IF f.id IS NULL THEN RETURN 'stale';END IF;
  UPDATE bloc.realm_user_factor SET revoked_at=checked WHERE id=target;
  UPDATE bloc.realm_user_mfa_state m SET factor_epoch=m.factor_epoch+1,preferred_factor_id=CASE WHEN m.preferred_factor_id=target THEN NULL ELSE m.preferred_factor_id END,updated_at=checked WHERE realm_id=r AND user_id=f.user_id RETURNING factor_epoch INTO epoch;
  UPDATE bloc.realm_user_session SET revoked_at=coalesce(revoked_at,checked) WHERE realm_id=r AND user_id=f.user_id;
@@ -92,7 +93,6 @@ BEGIN
  DELETE FROM bloc.realm_mfa_recovery_link WHERE realm_id=r AND user_id=f.user_id;
  IF remaining=0 THEN UPDATE bloc.realm_mfa_recovery_generation SET invalidated_at=coalesce(invalidated_at,checked) WHERE realm_id=r AND user_id=f.user_id;END IF;
  INSERT INTO bloc.security_audit_event(installation_id,action,outcome,realm_id,realm_user_id,actor_realm_id,actor_user_id,mfa_factor_id) VALUES(1,'realm_mfa_factor_remove','success',r,f.user_id,r,f.user_id,target);
- IF p.mfa_mode<>'disabled' AND remaining>0 AND factor IS NULL THEN RETURN 'login';END IF;
  PERFORM bloc.mfa_issue_session(r,f.user_id,f.credential_version,epoch,f.password_verified_at,method,factor,new_session,new_browser,new_token,device);
  UPDATE bloc.realm_user_session SET mfa_verified_at=CASE WHEN method IS NULL THEN NULL ELSE factor_at END WHERE realm_id=r AND session_digest=new_session;
  RETURN 'ok';
@@ -111,5 +111,5 @@ BEGIN
  DELETE FROM bloc.realm_mfa_recovery_link WHERE realm_id=r AND user_id=f.user_id;
  PERFORM bloc.mfa_create_handoff(f,epoch,f.verified_method,f.factor_id,generation_id,digests,handoff_id,envelope,key_id,new_bearer,new_csrf);RETURN 'handoff';
 END $$;
-REVOKE ALL ON FUNCTION bloc.mfa_account_factors(uuid,bytea),bloc.mfa_account_operation(uuid,uuid,text),bloc.mfa_account_reauthenticate(uuid,bytea,bytea,bytea,bigint,text,bytea,bytea),bloc.mfa_take_proof(uuid,bytea,bytea,text),bloc.mfa_account_continue(uuid,bytea,bytea),bloc.mfa_account_edit(uuid,bytea,bytea,bytea,bigint,uuid,text,text),bloc.mfa_account_remove(uuid,bytea,bytea,bytea,bytea,bigint,uuid,boolean,bytea,bytea,bytea,text),bloc.mfa_account_regenerate(uuid,bytea,bytea,bytea,bytea,uuid,bytea[],uuid,bytea,uuid,bigint,bytea,bytea) FROM PUBLIC,bloc_runtime,bloc_operator,bloc_maintenance;
+REVOKE ALL ON FUNCTION bloc.mfa_account_factors(uuid,bytea),bloc.mfa_account_operation(uuid,uuid,text),bloc.mfa_account_reauthenticate(uuid,bytea,bytea,bytea,bigint,text,bytea,bytea),bloc.mfa_take_proof(uuid,bytea,bytea,text,uuid),bloc.mfa_account_continue(uuid,bytea,bytea),bloc.mfa_account_edit(uuid,bytea,bytea,bytea,bigint,uuid,text,text),bloc.mfa_account_remove(uuid,bytea,bytea,bytea,bytea,bigint,uuid,boolean,bytea,bytea,bytea,text),bloc.mfa_account_regenerate(uuid,bytea,bytea,bytea,bytea,uuid,bytea[],uuid,bytea,uuid,bigint,bytea,bytea) FROM PUBLIC,bloc_runtime,bloc_operator,bloc_maintenance;
 GRANT EXECUTE ON FUNCTION bloc.mfa_account_factors(uuid,bytea),bloc.mfa_account_reauthenticate(uuid,bytea,bytea,bytea,bigint,text,bytea,bytea),bloc.mfa_account_continue(uuid,bytea,bytea),bloc.mfa_account_edit(uuid,bytea,bytea,bytea,bigint,uuid,text,text),bloc.mfa_account_remove(uuid,bytea,bytea,bytea,bytea,bigint,uuid,boolean,bytea,bytea,bytea,text),bloc.mfa_account_regenerate(uuid,bytea,bytea,bytea,bytea,uuid,bytea[],uuid,bytea,uuid,bigint,bytea,bytea) TO bloc_runtime;

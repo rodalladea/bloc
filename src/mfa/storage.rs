@@ -3,13 +3,20 @@ use crate::storage::Storage;
 use sqlx::Row;
 
 pub(crate) struct KeyStatus {
-    pub installation: String,
     pub id: Option<String>,
     pub state: Option<String>,
     pub generation: i64,
-    pub active: Option<String>,
     pub references: i64,
 }
+
+struct KeyRegistryEntry {
+    installation: String,
+    id: Option<String>,
+    state: Option<String>,
+    generation: i64,
+    active: Option<String>,
+}
+
 impl Storage {
     pub(crate) async fn mfa_keys(&self) -> Result<Vec<KeyStatus>, Error> {
         self.compatible().await.map_err(|_| Error)?;
@@ -20,18 +27,45 @@ impl Storage {
         Ok(rows
             .into_iter()
             .map(|r| KeyStatus {
+                id: r.get("key_id"),
+                state: r.get("state"),
+                generation: r.get("generation"),
+                references: r.get("reference_count"),
+            })
+            .collect())
+    }
+
+    async fn mfa_key_registry(&self) -> Result<Vec<KeyRegistryEntry>, Error> {
+        self.compatible().await.map_err(|_| Error)?;
+        let rows = sqlx::query("SELECT * FROM bloc.mfa_key_registry()")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|_| Error)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| KeyRegistryEntry {
                 installation: r.get("installation_id"),
                 id: r.get("key_id"),
                 state: r.get("state"),
                 generation: r.get("generation"),
                 active: r.get("active_key_id"),
-                references: r.get("reference_count"),
             })
             .collect())
     }
+
+    pub(crate) async fn mfa_write_key(&self) -> Result<(String, i64), Error> {
+        let active = self
+            .mfa_key_registry()
+            .await?
+            .into_iter()
+            .find(|k| k.state.as_deref() == Some("active"))
+            .ok_or(Error)?;
+        Ok((active.id.ok_or(Error)?, active.generation))
+    }
+
     pub(crate) async fn mfa_ready(&self, ring: Option<&Keyring>) -> Result<(), Error> {
         let ring = ring.ok_or(Error)?;
-        let keys = self.mfa_keys().await?;
+        let keys = self.mfa_key_registry().await?;
         if keys.is_empty() || !keys.iter().any(|k| k.state.as_deref() == Some("active")) {
             return Err(Error);
         }

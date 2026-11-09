@@ -468,6 +468,9 @@ async fn admin_handle(
             "This form contains unsupported fields.",
         ));
     }
+    if version(&form) != policy.version {
+        return Ok(settings_conflict(p, hx));
+    }
     let mut values = match settings_values(&form) {
         Ok(v) => v,
         Err(field) => {
@@ -476,8 +479,8 @@ async fn admin_handle(
             return Ok(render(&p, StatusCode::UNPROCESSABLE_ENTITY, hx));
         }
     };
-    let mfa_values = match mfa_values(&form, &policy.mfa) {
-        Ok(values) => values,
+    let submitted_policy = match parse_mfa_policy(&form, &policy.mfa) {
+        Ok(policy) => policy,
         Err(_) => {
             p.error = true;
             p.state = "settings-mfa-invalid";
@@ -486,7 +489,19 @@ async fn admin_handle(
             return Ok(render(&p, StatusCode::UNPROCESSABLE_ENTITY, hx));
         }
     };
+    let mfa_values = submitted_policy.values();
     let mfa_changed = mfa_values != policy.mfa.values();
+    if mfa_changed
+        && submitted_policy.mode != crate::mfa::policy::Mode::Disabled
+        && submitted_policy.allows("webauthn")
+        && !crate::mfa::webauthn::origin_supported(&app.config.origin)
+    {
+        p.error = true;
+        p.state = "settings-mfa-invalid";
+        p.title = "Passkeys are unavailable".into();
+        p.feedback = "Passkeys and security keys require an HTTPS origin with a domain name. Clear that method before saving this policy.".into();
+        return Ok(render(&p, StatusCode::UNPROCESSABLE_ENTITY, hx));
+    }
     values.extend(mfa_values);
     if mfa_changed && val(&form, "confirmed") == "true" {
         let wait = app
@@ -530,7 +545,7 @@ async fn admin_handle(
                 session: Some(&session),
                 link: None,
             },
-            version(&form),
+            policy.version,
             &values,
             val(&form, "confirmed") == "true",
         )
@@ -593,21 +608,24 @@ async fn admin_handle(
             p.feedback="Check the allowed ranges. Inactivity timeout cannot exceed total session lifetime.".into();
             Ok(render(&p, StatusCode::UNPROCESSABLE_ENTITY, hx))
         }
-        _ => {
-            p.state = "settings-conflict";
-            p.title = "This page is out of date".into();
-            p.error = true;
-            p.feedback =
-                "These settings changed. Reload before continuing. Review the current values before saving again."
-                    .into();
-            Ok(render(&p, StatusCode::CONFLICT, hx))
-        }
+        _ => Ok(settings_conflict(p, hx)),
     }
 }
 
-fn mfa_values(form: &Form, current: &crate::mfa::policy::Policy) -> Result<Vec<String>, ()> {
+fn settings_conflict(mut p: Page, hx: bool) -> Response {
+    p.state = "settings-conflict";
+    p.title = "This page is out of date".into();
+    p.error = true;
+    p.feedback = "These settings changed. Reload before continuing. Review the current values before saving again.".into();
+    render(&p, StatusCode::CONFLICT, hx)
+}
+
+fn parse_mfa_policy(
+    form: &Form,
+    current: &crate::mfa::policy::Policy,
+) -> Result<crate::mfa::policy::Policy, ()> {
     if !form.contains_key("mfa_mode") {
-        return Ok(current.values());
+        return Ok(current.clone());
     }
     let mode = crate::mfa::policy::Mode::parse(val(form, "mfa_mode")).ok_or(())?;
     let checkbox = |name: &str| -> Result<bool, ()> {
@@ -651,6 +669,5 @@ fn mfa_values(form: &Form, current: &crate::mfa::policy::Policy) -> Result<Vec<S
         assisted: checkbox("mfa_admin_recovery_enabled")?,
         ttl,
         recovery_ttl,
-    }
-    .values())
+    })
 }

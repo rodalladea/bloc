@@ -45,6 +45,19 @@ async fn mfa_all_privileges(f: &Fixture) {
             );
         }
     }
+    let runtime = f.pool("runtime_user").await;
+    sqlx::query("SELECT * FROM bloc.mfa_key_registry()")
+        .execute(&runtime)
+        .await
+        .unwrap();
+    let error = sqlx::query("SELECT * FROM bloc.mfa_key_status()")
+        .execute(&runtime)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.as_database_error().and_then(|e| e.code()).as_deref(),
+        Some("42501")
+    );
     let(public,unsafe_path):(i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl WHERE n.nspname='bloc' AND p.proname LIKE 'mfa_%' AND acl.grantee=0 AND acl.privilege_type='EXECUTE'),(SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='bloc' AND p.proname LIKE 'mfa_%' AND p.prosecdef AND NOT coalesce(p.proconfig @> ARRAY['search_path=pg_catalog, bloc, pg_temp'],false))").fetch_one(&f.admin).await.unwrap();
     assert_eq!((public, unsafe_path), (0, 0));
 }

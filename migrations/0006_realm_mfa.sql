@@ -108,9 +108,13 @@ BEGIN
 END $$;
 CREATE TRIGGER mfa_totp_payload BEFORE INSERT OR UPDATE ON bloc.realm_totp_factor FOR EACH ROW EXECUTE FUNCTION bloc.mfa_factor_check();
 CREATE TRIGGER mfa_webauthn_payload BEFORE INSERT OR UPDATE ON bloc.realm_webauthn_factor FOR EACH ROW EXECUTE FUNCTION bloc.mfa_factor_check();
-CREATE FUNCTION bloc.mfa_key_status() RETURNS TABLE(installation_id text,key_id text,state text,generation bigint,active_key_id text,reference_count bigint) LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,bloc,pg_temp AS $$
- SELECT i.security_id::text,k.key_id::text,k.state,c.generation,c.active_key_id::text,(SELECT count(*) FROM bloc.mfa_encrypted_payload p WHERE p.encryption_key_id=k.key_id)
+CREATE FUNCTION bloc.mfa_key_registry() RETURNS TABLE(installation_id text,key_id text,state text,generation bigint,active_key_id text) LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,bloc,pg_temp AS $$
+ SELECT i.security_id::text,k.key_id::text,k.state,c.generation,c.active_key_id::text
  FROM bloc.installation i CROSS JOIN bloc.mfa_encryption_control c LEFT JOIN bloc.mfa_encryption_key_registry k ON true WHERE i.id=1 AND c.id=1 ORDER BY k.key_id;
+$$;
+CREATE FUNCTION bloc.mfa_key_status() RETURNS TABLE(installation_id text,key_id text,state text,generation bigint,active_key_id text,reference_count bigint) LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,bloc,pg_temp AS $$
+ SELECT k.*,(SELECT count(*) FROM bloc.mfa_encrypted_payload p WHERE p.encryption_key_id=k.key_id::uuid)
+ FROM bloc.mfa_key_registry() k ORDER BY k.key_id;
 $$;
 CREATE FUNCTION bloc.mfa_key_change(op text,k uuid,expected bigint,confirmed boolean) RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,bloc,pg_temp AS $$
 DECLARE c bloc.mfa_encryption_control; current_state text;
@@ -181,8 +185,9 @@ BEGIN
 END $$;
 CREATE TRIGGER mfa_restore BEFORE UPDATE OF recovery_required ON bloc.installation FOR EACH ROW EXECUTE FUNCTION bloc.mfa_restore_fence();
 REVOKE ALL ON ALL TABLES IN SCHEMA bloc FROM PUBLIC,bloc_runtime,bloc_operator,bloc_maintenance;
-REVOKE ALL ON FUNCTION bloc.mfa_payload_check(),bloc.mfa_factor_check(),bloc.mfa_key_status(),bloc.mfa_key_change(text,uuid,bigint,boolean),bloc.mfa_reencrypt_read(uuid,integer),bloc.mfa_reencrypt_commit(uuid[],bigint[],bytea[],bigint,uuid),bloc.mfa_restore_fence() FROM PUBLIC,bloc_runtime,bloc_operator,bloc_maintenance;
-GRANT EXECUTE ON FUNCTION bloc.mfa_key_status() TO bloc_runtime,bloc_operator;
+REVOKE ALL ON FUNCTION bloc.mfa_payload_check(),bloc.mfa_factor_check(),bloc.mfa_key_registry(),bloc.mfa_key_status(),bloc.mfa_key_change(text,uuid,bigint,boolean),bloc.mfa_reencrypt_read(uuid,integer),bloc.mfa_reencrypt_commit(uuid[],bigint[],bytea[],bigint,uuid),bloc.mfa_restore_fence() FROM PUBLIC,bloc_runtime,bloc_operator,bloc_maintenance;
+GRANT EXECUTE ON FUNCTION bloc.mfa_key_registry() TO bloc_runtime;
+GRANT EXECUTE ON FUNCTION bloc.mfa_key_status() TO bloc_operator;
 GRANT EXECUTE ON FUNCTION bloc.mfa_key_change(text,uuid,bigint,boolean),bloc.mfa_reencrypt_read(uuid,integer),bloc.mfa_reencrypt_commit(uuid[],bigint[],bytea[],bigint,uuid) TO bloc_operator;
 CREATE FUNCTION bloc.mfa_state_seed() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,bloc,pg_temp AS $$
 BEGIN INSERT INTO bloc.realm_user_mfa_state(realm_id,user_id) VALUES(NEW.realm_id,NEW.id);RETURN NEW;END $$;

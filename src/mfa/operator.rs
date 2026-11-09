@@ -136,10 +136,12 @@ async fn run(words: &[&str]) -> Result<i32, i32> {
         }
     } else {
         let ring = ring.as_ref().ok_or(2)?;
-        let id = id.ok_or(2)?;
-        if !ring.contains(Uuid::parse_str(id).map_err(|_| 2)?.as_bytes()) {
+        let id = Uuid::parse_str(id.ok_or(2)?).map_err(|_| 2)?;
+        if !ring.contains(id.as_bytes()) {
             return Err(2);
         }
+        let canonical = id.to_string();
+        let id = canonical.as_str();
         if op == "reencrypt" {
             let count = storage
                 .mfa_reencrypt(id, batch, ring)

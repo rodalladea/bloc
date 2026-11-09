@@ -501,7 +501,7 @@ async fn continuation(
             confirmed: val(form, "confirmed") == "true",
         })
         .await?;
-    if status == "required" {
+    if matches!(status.as_str(), "required" | "remaining_factor") {
         let mut p = Page::new(r, &format!("/realms/{r}/account/security"));
         p.protected = true;
         p.name = app.storage.realm_name(r).await?.unwrap_or_default();
@@ -523,15 +523,15 @@ async fn continuation(
             .await?
             .ok_or_else(Failure::csrf)?;
         p.shell_csrf = sec::encode(&shell_token);
-        p.state = "security-required-remove";
-        p.title = "Keep an active factor".into();
+        if status == "remaining_factor" {
+            p.state = "security-remaining-factor";
+            p.title = "Verify with a factor you’re keeping".into();
+            p.purpose = factor.into();
+        } else {
+            p.state = "security-required-remove";
+            p.title = "Keep an active factor".into();
+        }
         return Ok(render(&p, StatusCode::CONFLICT, hx));
-    }
-    if status == "login" {
-        let mut response = nav(&format!("/realms/{r}/login"), hx);
-        clear(&mut response, r);
-        mfa::flow_cookie(&mut response, r, "");
-        return Ok(response);
     }
     if status != "ok" {
         return Err(outcome(&status));
@@ -554,71 +554,41 @@ async fn regenerate(
     csrf: &[u8; 32],
     hx: bool,
 ) -> Result<Response, Failure> {
-    let keys = app
-        .storage
-        .mfa_keys()
-        .await
-        .map_err(|_| realm_storage::Error::Storage)?;
-    let active = keys
-        .iter()
-        .find(|k| k.state.as_deref() == Some("active"))
-        .ok_or(realm_storage::Error::Storage)?;
-    let key = active.id.clone().ok_or(realm_storage::Error::Storage)?;
-    let key_generation = active.generation;
     let generation = uuid::Uuid::new_v4().to_string();
     let handoff = uuid::Uuid::new_v4().to_string();
-    let binding = crate::mfa::Binding {
-        installation: mfa::uuid(&access.snapshot.installation)?,
-        realm: mfa::uuid(r)?,
-        user: mfa::uuid(&access.snapshot.user)?,
-        record: mfa::uuid(&handoff)?,
-        purpose: crate::mfa::Purpose::RecoveryHandoff,
-        payload_version: 1,
-    };
-    let ring = app
-        .config
-        .mfa_keyring
-        .clone()
-        .ok_or(realm_storage::Error::Storage)?;
-    let owned_realm = r.to_owned();
-    let owned_user = access.snapshot.user.clone();
-    let owned_generation = generation.clone();
-    let key_bytes = mfa::uuid(&key)?;
-    let (digests, envelope) = app
-        .worker
-        .factor(move || {
-            let codes =
-                crate::mfa::recovery::generate(&owned_realm, &owned_user, &owned_generation)?;
-            let envelope = ring.encrypt(key_bytes, &binding, &codes.payload)?;
-            Ok::<_, crate::mfa::Error>((codes.digests, envelope))
-        })
-        .await?
-        .map_err(|_| realm_storage::Error::Storage)?;
     let bearer = random()?;
     let new_csrf = sec::random().map_err(|_| realm_storage::Error::Storage)?;
-    let status = app
-        .storage
-        .mfa_account_regenerate(AccountCodes {
-            realm: r,
-            bearer: &access.bearer,
-            browser: &access.browser,
-            csrf,
-            session,
-            generation: &generation,
-            digests,
-            handoff: &handoff,
-            envelope: &envelope,
-            key: &key,
-            key_generation,
-            new_bearer: &sec::digest(&bearer),
-            new_csrf: &new_csrf,
-        })
-        .await?;
-    if status != "handoff" {
-        return Err(outcome(&status));
+    for _ in 0..mfa::handoff::WRITE_ATTEMPTS {
+        let prepared =
+            mfa::handoff::prepare(app, r, &access.snapshot, &generation, &handoff).await?;
+        let status = app
+            .storage
+            .mfa_account_regenerate(AccountCodes {
+                realm: r,
+                bearer: &access.bearer,
+                browser: &access.browser,
+                csrf,
+                session,
+                generation: &generation,
+                digests: prepared.digests,
+                handoff: &handoff,
+                envelope: &prepared.envelope,
+                key: &prepared.key,
+                key_generation: prepared.key_generation,
+                new_bearer: &sec::digest(&bearer),
+                new_csrf: &new_csrf,
+            })
+            .await?;
+        match status.as_str() {
+            "key_conflict" => continue,
+            "handoff" => {
+                let mut response = nav(&format!("/realms/{r}/account/security/recovery-codes"), hx);
+                mfa::flow_cookie(&mut response, r, &bearer);
+                mfa::clear_session(&mut response, r);
+                return Ok(response);
+            }
+            _ => return Err(outcome(&status)),
+        }
     }
-    let mut response = nav(&format!("/realms/{r}/account/security/recovery-codes"), hx);
-    mfa::flow_cookie(&mut response, r, &bearer);
-    mfa::clear_session(&mut response, r);
-    Ok(response)
+    Err(realm_storage::Error::Storage.into())
 }

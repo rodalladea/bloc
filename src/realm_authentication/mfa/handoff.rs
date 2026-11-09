@@ -134,45 +134,8 @@ pub(super) async fn replace(
     let session = random()?;
     let session_browser = random()?;
     let session_token = sec::random().map_err(|_| realm_storage::Error::Storage)?;
-    for _ in 0..2 {
-        let keys = app
-            .storage
-            .mfa_keys()
-            .await
-            .map_err(|_| realm_storage::Error::Storage)?;
-        let active = keys
-            .iter()
-            .find(|k| k.state.as_deref() == Some("active"))
-            .ok_or(realm_storage::Error::Storage)?;
-        let key_id = active.id.as_deref().ok_or(realm_storage::Error::Storage)?;
-        let binding = crate::mfa::Binding {
-            installation: uuid(&snapshot.installation)?,
-            realm: uuid(r)?,
-            user: uuid(&snapshot.user)?,
-            record: uuid(&handoff)?,
-            purpose: crate::mfa::Purpose::RecoveryHandoff,
-            payload_version: 1,
-        };
-        let ring = app
-            .config
-            .mfa_keyring
-            .clone()
-            .ok_or(realm_storage::Error::Storage)?;
-        let key = uuid(key_id)?;
-        let realm = r.to_owned();
-        let user = snapshot.user.clone();
-        let gen_id = generation.clone();
-        let (digests, envelope) = app
-            .worker
-            .factor(move || {
-                let set = crate::mfa::recovery::generate(&realm, &user, &gen_id)?;
-                Ok::<_, crate::mfa::Error>((
-                    set.digests,
-                    ring.encrypt(key, &binding, &set.payload)?,
-                ))
-            })
-            .await?
-            .map_err(|_| realm_storage::Error::Storage)?;
+    for _ in 0..WRITE_ATTEMPTS {
+        let prepared = prepare(app, r, snapshot, &generation, &handoff).await?;
         let outcome = app
             .storage
             .realm_mfa_replace_handoff(realm_storage::HandoffReplacement {
@@ -181,11 +144,11 @@ pub(super) async fn replace(
                 browser,
                 token,
                 generation: &generation,
-                digests,
+                digests: prepared.digests,
                 handoff: &handoff,
-                envelope,
-                key: key_id,
-                key_generation: active.generation,
+                envelope: prepared.envelope,
+                key: &prepared.key,
+                key_generation: prepared.key_generation,
                 new_bearer: &sec::digest(&new_bearer),
                 new_csrf: &new_csrf,
                 session: &sec::digest(&session),
@@ -213,4 +176,58 @@ pub(super) async fn replace(
         }
     }
     Err(realm_storage::Error::Storage.into())
+}
+
+pub(in crate::realm_authentication) const WRITE_ATTEMPTS: usize = 2;
+
+pub(in crate::realm_authentication) struct Prepared {
+    pub digests: Vec<Vec<u8>>,
+    pub envelope: Vec<u8>,
+    pub key: String,
+    pub key_generation: i64,
+}
+
+pub(in crate::realm_authentication) async fn prepare(
+    app: &Application,
+    r: &str,
+    snapshot: &realm_storage::MfaFlow,
+    generation: &str,
+    handoff: &str,
+) -> Result<Prepared, Failure> {
+    let (key_id, key_generation) = app
+        .storage
+        .mfa_write_key()
+        .await
+        .map_err(|_| realm_storage::Error::Storage)?;
+    let binding = crate::mfa::Binding {
+        installation: uuid(&snapshot.installation)?,
+        realm: uuid(r)?,
+        user: uuid(&snapshot.user)?,
+        record: uuid(handoff)?,
+        purpose: crate::mfa::Purpose::RecoveryHandoff,
+        payload_version: 1,
+    };
+    let ring = app
+        .config
+        .mfa_keyring
+        .clone()
+        .ok_or(realm_storage::Error::Storage)?;
+    let key = uuid(&key_id)?;
+    let realm = r.to_owned();
+    let user = snapshot.user.clone();
+    let gen_id = generation.to_owned();
+    let (digests, envelope) = app
+        .worker
+        .factor(move || {
+            let set = crate::mfa::recovery::generate(&realm, &user, &gen_id)?;
+            Ok::<_, crate::mfa::Error>((set.digests, ring.encrypt(key, &binding, &set.payload)?))
+        })
+        .await?
+        .map_err(|_| realm_storage::Error::Storage)?;
+    Ok(Prepared {
+        digests,
+        envelope,
+        key: key_id,
+        key_generation,
+    })
 }

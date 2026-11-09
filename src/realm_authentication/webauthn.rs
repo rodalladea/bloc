@@ -301,16 +301,12 @@ async fn complete(
     let browser = random()?;
     let token = sec::random().map_err(|_| realm_storage::Error::Storage)?;
     for _ in 0..2 {
-        let keys = app
+        let (key_id, key_generation) = app
             .storage
-            .mfa_keys()
+            .mfa_write_key()
             .await
             .map_err(|_| realm_storage::Error::Storage)?;
-        let active = keys
-            .iter()
-            .find(|k| k.state.as_deref() == Some("active"))
-            .ok_or(realm_storage::Error::Storage)?;
-        let key_id = active.id.as_deref().ok_or(realm_storage::Error::Storage)?;
+        let key_id = key_id.as_str();
         let binding = crate::mfa::Binding {
             installation: mfa::uuid(&snapshot.installation)?,
             realm: mfa::uuid(r)?,
@@ -357,7 +353,7 @@ async fn complete(
                 transports: transports.clone(),
                 factor: &factor,
                 key: key_id,
-                key_generation: active.generation,
+                key_generation,
                 generation: &generation,
                 digests,
                 handoff: &handoff,

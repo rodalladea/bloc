@@ -57,10 +57,10 @@ class MfaLegacyTests(unittest.TestCase):
                             info.size = len(data)
                             contents.addfile(info, io.BytesIO(data))
                     return subprocess.CompletedProcess(command, 0)
-                self.assertEqual(command[:6], ["cargo", "build", "--offline", "--locked", "--bin", "bloc"])
+                self.assertEqual(command[:5], ["cargo", "build", "--locked", "--bin", "bloc"])
                 self.assertEqual(Path(kwargs["cwd"]), root / "mfa-baseline")
-                self.assertEqual(command[6], "--target-dir")
-                target = Path(command[7])
+                self.assertEqual(command[5], "--target-dir")
+                target = Path(command[6])
                 self.assertEqual(target, root / "mfa-baseline-target")
                 source = root / "mfa-baseline"
                 self.assertTrue((source / "migrations/0005_realm_authentication.sql").is_file())
@@ -87,14 +87,14 @@ class MfaLegacyTests(unittest.TestCase):
                     with tarfile.open(archive, "w"):
                         pass
                     return subprocess.CompletedProcess(command, 0)
-                kwargs["stdout"].write(b"synthetic offline dependency failure\n")
+                kwargs["stdout"].write(b"synthetic dependency build failure\n")
                 raise subprocess.CalledProcessError(101, command)
             with mock.patch.dict(os.environ, {"BLOC_MFA_LEGACY_BINARY": ""}):
                 with mock.patch("support.mfa_legacy.subprocess.run", side_effect=execute):
                     with self.assertRaises(subprocess.CalledProcessError) as failure:
                         ensure_binary(root)
             self.assertEqual(failure.exception.returncode, 101)
-            self.assertIn("offline dependency failure", (root / "mfa-baseline-build.txt").read_text())
+            self.assertIn("dependency build failure", (root / "mfa-baseline-build.txt").read_text())
             self.assertFalse((root / "mfa-baseline-target/debug/bloc").exists())
 
 

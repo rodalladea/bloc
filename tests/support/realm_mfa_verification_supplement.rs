@@ -159,7 +159,7 @@ async fn mfa_operator_reference_contract() {
     };
     remaining(101).await;
     assert_eq!(
-        mfa_operator_assert(&f, &op, &["reencrypt", "--from", MFA_KEY_A], 0),
+        mfa_operator_assert(&f, &op, &["reencrypt", "--from", &MFA_KEY_A.to_uppercase()], 0),
         "converted=100\nremaining=1\n"
     );
     remaining(1).await;

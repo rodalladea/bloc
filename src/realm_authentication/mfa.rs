@@ -1,6 +1,6 @@
 use super::*;
 mod enrollment;
-mod handoff;
+pub(super) mod handoff;
 
 pub(super) fn flow_cookie(response: &mut Response, r: &str, value: &str) {
     if let Ok(value) = HeaderValue::from_str(&format!(
@@ -47,7 +47,8 @@ pub(super) async fn handle(
     }
     let request_source = source(app, &request)?;
     let h = request.headers().clone();
-    let get = request.method() == Method::GET || request.method() == Method::HEAD;
+    let head = request.method() == Method::HEAD;
+    let get = request.method() == Method::GET || head;
     app.storage
         .mfa_ready(app.config.mfa_keyring.as_ref())
         .await
@@ -138,6 +139,13 @@ pub(super) async fn handle(
         .await;
     }
     if route == "account/security/recovery-codes" && get {
+        if head {
+            return Ok(if hx {
+                nav(&format!("/realms/{r}/{route}"), true)
+            } else {
+                ([(header::VARY, "HX-Request")], StatusCode::OK).into_response()
+            });
+        }
         return handoff::show(app, r, &flow, &browser, snapshot, hx).await;
     }
     if route == "account/security/recovery-codes/acknowledge" && !get {

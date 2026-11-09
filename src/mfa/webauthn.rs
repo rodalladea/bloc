@@ -63,6 +63,10 @@ fn unpack<T: DeserializeOwned>(kind: &str, bytes: &[u8], limit: usize) -> Result
     }
     Ok(record.payload)
 }
+pub(crate) fn origin_supported(origin: &str) -> bool {
+    verifier(origin).is_ok()
+}
+
 fn verifier(origin: &str) -> Result<Webauthn, Failure> {
     let url = Url::parse(origin).map_err(|_| Failure::Stored)?;
     if url.scheme() != "https" || url.origin().ascii_serialization() != origin {
@@ -235,6 +239,13 @@ pub(crate) fn authentication_finish(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn passkey_origin_requires_a_domain() {
+        assert!(origin_supported("https://bloc.example.test:4443"));
+        assert!(!origin_supported("https://203.0.113.10"));
+        assert!(!origin_supported("https://[2001:db8::1]"));
+    }
     use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
     use serde_json::{Value, json};
 

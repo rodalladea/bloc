@@ -595,6 +595,7 @@ async fn realm_mfa_c15() {
     assert!(html.contains("Choose a verification method"), "{html}");
     assert!(html.to_lowercase().contains("authenticator"));
     assert!(html.to_lowercase().contains("passkey"));
+    assert!(html.contains(&format!("href=\"/realms/{REALM}/recover-mfa\"")));
     let after: (String, String, i16) = sqlx::query_as("SELECT id::text,expires_at::text,failed_attempts FROM bloc.realm_mfa_flow WHERE parent_id IS NULL").fetch_one(&f.admin).await.unwrap();
     assert_eq!(after, before);
     let bounded: bool = sqlx::query_scalar("SELECT bool_and(child.expires_at<=parent.expires_at AND child.expires_at<=child.created_at+interval '300 seconds') FROM bloc.realm_mfa_flow child JOIN bloc.realm_mfa_flow parent ON parent.id=child.parent_id").fetch_one(&f.admin).await.unwrap();

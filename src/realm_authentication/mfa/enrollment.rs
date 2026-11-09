@@ -16,16 +16,12 @@ pub(super) async fn start(
     let new_bearer = random()?;
     let new_csrf = sec::random().map_err(|_| realm_storage::Error::Storage)?;
     for _ in 0..2 {
-        let keys = app
+        let (key_id, key_generation) = app
             .storage
-            .mfa_keys()
+            .mfa_write_key()
             .await
             .map_err(|_| realm_storage::Error::Storage)?;
-        let active = keys
-            .iter()
-            .find(|k| k.state.as_deref() == Some("active"))
-            .ok_or(realm_storage::Error::Storage)?;
-        let key_id = active.id.as_deref().ok_or(realm_storage::Error::Storage)?;
+        let key_id = key_id.as_str();
         let binding = crate::mfa::Binding {
             installation: uuid(&snapshot.installation)?,
             realm: uuid(r)?,
@@ -56,7 +52,7 @@ pub(super) async fn start(
                 payload: &record,
                 envelope,
                 key: key_id,
-                generation: active.generation,
+                generation: key_generation,
                 new_bearer: &sec::digest(&new_bearer),
                 new_token: &new_csrf,
             })
@@ -185,16 +181,12 @@ pub(super) async fn confirm(
     let session_browser = random()?;
     let session_token = sec::random().map_err(|_| realm_storage::Error::Storage)?;
     for _ in 0..2 {
-        let keys = app
+        let (key_id, key_generation) = app
             .storage
-            .mfa_keys()
+            .mfa_write_key()
             .await
             .map_err(|_| realm_storage::Error::Storage)?;
-        let active = keys
-            .iter()
-            .find(|k| k.state.as_deref() == Some("active"))
-            .ok_or(realm_storage::Error::Storage)?;
-        let key_id = active.id.as_deref().ok_or(realm_storage::Error::Storage)?;
+        let key_id = key_id.as_str();
         let pending = crate::mfa::Binding {
             installation: uuid(&material.installation)?,
             realm: uuid(r)?,
@@ -264,7 +256,7 @@ pub(super) async fn confirm(
                 step: output.step,
                 active_envelope: output.active,
                 key: key_id,
-                key_generation: active.generation,
+                key_generation,
                 generation: &generation,
                 digests: output.digests,
                 handoff: &handoff,

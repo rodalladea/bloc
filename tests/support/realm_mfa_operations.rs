@@ -730,6 +730,10 @@ async fn realm_mfa_c07() {
             .await
             .unwrap();
     assert_eq!((mode.as_str(), version), ("required", 2));
+    let (status, html, _) =
+        mfa_policy_post(&mut admin, "optional", &["totp"], true, "wrong").await;
+    assert_eq!(status, 409, "{html}");
+    assert!(html.contains("This page is out of date"));
     assert_eq!(
         public
             .request("GET", &format!("{base}/account/profile"), &[])

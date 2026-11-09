@@ -37,7 +37,7 @@ def ensure_binary(output: Path) -> str:
     print(f"Building pre-MFA executable; diagnostics: {log}", flush=True)
     with log.open("wb") as diagnostics:
         subprocess.run(
-            ["cargo", "build", "--offline", "--locked", "--bin", "bloc", "--target-dir", str(target)],
+            ["cargo", "build", "--locked", "--bin", "bloc", "--target-dir", str(target)],
             cwd=source, stdout=diagnostics, stderr=subprocess.STDOUT, check=True,
         )
     return executable(target / "debug" / "bloc")

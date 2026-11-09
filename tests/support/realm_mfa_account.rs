@@ -535,19 +535,39 @@ async fn realm_mfa_c53() {
     account_seed_factor(&f, ACCOUNT_SECOND_FACTOR, "Spare passkey").await;
     let current = b.cookies[&format!("__Host-bloc-realm-{REALM}")].clone();
     sqlx::query("INSERT INTO bloc.realm_user_session(realm_id,user_id,session_digest,credential_version,created_at,last_activity_at,expires_at,device_label,factor_epoch,password_verified_at,mfa_method,mfa_factor_id,mfa_verified_at) SELECT realm_id,user_id,$1,credential_version,created_at,last_activity_at,expires_at,'Other device',factor_epoch,password_verified_at,mfa_method,mfa_factor_id,mfa_verified_at FROM bloc.realm_user_session WHERE revoked_at IS NULL").bind(vec![66u8;32]).execute(&f.admin).await.unwrap();
-    let csrf = account_begin_proof(
-        &f,
-        &mut b,
-        &format!("factor_remove:{ACCOUNT_SECOND_FACTOR}"),
-        &secret,
-    )
-    .await;
     let epoch: String =
         sqlx::query_scalar("SELECT factor_epoch::text FROM bloc.realm_user_mfa_state")
             .fetch_one(&f.admin)
             .await
             .unwrap();
-    let path = format!("/realms/{REALM}/account/security/factors/{ACCOUNT_SECOND_FACTOR}/remove");
+    let totp_factor: String =
+        sqlx::query_scalar("SELECT id::text FROM bloc.realm_user_factor WHERE kind='totp'")
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
+    let operation = format!("factor_remove:{totp_factor}");
+    let csrf = account_begin_proof(&f, &mut b, &operation, &secret).await;
+    let (status, html, _) = b
+        .request(
+            "POST",
+            &format!("/realms/{REALM}/account/security/factors/{totp_factor}/remove"),
+            &[("csrf", &csrf), ("epoch", &epoch), ("confirmed", "true")],
+        )
+        .await;
+    assert_eq!(status, 409, "{html}");
+    assert!(html.contains("Verify with a factor you’re keeping"));
+    assert!(html.contains(&format!("reauthenticate?operation={operation}")));
+    assert_eq!(b.cookies[&format!("__Host-bloc-realm-{REALM}")], current);
+    let unchanged: (i64, i64, i64) = sqlx::query_as("SELECT (SELECT count(*) FROM bloc.realm_user_factor WHERE revoked_at IS NULL),(SELECT count(*) FROM bloc.realm_user_session WHERE revoked_at IS NULL),(SELECT factor_epoch FROM bloc.realm_user_mfa_state)")
+        .fetch_one(&f.admin).await.unwrap();
+    assert_eq!(unchanged, (2, 2, epoch.parse::<i64>().unwrap()));
+    account_begin_password_proof(&mut b, &operation).await;
+    // Seed the passkey verification result to isolate removal from the WebAuthn ceremony.
+    let bearer = &b.cookies[&format!("__Host-bloc-realm-mfa-{REALM}")];
+    sqlx::query("UPDATE bloc.realm_mfa_flow SET proof_verified_at=clock_timestamp(),verified_method='webauthn',factor_id=$1::text::uuid WHERE bearer_digest=$2")
+        .bind(ACCOUNT_SECOND_FACTOR).bind(sec::digest(bearer).as_slice()).execute(&f.admin).await.unwrap();
+    let csrf = account_flow_token(&mut b, &format!("/realms/{REALM}/account/security/continue")).await;
+    let path = format!("/realms/{REALM}/account/security/factors/{totp_factor}/remove");
     let (status, html, headers) = b
         .request(
             "POST",
@@ -563,6 +583,13 @@ async fn realm_mfa_c53() {
     assert_ne!(b.cookies[&format!("__Host-bloc-realm-{REALM}")], current);
     let counts:(i64,i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM bloc.realm_user_factor WHERE revoked_at IS NULL),(SELECT count(*) FROM bloc.realm_user_session WHERE revoked_at IS NULL),(SELECT factor_epoch FROM bloc.realm_user_mfa_state)").fetch_one(&f.admin).await.unwrap();
     assert_eq!(counts, (1, 1, epoch.parse::<i64>().unwrap() + 1));
+    let session_factor: String = sqlx::query_scalar(
+        "SELECT mfa_factor_id::text FROM bloc.realm_user_session WHERE revoked_at IS NULL",
+    )
+    .fetch_one(&f.admin)
+    .await
+    .unwrap();
+    assert_eq!(session_factor, ACCOUNT_SECOND_FACTOR);
     assert_eq!(
         b.request("GET", &format!("/realms/{REALM}/account/security"), &[])
             .await
@@ -856,6 +883,9 @@ async fn account_live_generation(f: &Fixture) -> String {
 async fn realm_mfa_c36() {
     let (f, mut b, op, secret) = account_pending_handoff("mfac36").await;
     let path = format!("/realms/{REALM}/account/security/recovery-codes");
+    let (status, body, _) = b.request("HEAD", &path, &[]).await;
+    assert_eq!(status, 200);
+    assert!(body.is_empty());
     let (status, html, headers) = b.request("GET", &path, &[]).await;
     assert_eq!(status, 200);
     assert_eq!(headers["cache-control"], "no-store");
