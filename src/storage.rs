@@ -1,10 +1,8 @@
 //! Shared setup authority. Callers must validate credentials and hash passwords first.
 
-use sqlx::{
-    ConnectOptions, PgPool, Row,
-    migrate::Migrator,
-    postgres::{PgConnectOptions, PgPoolOptions, PgSslMode},
-};
+use sqlx::{ConnectOptions, PgPool, Row};
+use sqlx_core::migrate::{Migration, MigrationType, Migrator};
+use sqlx_postgres::{PgConnectOptions, PgPoolOptions, PgSslMode};
 use std::{path::Path, str::FromStr, time::Duration};
 
 /// Bounded public error categories; database errors and options must never be logged.
@@ -95,71 +93,71 @@ impl Storage {
 
     fn migrations() -> Migrator {
         // SQLx computes and checks the canonical migration checksum for this embedded source.
-        let migration = sqlx::migrate::Migration::new(
+        let migration = Migration::new(
             1,
             "setup".into(),
-            sqlx::migrate::MigrationType::Simple,
+            MigrationType::Simple,
             sqlx::SqlStr::from_static(include_str!("../migrations/0001_setup.sql")),
             false,
         );
         Migrator {
             migrations: vec![
                 migration,
-                sqlx::migrate::Migration::new(
+                Migration::new(
                     2,
                     "access".into(),
-                    sqlx::migrate::MigrationType::Simple,
+                    MigrationType::Simple,
                     sqlx::SqlStr::from_static(include_str!("../migrations/0002_access.sql")),
                     false,
                 ),
-                sqlx::migrate::Migration::new(
+                Migration::new(
                     3,
                     "directory".into(),
-                    sqlx::migrate::MigrationType::Simple,
+                    MigrationType::Simple,
                     sqlx::SqlStr::from_static(include_str!("../migrations/0003_directory.sql")),
                     false,
                 ),
-                sqlx::migrate::Migration::new(
+                Migration::new(
                     4,
                     "realms".into(),
-                    sqlx::migrate::MigrationType::Simple,
+                    MigrationType::Simple,
                     sqlx::SqlStr::from_static(include_str!("../migrations/0004_realms.sql")),
                     false,
                 ),
-                sqlx::migrate::Migration::new(
+                Migration::new(
                     5,
                     "realm_authentication".into(),
-                    sqlx::migrate::MigrationType::Simple,
+                    MigrationType::Simple,
                     sqlx::SqlStr::from_static(include_str!(
                         "../migrations/0005_realm_authentication.sql"
                     )),
                     false,
                 ),
-                sqlx::migrate::Migration::new(
+                Migration::new(
                     6,
                     "realm_mfa".into(),
-                    sqlx::migrate::MigrationType::Simple,
+                    MigrationType::Simple,
                     sqlx::SqlStr::from_static(include_str!("../migrations/0006_realm_mfa.sql")),
                     false,
                 ),
-                sqlx::migrate::Migration::new(
+                Migration::new(
                     7,
                     "webauthn".into(),
-                    sqlx::migrate::MigrationType::Simple,
+                    MigrationType::Simple,
                     sqlx::SqlStr::from_static(include_str!("../migrations/0007_webauthn.sql")),
                     false,
                 ),
-                sqlx::migrate::Migration::new(
+                Migration::new(
                     8,
                     "mfa_account".into(),
-                    sqlx::migrate::MigrationType::Simple,
+                    MigrationType::Simple,
                     sqlx::SqlStr::from_static(include_str!("../migrations/0008_mfa_account.sql")),
                     false,
                 ),
-                sqlx::migrate::Migration::new(
+                Migration::new(
                     9,
                     "mfa_recovery".into(),
-                    sqlx::migrate::MigrationType::Simple,
+                    MigrationType::Simple,
                     sqlx::SqlStr::from_static(include_str!("../migrations/0009_mfa_recovery.sql")),
                     false,
                 ),

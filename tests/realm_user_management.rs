@@ -2097,25 +2097,25 @@ check!(directory_c37, f, _b, {
         .execute(&f.admin)
         .await
         .unwrap();
-    let old = sqlx::migrate::Migrator {
+    let old = sqlx_core::migrate::Migrator {
         migrations: vec![
-            sqlx::migrate::Migration::new(
+            sqlx_core::migrate::Migration::new(
                 1,
                 "setup".into(),
-                sqlx::migrate::MigrationType::Simple,
+                sqlx_core::migrate::MigrationType::Simple,
                 sqlx::SqlStr::from_static(include_str!("../migrations/0001_setup.sql")),
                 false,
             ),
-            sqlx::migrate::Migration::new(
+            sqlx_core::migrate::Migration::new(
                 2,
                 "access".into(),
-                sqlx::migrate::MigrationType::Simple,
+                sqlx_core::migrate::MigrationType::Simple,
                 sqlx::SqlStr::from_static(include_str!("../migrations/0002_access.sql")),
                 false,
             ),
         ]
         .into(),
-        ..sqlx::migrate::Migrator::DEFAULT
+        ..sqlx_core::migrate::Migrator::DEFAULT
     };
     let migrator = f.pool("migrator_user").await;
     old.run(&migrator).await.unwrap();
@@ -2540,7 +2540,7 @@ async fn directory_realm_upgrade() {
         .execute(&f.admin)
         .await
         .unwrap();
-    let old = sqlx::migrate::Migrator {
+    let old = sqlx_core::migrate::Migrator {
         migrations: [
             (1, "setup", include_str!("../migrations/0001_setup.sql")),
             (2, "access", include_str!("../migrations/0002_access.sql")),
@@ -2552,17 +2552,17 @@ async fn directory_realm_upgrade() {
         ]
         .into_iter()
         .map(|(version, description, sql)| {
-            sqlx::migrate::Migration::new(
+            sqlx_core::migrate::Migration::new(
                 version,
                 description.into(),
-                sqlx::migrate::MigrationType::Simple,
+                sqlx_core::migrate::MigrationType::Simple,
                 sqlx::SqlStr::from_static(sql),
                 false,
             )
         })
         .collect::<Vec<_>>()
         .into(),
-        ..sqlx::migrate::Migrator::DEFAULT
+        ..sqlx_core::migrate::Migrator::DEFAULT
     };
     old.run(&f.pool("migrator_user").await).await.unwrap();
     sqlx::raw_sql("INSERT INTO bloc.tenant(id,name,status,version,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Acme','suspended',7,'2026-10-20Z','2026-10-21Z');

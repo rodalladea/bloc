@@ -11,7 +11,9 @@ repository = "https://github.com/rodalladea/bloc"
 base64 = "0.23"
 getrandom = "0.4"
 sha2 = "0.11"
-sqlx = { version = "=0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-ring-webpki", "postgres", "migrate"] }
+sqlx = { version = "=0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-ring-webpki", "postgres"] }
+sqlx-core = { version = "=0.9.0", default-features = false, features = ["migrate"] }
+sqlx-postgres = { version = "=0.9.0", default-features = false, features = ["migrate"] }
 axum = "0.8"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal"] }
 tracing = "0.1"
