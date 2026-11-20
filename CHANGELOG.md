@@ -5,6 +5,8 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+## 0.7.0 - 2026-11-20
+
 ### Added
 
 - Configure two-factor authentication per realm. Realm users can sign in with
