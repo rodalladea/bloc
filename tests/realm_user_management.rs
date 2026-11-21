@@ -2066,7 +2066,7 @@ check!(directory_c37, f, _b, {
         .fetch_one(&f.admin)
         .await
         .unwrap();
-    assert_eq!(n, 5);
+    assert_eq!(n, 9);
     sqlx::query("DELETE FROM public._sqlx_migrations WHERE version=4")
         .execute(&f.admin)
         .await
@@ -2091,31 +2091,31 @@ check!(directory_c37, f, _b, {
         .fetch_one(&f.admin)
         .await
         .unwrap();
-    assert_eq!(count, 4);
+    assert_eq!(count, 8);
     // Rebuild a coherent legacy database through its original checksum migrations, then upgrade.
     sqlx::raw_sql("DROP SCHEMA bloc CASCADE; DROP TABLE public._sqlx_migrations")
         .execute(&f.admin)
         .await
         .unwrap();
-    let old = sqlx::migrate::Migrator {
+    let old = sqlx_core::migrate::Migrator {
         migrations: vec![
-            sqlx::migrate::Migration::new(
+            sqlx_core::migrate::Migration::new(
                 1,
                 "setup".into(),
-                sqlx::migrate::MigrationType::Simple,
+                sqlx_core::migrate::MigrationType::Simple,
                 sqlx::SqlStr::from_static(include_str!("../migrations/0001_setup.sql")),
                 false,
             ),
-            sqlx::migrate::Migration::new(
+            sqlx_core::migrate::Migration::new(
                 2,
                 "access".into(),
-                sqlx::migrate::MigrationType::Simple,
+                sqlx_core::migrate::MigrationType::Simple,
                 sqlx::SqlStr::from_static(include_str!("../migrations/0002_access.sql")),
                 false,
             ),
         ]
         .into(),
-        ..sqlx::migrate::Migrator::DEFAULT
+        ..sqlx_core::migrate::Migrator::DEFAULT
     };
     let migrator = f.pool("migrator_user").await;
     old.run(&migrator).await.unwrap();
@@ -2379,6 +2379,7 @@ fn spawn_service(f: &Fixture, directory: &std::path::Path, port: u16) -> std::pr
         .env("BLOC_DATABASE_URL_FILE", directory.join("runtime"))
         .env("BLOC_DATABASE_CA_FILE", &f.ca)
         .env("BLOC_ABUSE_KEY_FILE", directory.join("abuse"))
+        .env("BLOC_MFA_KEYRING_FILE", directory.join("mfa-keyring"))
         .env("BLOC_CANONICAL_ORIGIN", "https://bloc.example.test:4443")
         .env("BLOC_TRUSTED_PROXY_CIDRS", "127.0.0.1/32")
         .env("BLOC_BIND_ADDR", format!("127.0.0.1:{port}"))
@@ -2397,6 +2398,7 @@ async fn services(f: &Fixture) -> Services {
     std::fs::write(directory.join("runtime"), f.url("runtime_user")).unwrap();
     std::fs::write(directory.join("operator"), f.url("operator_user")).unwrap();
     std::fs::write(directory.join("abuse"), [7; 32]).unwrap();
+    f.mfa_service_keyring(&directory).await;
     let mut children = Vec::new();
     for port in [31001, 31002] {
         let child = spawn_service(f, &directory, port);
@@ -2538,7 +2540,7 @@ async fn directory_realm_upgrade() {
         .execute(&f.admin)
         .await
         .unwrap();
-    let old = sqlx::migrate::Migrator {
+    let old = sqlx_core::migrate::Migrator {
         migrations: [
             (1, "setup", include_str!("../migrations/0001_setup.sql")),
             (2, "access", include_str!("../migrations/0002_access.sql")),
@@ -2550,17 +2552,17 @@ async fn directory_realm_upgrade() {
         ]
         .into_iter()
         .map(|(version, description, sql)| {
-            sqlx::migrate::Migration::new(
+            sqlx_core::migrate::Migration::new(
                 version,
                 description.into(),
-                sqlx::migrate::MigrationType::Simple,
+                sqlx_core::migrate::MigrationType::Simple,
                 sqlx::SqlStr::from_static(sql),
                 false,
             )
         })
         .collect::<Vec<_>>()
         .into(),
-        ..sqlx::migrate::Migrator::DEFAULT
+        ..sqlx_core::migrate::Migrator::DEFAULT
     };
     old.run(&f.pool("migrator_user").await).await.unwrap();
     sqlx::raw_sql("INSERT INTO bloc.tenant(id,name,status,version,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Acme','suspended',7,'2026-10-20Z','2026-10-21Z');

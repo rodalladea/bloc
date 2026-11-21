@@ -133,3 +133,15 @@
 .ui .ui-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 @keyframes ui-button-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .ui button[aria-busy="true"]::before { animation: none; border-style: dotted; border-top-style: solid; } }
+
+/* Secret presentation remains independent of application authority. */
+.ui .ui-setup-secret { display: grid; gap: 1rem; grid-template-columns: minmax(0, 12rem) minmax(0, 1fr); align-items: center; }
+.ui .ui-setup-secret img { display: block; width: 100%; max-width: 12rem; height: auto; background: white; border-radius: var(--ui-radius); }
+.ui .ui-setup-secret code { display: block; overflow-wrap: anywhere; font-family: monospace; user-select: all; }
+.ui .ui-recovery-handoff textarea { width: 100%; min-height: 17rem; font-family: monospace; white-space: pre; overflow: auto; }
+.ui .ui-recovery-handoff .ui-recovery-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: 1rem; }
+.ui .ui-recovery-handoff [role="status"] { min-height: 1.5em; }
+@media (max-width: 639px) { .ui .ui-setup-secret { grid-template-columns: minmax(0, 1fr); } }
+
+.ui .ui-recovery-handoff .ui-recovery-ack { display:flex; align-items:center; justify-content:flex-start; gap:12px; }
+.ui .ui-recovery-handoff .ui-recovery-ack input { flex:none; }

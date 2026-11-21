@@ -876,12 +876,26 @@ pub fn router(app: Application) -> Router {
                 )
             }),
         )
+        .route(
+            "/assets/webauthn.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../assets/webauthn.js"),
+                )
+            }),
+        )
         .route("/", get(|| async { Redirect::to("/admin/login") }))
         .route("/healthz", get(|| async { "ok\n" }))
         .route(
             "/readyz",
             get(|State(app): State<Application>| async move {
-                if app.storage.compatible().await.is_ok() {
+                if app
+                    .storage
+                    .mfa_ready(app.config.mfa_keyring.as_ref())
+                    .await
+                    .is_ok()
+                {
                     (StatusCode::OK, "ready\n")
                 } else {
                     (StatusCode::SERVICE_UNAVAILABLE, "unavailable\n")

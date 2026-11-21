@@ -16,6 +16,7 @@ fn spawn_service(f: &Fixture, directory: &std::path::Path, port: u16) -> std::pr
         .env("BLOC_DATABASE_URL_FILE", directory.join("runtime"))
         .env("BLOC_DATABASE_CA_FILE", &f.ca)
         .env("BLOC_ABUSE_KEY_FILE", directory.join("abuse"))
+        .env("BLOC_MFA_KEYRING_FILE", directory.join("mfa-keyring"))
         .env("BLOC_CANONICAL_ORIGIN", "https://bloc.example.test:4443")
         .env("BLOC_TRUSTED_PROXY_CIDRS", "127.0.0.1/32")
         .env("BLOC_BIND_ADDR", format!("127.0.0.1:{port}"))
@@ -34,6 +35,7 @@ async fn services(f: &Fixture) -> Services {
     std::fs::write(directory.join("runtime"), f.url("runtime_user")).unwrap();
     std::fs::write(directory.join("operator"), f.url("operator_user")).unwrap();
     std::fs::write(directory.join("abuse"), [7; 32]).unwrap();
+    f.mfa_service_keyring(&directory).await;
     let mut children = Vec::new();
     for port in [31001, 31002] {
         let child = spawn_service(f, &directory, port);

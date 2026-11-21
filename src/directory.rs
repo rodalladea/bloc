@@ -246,6 +246,7 @@ async fn token(
 pub(crate) async fn handler(State(app): State<Application>, request: Request) -> Response {
     if request.uri().path().ends_with("/authentication")
         || request.uri().path().ends_with("/access-links")
+        || request.uri().path().ends_with("/mfa-recovery")
     {
         return crate::realm_authentication::admin_handler(State(app), request).await;
     }

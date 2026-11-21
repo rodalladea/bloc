@@ -1,5 +1,6 @@
 """Synthetic loopback HTTPS reverse proxy for real browser regression fixtures."""
-import argparse,http.client,ssl,threading,json
+import argparse,http.client,ssl,threading,json,re
+from urllib.parse import urlsplit
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 parser=argparse.ArgumentParser()
@@ -23,7 +24,9 @@ class Proxy(BaseHTTPRequestHandler):
    state['next']+=1
   connection=http.client.HTTPConnection('127.0.0.1',port,timeout=10)
   length=int(self.headers.get('Content-Length','0'))
-  if length>16384:
+  finish=re.fullmatch(r"/realms/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/(?:account/security/webauthn/register|mfa/webauthn)/finish",urlsplit(self.path).path,re.I)
+  limit=65536 if self.command=='POST' and finish else 16384
+  if length>limit:
    self.send_error(413)
    return
   body=self.rfile.read(length) if length else None

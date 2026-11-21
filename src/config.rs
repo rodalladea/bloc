@@ -9,6 +9,7 @@ pub struct Config {
     pub host: String,
     pub proxies: Vec<IpNet>,
     pub abuse_key: [u8; 32],
+    pub(crate) mfa_keyring: Option<crate::mfa::Keyring>,
 }
 fn file(name: &str, limit: usize) -> Result<Vec<u8>, Error> {
     let path = env::var_os(name).ok_or(Error::Configuration)?;
@@ -44,7 +45,12 @@ impl Config {
             host,
             proxies,
             abuse_key,
+            mfa_keyring: None,
         })
+    }
+    pub fn with_mfa_keyring(mut self, path: &std::path::Path) -> Result<Self, Error> {
+        self.mfa_keyring = Some(crate::mfa::Keyring::load(path).map_err(|_| Error::Configuration)?);
+        Ok(self)
     }
     pub fn environment() -> Result<(Self, Storage), Error> {
         let origin = env::var("BLOC_CANONICAL_ORIGIN").map_err(|_| Error::Configuration)?;
@@ -56,7 +62,9 @@ impl Config {
             .map_err(|_| Error::Configuration)?;
         let ca = PathBuf::from(env::var_os("BLOC_DATABASE_CA_FILE").ok_or(Error::Configuration)?);
         Ok((
-            Self::new(&origin, &proxies, abuse_key)?,
+            Self::new(&origin, &proxies, abuse_key)?.with_mfa_keyring(&PathBuf::from(
+                env::var_os("BLOC_MFA_KEYRING_FILE").ok_or(Error::Configuration)?,
+            ))?,
             Storage::lazy(url.trim(), &ca)?,
         ))
     }

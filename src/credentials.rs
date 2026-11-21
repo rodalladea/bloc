@@ -100,6 +100,22 @@ impl PasswordWorker {
         *self.verification_gate.lock().unwrap() = Some(gate.clone());
         gate
     }
+    pub(crate) async fn factor<T: Send + 'static>(
+        &self,
+        work: impl FnOnce() -> T + Send + 'static,
+    ) -> Result<T, Error> {
+        let permit = self
+            .slot
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| Error::Capacity)?;
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            work()
+        })
+        .await
+        .map_err(|_| Error::Unavailable)
+    }
     pub async fn hash(&self, password: String) -> Result<String, Error> {
         let permit = self
             .slot

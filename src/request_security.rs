@@ -147,7 +147,13 @@ pub fn form(bytes: &[u8]) -> Result<BTreeMap<String, String>, StatusCode> {
 /// Decode a bounded form, rejecting malformed encoding and duplicate fields.
 /// Each caller must apply its own declared field allowlist after request protection.
 pub(crate) fn form_fields(bytes: &[u8]) -> Result<BTreeMap<String, String>, StatusCode> {
-    if bytes.len() > 16384 {
+    form_fields_bounded(bytes, 16384)
+}
+pub(crate) fn form_fields_bounded(
+    bytes: &[u8],
+    limit: usize,
+) -> Result<BTreeMap<String, String>, StatusCode> {
+    if bytes.len() > limit {
         return Err(StatusCode::PAYLOAD_TOO_LARGE);
     }
     let mut i = 0;

@@ -220,3 +220,27 @@ include!("support/realm_authentication_contracts.rs");
 include!("support/realm_authentication_security.rs");
 
 include!("support/realm_authentication_runtime.rs");
+
+include!("support/realm_mfa_operations.rs");
+
+include!("support/realm_mfa_webauthn.rs");
+
+include!("support/realm_mfa_account.rs");
+
+include!("support/realm_mfa_policy_flow.rs");
+include!("support/realm_mfa_totp.rs");
+
+include!("support/realm_mfa_recovery.rs");
+
+include!("support/realm_mfa_privileges.rs");
+
+include!("support/realm_mfa_security.rs");
+include!("support/realm_mfa_screens.rs");
+
+include!("support/realm_mfa_cleanup.rs");
+
+include!("support/realm_mfa_native_capacity.rs");
+
+include!("support/realm_mfa_ownership.rs");
+
+include!("support/realm_mfa_verification_supplement.rs");

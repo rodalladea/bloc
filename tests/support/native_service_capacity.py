@@ -8,15 +8,22 @@ from pathlib import Path
 import math, subprocess, sys, tempfile, threading, time
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from support import postgres
+from support.mfa_fixture import write_keyring
 from run_storage import ROLES
 
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--output',required=True,type=Path)
 parser.add_argument('--image',default='bloc-native-service-capacity:local')
 parser.add_argument('--skip-build',action='store_true')
+parser.add_argument('--realm-mfa', action='store_true', help='Measure complete TOTP realm sign-ins mixed with administrator passwords')
 parser.add_argument('--realm-auth', action='store_true',
                     help='Measure mixed administrator and realm authentication workload')
 args=parser.parse_args()
+args.realm_auth = args.realm_auth or args.realm_mfa
+if args.realm_mfa:
+    subprocess.run(['cargo','build','--locked','--release','--example','mfa_capacity_fixture'],check=True)
+from native_service_evidence import mfa_workload_fingerprint
+mfa_workload_sha256 = mfa_workload_fingerprint() if args.realm_mfa else None
 args.output.mkdir(parents=True,exist_ok=False)
 def preserve_failure(kind,error,traceback):
     (args.output/'failure.json').write_text(json.dumps({'error_category':kind.__name__,'source_tree_sha256':globals().get('source_tree_sha256'),'architecture':globals().get('arch'),'attempts':globals().get('attempts',[]),'credential_latency_seconds':globals().get('latency',[]),'health':globals().get('health',[])},indent=2)+'\n')
@@ -35,9 +42,12 @@ assert source_fingerprint()==source_tree_sha256,'source changed during Docker bu
 assert identity['Config'].get('Labels',{}).get('org.bloc.source-tree-sha256')==source_tree_sha256,'image context fingerprint mismatch'
 assert identity['Architecture']==arch and identity['Os']=='linux','emulated or non-Linux image refused'
 containers=[]
-with tempfile.TemporaryDirectory(prefix='bloc-native-service-') as temp:
+with tempfile.TemporaryDirectory(prefix='bloc-native-service-') as temp, tempfile.TemporaryDirectory(prefix='bloc-native-mfa-') as key_temp:
     directory=Path(temp)
     try:
+        key_id,keyring=write_keyring(Path(key_temp))
+        keyring.chmod(0o644)  # Synthetic fixture, readable by the unprivileged container UID.
+        mfa=['--mount','type=bind,src='+str(keyring)+',dst=/run/bloc-mfa/keyring.json,readonly','--env','BLOC_MFA_KEYRING_FILE=/run/bloc-mfa/keyring.json']
         postgres.certificate(directory,'ca');postgres.certificate(directory,'matching','127.0.0.1')
         db=postgres.command('docker','create','--publish','127.0.0.1::5432','--publish','127.0.0.1::3000','--env','POSTGRES_USER=probe','--env','POSTGRES_DB=probe','--env','POSTGRES_PASSWORD=synthetic-probe-only','--entrypoint','sh',postgres.IMAGES[0],'-c','chown postgres:postgres /tmp/probe.key && chmod 600 /tmp/probe.key && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/probe.crt -c ssl_key_file=/tmp/probe.key')
         containers.append(db)
@@ -54,9 +64,10 @@ with tempfile.TemporaryDirectory(prefix='bloc-native-service-') as temp:
         directory.chmod(0o755)
         shared=['--network','container:'+db,'--mount','type=bind,src='+str(directory)+',dst=/run/bloc,readonly','--env','BLOC_DATABASE_CA_FILE=/run/bloc/ca.crt']
         def operation(role,*words):
-            return subprocess.run(['docker','run','--rm',*shared,'--env','BLOC_DATABASE_URL_FILE=/run/bloc/'+role+'-url',args.image,*words],capture_output=True,text=True,check=True).stdout
+            return subprocess.run(['docker','run','--rm',*shared,*(mfa if role=='operator' else []),'--env','BLOC_DATABASE_URL_FILE=/run/bloc/'+role+'-url',args.image,*words],capture_output=True,text=True,check=True).stdout
         operation('migrator','database','migrate')
-        service=postgres.command('docker','create',*shared,'--cpus','1','--memory','512m','--memory-swap','512m','--env','MALLOC_MMAP_THRESHOLD_=131072','--env','BLOC_DATABASE_URL_FILE=/run/bloc/runtime-url','--env','BLOC_ABUSE_KEY_FILE=/run/bloc/abuse-key','--env','BLOC_CANONICAL_ORIGIN=https://capacity.example.test','--env','BLOC_TRUSTED_PROXY_CIDRS=0.0.0.0/0','--env','BLOC_BIND_ADDR=0.0.0.0:3000',args.image)
+        operation('operator','mfa','keys','initialize','--key-id',key_id)
+        service=postgres.command('docker','create',*shared,*mfa,'--cpus','1','--memory','512m','--memory-swap','512m','--env','MALLOC_MMAP_THRESHOLD_=131072','--env','BLOC_DATABASE_URL_FILE=/run/bloc/runtime-url','--env','BLOC_ABUSE_KEY_FILE=/run/bloc/abuse-key','--env','BLOC_CANONICAL_ORIGIN=https://capacity.example.test','--env','BLOC_TRUSTED_PROXY_CIDRS=0.0.0.0/0','--env','BLOC_BIND_ADDR=0.0.0.0:3000',args.image)
         containers.append(service);postgres.command('docker','start',service)
         port=int(json.loads(postgres.command('docker','inspect',db))[0]['NetworkSettings']['Ports']['3000/tcp'][0]['HostPort'])
         def request(method,path,body=None,cookie=None,source="192.0.2.1"):
@@ -82,9 +93,23 @@ with tempfile.TemporaryDirectory(prefix='bloc-native-service-') as temp:
         realm_path = '/realms/11111111-1111-4111-8111-111111111111/login'
         secrets = [setup, 'a synthetic password', 'Owner@example.test']
         def sql(statement):
-            return postgres.command('docker', 'exec', db, 'psql', '-U', 'probe',
-                                    '-d', 'capacity', '-v', 'ON_ERROR_STOP=1', '-Atc', statement)
-        if args.realm_auth:
+            return subprocess.run(['docker','exec','-i',db,'psql','-U','probe','-d','capacity','-v','ON_ERROR_STOP=1','-At'],input=statement,text=True,capture_output=True,check=True).stdout.strip()
+        def fixture_helper(document):
+            output = subprocess.run(['target/release/examples/mfa_capacity_fixture'], input=json.dumps(document), text=True, capture_output=True, check=True)
+            assert len(output.stdout.encode()) <= 1_048_576, 'fixture output bound'
+            return json.loads(output.stdout)
+        actors = {}
+        proof_codes = []
+        if args.realm_mfa:
+            document = json.loads(keyring.read_text())
+            material = document['keys'][0]
+            seeded = fixture_helper(dict(operation='seed',installation=sql('SELECT security_id FROM bloc.installation'),realm=realm_path.split('/')[2],key_id=material['id'],key=material['key'],indices=list(range(1,421))))
+            sql(seeded['sql'])
+            actors = {a['index']:a['secret'] for a in seeded['actors']}
+            assert len(actors) == 420
+            secrets += list(actors.values()) + [material['key']] + [f'Capacity{i}@example.test' for i in range(1,421)]
+            del seeded, material, document
+        elif args.realm_auth:
             # The fixture owns this disposable database; no runtime capability is bypassed in requests.
             sql("""BEGIN;
                 INSERT INTO bloc.realm(id,name,created_at,updated_at)
@@ -100,10 +125,60 @@ with tempfile.TemporaryDirectory(prefix='bloc-native-service-') as temp:
                 FROM bloc.realm_user u CROSS JOIN bloc.installation_administrator a;
                 COMMIT;""")
             secrets += [f'Capacity{i}@example.test' for i in range(1,21)]
-        def workload(number):
+        def workload(number, batch=0):
             if args.realm_auth and number % 2:
-                return realm_path, f'Capacity{number + 1}@example.test', 'realm'
+                return realm_path, f'Capacity{batch * 20 + number + 1 if args.realm_mfa else number + 1}@example.test', 'realm'
             return '/admin/login', 'Owner@example.test', 'administrator'
+        def merge_cookies(jar, headers):
+            for name,value in headers:
+                if name.lower() == 'set-cookie':
+                    key,value = value.split(';',1)[0].split('=',1)
+                    if value:
+                        jar[key] = value
+                        secrets.append(value)
+                    else:
+                        jar.pop(key,None)
+        def cookie_header(jar):
+            return '; '.join(key+'='+value for key,value in jar.items())
+        def realm_journey(cookie,body,source,path,index):
+            started = time.monotonic()
+            jar = dict(part.split('=',1) for part in cookie.split('; ') if part)
+            ordinary = '__Host-bloc-realm-'+realm_path.split('/')[2]
+            status,_,headers,request_seconds = request('POST',path,body,cookie_header(jar),source)
+            merge_cookies(jar,headers)
+            base = dict(principal='realm',user_index=index,status=status,retry_after=dict((k.lower(),v) for k,v in headers).get('retry-after'))
+            if status != 303:
+                base['journey_seconds'] = time.monotonic()-started
+                base['seconds'] = request_seconds if status == 503 else base['journey_seconds']
+                base['overload_seconds'] = request_seconds
+                return base
+            assert ordinary not in jar, 'password alone issued ordinary authority'
+            assert not any(name.lower()=='set-cookie' and value.split(';',1)[0].startswith(ordinary+'=') and value.split(';',1)[0].split('=',1)[1] for name,value in headers), 'password response exposed ordinary authority'
+            assert dict((k.lower(),v) for k,v in headers)['location'] == realm_path.rsplit('/',1)[0]+'/mfa'
+            challenge,html,headers,_ = request('GET',realm_path.rsplit('/',1)[0]+'/mfa',cookie=cookie_header(jar),source=source)
+            merge_cookies(jar,headers)
+            assert challenge == 200, ('challenge failed',challenge)
+            csrf = html.split('name="csrf" value="')[1].split('"')[0]
+            secrets.append(csrf)
+            db_now = float(sql('SELECT extract(epoch FROM clock_timestamp())'))
+            drift = abs(db_now-time.time())
+            assert drift < 1, 'database/collector clock drift'
+            code = fixture_helper(dict(operation='otp',secret=actors[index],now=int(db_now)))['code']
+            proof_codes.append(code)
+            proof,_,headers,request_seconds = request('POST',realm_path.rsplit('/',1)[0]+'/mfa/verify',urlencode(dict(csrf=csrf,method='totp',code=code)),cookie_header(jar),source)
+            merge_cookies(jar,headers)
+            if proof != 303:
+                journey_seconds = time.monotonic()-started
+                base.update(status=proof,seconds=request_seconds if proof == 503 else journey_seconds,journey_seconds=journey_seconds,overload_seconds=request_seconds,retry_after=dict((k.lower(),v) for k,v in headers).get('retry-after'))
+                assert ordinary not in jar
+                return base
+            assert ordinary in jar, 'factor proof did not issue ordinary authority'
+            assert dict((k.lower(),v) for k,v in headers)['location'] == realm_path.rsplit('/',1)[0]+'/account'
+            account,_,_,_ = request('GET',realm_path.rsplit('/',1)[0]+'/account/profile',cookie=cookie_header(jar),source=source)
+            assert account == 200, ('protected account refused',account)
+            elapsed = time.monotonic()-started
+            base.update(seconds=elapsed,journey_seconds=elapsed,method='totp',password_status=status,challenge_status=challenge,proof_status=proof,account_status=account,ordinary_cookie_before_proof=False,ordinary_cookie_after_proof=True,user_index=index,db_clock_drift_seconds=drift)
+            return base
         admission_samples = []
         stop=threading.Event();health=[];attempts=[]
         def probes():
@@ -118,7 +193,7 @@ with tempfile.TemporaryDirectory(prefix='bloc-native-service-') as temp:
                     states=[]
                     for number in range(20):
                         source='192.0.'+str(batch+1)+'.'+str(number+1)
-                        path,email,principal=workload(number)
+                        path,email,principal=workload(number,batch)
                         cookie,token=state(path,source)
                         secrets += [token, *[part.split('=',1)[1] for part in cookie.split('; ')]]
                         body=urlencode({'csrf':token,'email':email,'password':'a synthetic password'})
@@ -127,6 +202,8 @@ with tempfile.TemporaryDirectory(prefix='bloc-native-service-') as temp:
                     def attempt(number):
                         cookie,body,source,path,principal=states[number]
                         barrier.wait()
+                        if args.realm_mfa and principal == 'realm':
+                            return realm_journey(cookie,body,source,path,batch*20+number+1)
                         status,_,headers,elapsed=request('POST',path,body,cookie,source)
                         secrets.extend(value.split(';',1)[0].split('=',1)[1]
                                        for key,value in headers if key.lower()=='set-cookie')
@@ -148,13 +225,23 @@ with tempfile.TemporaryDirectory(prefix='bloc-native-service-') as temp:
         # Separate successful complete-credential latency samples from overloaded
         # burst requests. Wait for the declared rolling allowances; do not relax them.
         time.sleep(61)
-        latency=[];latency_principals=[]
+        latency=[];latency_principals=[];mfa_latency_witnesses=[]
         latency_started=time.monotonic()
         for sample in range(20):
-            path,email,principal=workload(sample)
+            path,email,principal=workload(sample,20)
+            journey_started=time.monotonic()
             cookie,token=state(path,'192.0.2.2')
+            secrets += [token, *[part.split('=',1)[1] for part in cookie.split('; ') if part]]
             body=urlencode({'csrf':token,'email':email,'password':'a synthetic password'})
-            status,_,_,seconds=request('POST',path,body,cookie,'192.0.2.2')
+            if args.realm_mfa and principal == 'realm':
+                witness=realm_journey(cookie,body,'192.0.2.2',path,400+sample+1)
+                status=witness['status'];seconds=time.monotonic()-journey_started
+                witness['journey_seconds']=seconds
+                mfa_latency_witnesses.append(witness)
+            else:
+                status,_,headers,seconds=request('POST',path,body,cookie,'192.0.2.2')
+                secrets.extend(value.split(';',1)[0].split('=',1)[1] for key,value in headers if key.lower()=='set-cookie')
+                if args.realm_mfa:seconds=time.monotonic()-journey_started
             assert status==303,('latency sample not a complete successful sign-in',status)
             latency.append(seconds)
             latency_principals.append(principal)
@@ -172,12 +259,21 @@ with tempfile.TemporaryDirectory(prefix='bloc-native-service-') as temp:
                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
             audit = sql('SELECT row_to_json(e) FROM bloc.security_audit_event e')
             assert all(secret not in logs and secret not in audit for secret in secrets if secret), 'secret redaction failed'
+            import re
+            assert all(not re.search(r'(?<![A-Za-z0-9])'+re.escape(code)+r'(?![A-Za-z0-9])',logs+'\n'+audit) for code in proof_codes), 'proof redaction failed'
             assert {a['principal'] for a in attempts} == {'realm','administrator'}
             assert set(latency_principals) == {'realm','administrator'}
             assert any(s['realm_hash_work'] > 0 for s in admission_samples), 'realm admission not exercised'
             assert any(s['all_hash_work'] > s['realm_hash_work'] for s in admission_samples), 'shared administrator work not observed'
             record.update(realm_authentication=True, redaction=True, admission_samples=admission_samples,
                           credential_sample_principals=latency_principals)
+        if args.realm_mfa:
+            database=json.loads(sql("SELECT json_build_object('factor_sessions',(SELECT count(*) FROM bloc.realm_user_session WHERE mfa_method='totp'),'sign_in_audits',(SELECT count(*) FROM bloc.security_audit_event WHERE action='realm_mfa_sign_in'),'distinct_users',(SELECT count(DISTINCT user_id) FROM bloc.realm_user_session WHERE mfa_method='totp'))"))
+            successes=sum(a['principal']=='realm' and a['status']==303 for a in attempts)+len(mfa_latency_witnesses)
+            assert database == dict(factor_sessions=successes,sign_in_audits=successes,distinct_users=successes)
+            assert mfa_workload_fingerprint()==mfa_workload_sha256,'MFA workload changed during measurement'
+            import hashlib
+            record.update(realm_mfa=True,mfa_workload_version=1,mfa_workload_sha256=mfa_workload_sha256,mfa_seeded_users=420,mfa_replay_floor_resets=0,mfa_admission_resets=0,collector_host_os=platform.system(),service_os=identity['Os'],native_host_architecture=arch,mfa_helper_binary_sha256=hashlib.sha256(Path('target/release/examples/mfa_capacity_fixture').read_bytes()).hexdigest(),mfa_latency_witnesses=mfa_latency_witnesses,mfa_attempts=attempts,mfa_database=database,mfa_latency_seconds=latency)
         assert source_fingerprint()==source_tree_sha256,'source changed during capacity measurement; evidence invalid'
         (args.output/'record.json').write_text(json.dumps(record,indent=2)+'\n')
         assert peak<=384*1024*1024 and p95<1 and not record['oom'] and record['failed_health_probes']==0 and record['immediate_overload'] and record['bounded_admission'],record

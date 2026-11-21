@@ -2,8 +2,9 @@
 
 bloc implements the administrator journey for development and evaluation with
 shared PostgreSQL authority. Use source-matched native service measurements and independent
-verification results to establish acceptance. MFA and production authentication approval remain
-pending; application-user identity protocols are not implemented. A public release
+verification results to establish acceptance. Production authentication approval,
+including acceptance of realm MFA, remains pending. Application-user identity
+protocols are not implemented. A public release
 exists only after its GitHub release records successful verification of both
 packages; source changes do not publish a release.
 
@@ -11,6 +12,11 @@ Follow [administrator operations](administrator-access.md) first to provision
 PostgreSQL 17/18, verified TLS, separate roles, explicit migrations, runtime secret
 files, trusted HTTPS ingress, and backup/restore fencing. Serving replicas never
 migrate automatically or receive operator/migrator credentials.
+
+For a build containing realm MFA, follow the additional
+[MFA provisioning and upgrade procedure](realm-mfa-operations.md#provisioning-and-upgrade)
+before starting serving replicas. The older release examples below retain their
+original configuration.
 
 The initial exercise baseline is Helm **4.3.1** and Kubernetes **1.36.5**.
 The image supports **linux/amd64** and **linux/arm64**. Other cluster versions,
@@ -45,6 +51,13 @@ CIDRs (container peers may differ from host loopback). Stop with
 `docker stop --timeout 30 bloc`.
 For an immutable deployment identity, use the image digest in the release notes.
 
+With an MFA-capable image, also mount the separately provisioned keyring file
+read-only and set `BLOC_MFA_KEYRING_FILE` to its in-container path. After migration,
+use the same compatible image with operator credentials and that keyring to run
+`bloc mfa keys initialize --key-id UUID` once for an empty registry. Switch to
+runtime credentials for HTTP service. The file and registry are required for
+readiness even if no realm requires a second factor.
+
 ## Install into Kubernetes
 
 Use your operator-managed Kubernetes context and a namespace you intend to modify.
@@ -68,6 +81,13 @@ The released chart already contains the verified multi-platform image digest.
 Keep image overrides out of ordinary saved values so an upgrade selects the new
 chart's image. The source chart deliberately has an empty digest and requires an
 explicit real test digest; it is not a releasable package as checked out.
+
+For the MFA-capable chart, create the separate keyring Secret in the release
+namespace through your secret provisioning process. Set `mfa.keyringSecretName`
+and `mfa.keyringSecretKey` to that existing Secret and key. Use zero serving
+replicas while running the migration and initializing an empty registry from
+the attached operator workload. Raise the replica count after initialization and
+verify `/readyz`. The chart does not generate a key or initialize the registry.
 
 Once `0.1.1` is published:
 
@@ -121,6 +141,8 @@ The [values file](../charts/bloc/values.yaml) and
 | `access.migrationJob` | Optional distinct-credential explicit migration Job; defaultfalse |
 | `access.operatorPod` | Optional operator-only sleeping Pod for attached exec; defaultfalse |
 | `access.maintenanceJob` | Optional maintenance-credential daily CronJob; defaultfalse |
+| `mfa.keyringSecretName` | Existing keyring Secret for the MFA-capable chart; default `bloc-mfa-keyring` |
+| `mfa.keyringSecretKey` | Existing keyring entry mounted by runtime and the operator Pod; default `keyring.json` |
 | `ingress.enabled` | Boolean, default `false` |
 | `ingress.className` | Empty uses the operator's default class |
 | `ingress.hostname` | Required DNS hostname when enabled; no scheme/path |

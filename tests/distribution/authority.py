@@ -3,6 +3,7 @@ import contextlib,ipaddress,json,os,subprocess,sys,tempfile,time
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from support import postgres
+from support.mfa_fixture import write_keyring
 from run_storage import ROLES
 
 def assigned_address(container,network='kind'):
@@ -54,10 +55,12 @@ def source_configuration():
         postgres.certificate(directory,'ca')
         (directory/'url').write_text('postgres://runtime_user:synthetic-setup-only@127.0.0.1:1/unavailable')
         (directory/'abuse').write_bytes(bytes(range(32)))
+        _,keyring=write_keyring(directory)
         yield {
             'BLOC_DATABASE_URL_FILE':str(directory/'url'),
             'BLOC_DATABASE_CA_FILE':str(directory/'ca.crt'),
             'BLOC_ABUSE_KEY_FILE':str(directory/'abuse'),
+            'BLOC_MFA_KEYRING_FILE':str(keyring),
             'BLOC_CANONICAL_ORIGIN':'https://bloc.example.test',
             'BLOC_TRUSTED_PROXY_CIDRS':'127.0.0.1/32',
         }
@@ -69,9 +72,10 @@ def configuration():
         postgres.certificate(directory,'ca')
         (directory/'url').write_text('postgres://runtime_user:synthetic-setup-only@127.0.0.1:1/unavailable')
         (directory/'abuse').write_bytes(bytes(range(32)))
+        write_keyring(directory)
         directory.chmod(0o755)
         for path in directory.iterdir():path.chmod(0o644)
-        yield ['--mount','type=bind,src='+str(directory)+',dst=/run/bloc,readonly','--env','BLOC_DATABASE_URL_FILE=/run/bloc/url','--env','BLOC_DATABASE_CA_FILE=/run/bloc/ca.crt','--env','BLOC_ABUSE_KEY_FILE=/run/bloc/abuse','--env','BLOC_CANONICAL_ORIGIN=https://bloc.example.test','--env','BLOC_TRUSTED_PROXY_CIDRS=127.0.0.1/32']
+        yield ['--mount','type=bind,src='+str(directory)+',dst=/run/bloc,readonly','--env','BLOC_DATABASE_URL_FILE=/run/bloc/url','--env','BLOC_DATABASE_CA_FILE=/run/bloc/ca.crt','--env','BLOC_ABUSE_KEY_FILE=/run/bloc/abuse','--env','BLOC_MFA_KEYRING_FILE=/run/bloc/mfa-keyring.json','--env','BLOC_CANONICAL_ORIGIN=https://bloc.example.test','--env','BLOC_TRUSTED_PROXY_CIDRS=127.0.0.1/32']
 
 @contextlib.contextmanager
 def cluster_authority(kube,namespace,image):
@@ -79,8 +83,10 @@ def cluster_authority(kube,namespace,image):
     with docker_primary() as (_,address,directory):
         for role in ['runtime','migrator','operator','maintenance']:(directory/(role+'-url')).write_text('postgres://'+role+'_user:synthetic-setup-only@'+address+':5432/bloc')
         (directory/'abuse-key').write_bytes(bytes(range(32)))
+        key_id,keyring=write_keyring(directory)
         files=['--from-file='+role+'-url='+str(directory/(role+'-url')) for role in ['runtime','migrator','operator','maintenance']]
         k('create','secret','generic','bloc-database',*files,'--from-file=ca.crt='+str(directory/'ca.crt'),'--from-file=abuse-key='+str(directory/'abuse-key'))
+        k('create','secret','generic','bloc-mfa-keyring','--from-file=keyring.json='+str(keyring))
         pod={'apiVersion':'v1','kind':'Pod','metadata':{'name':'bloc-fixture-migrate'},'spec':{'restartPolicy':'Never','automountServiceAccountToken':False,'containers':[{'name':'migration','image':image,'args':['database','migrate'],'env':[{'name':'BLOC_DATABASE_URL_FILE','value':'/run/bloc/migrator-url'},{'name':'BLOC_DATABASE_CA_FILE','value':'/run/bloc/ca.crt'}],'volumeMounts':[{'name':'authority','mountPath':'/run/bloc','readOnly':True}]}],'volumes':[{'name':'authority','secret':{'secretName':'bloc-database','items':[{'key':'migrator-url','path':'migrator-url'},{'key':'ca.crt','path':'ca.crt'}]}}]}}
         k('apply','-f','-',input=json.dumps(pod))
         try:k('wait','--for=jsonpath={.status.phase}=Succeeded','pod/bloc-fixture-migrate','--timeout=180s')
@@ -88,4 +94,18 @@ def cluster_authority(kube,namespace,image):
             print(k('logs','bloc-fixture-migrate').stdout)
             raise
         k('delete','pod','bloc-fixture-migrate','--wait=true')
+        pod['metadata']['name']='bloc-fixture-mfa-initialize'
+        container=pod['spec']['containers'][0]
+        container['name']='operator'
+        container['args']=['mfa','keys','initialize','--key-id',key_id]
+        container['env']=[{'name':'BLOC_DATABASE_URL_FILE','value':'/run/bloc/operator-url'},{'name':'BLOC_DATABASE_CA_FILE','value':'/run/bloc/ca.crt'},{'name':'BLOC_MFA_KEYRING_FILE','value':'/run/bloc-mfa/keyring.json'}]
+        container['volumeMounts'].append({'name':'mfa-keyring','mountPath':'/run/bloc-mfa','readOnly':True})
+        pod['spec']['volumes'][0]['secret']['items'][0]={'key':'operator-url','path':'operator-url'}
+        pod['spec']['volumes'].append({'name':'mfa-keyring','secret':{'secretName':'bloc-mfa-keyring','items':[{'key':'keyring.json','path':'keyring.json'}]}})
+        k('apply','-f','-',input=json.dumps(pod))
+        try:k('wait','--for=jsonpath={.status.phase}=Succeeded','pod/bloc-fixture-mfa-initialize','--timeout=180s')
+        except subprocess.CalledProcessError:
+            print(k('logs','bloc-fixture-mfa-initialize').stdout)
+            raise
+        k('delete','pod','bloc-fixture-mfa-initialize','--wait=true')
         yield

@@ -12,6 +12,8 @@
 <section class="ui" id="kit" aria-label="Independent consumer">
 <label class="ui-theme" data-ui-theme-picker hidden><span>Appearance</span><select aria-label="Appearance" data-ui-theme-control><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
 <div class="ui-panel"><h1>Example workspace</h1><label class="ui-field">Name<input name="example" value="Synthetic workspace"></label><button type="button">Save example</button><a class="ui-button ui-button--secondary" href="#kit">Cancel</a></div>
+<section class="ui-setup-secret" aria-label="Authenticator setup example"><div class="ui-panel">QR image placement</div><div><p id="setup-key-label">Setup key</p><code aria-labelledby="setup-key-label">DEMO — NOT A VALID KEY</code><p class="ui-help">Synthetic presentation only.</p></div></section>
+<form class="ui-recovery-handoff" action="#kit" method="get"><label for="demo-recovery-codes">Recovery codes</label><textarea id="demo-recovery-codes" readonly>DEMO — NOT VALID RECOVERY CODES</textarea><div class="ui-recovery-actions"><button type="button" data-ui-copy-codes>Copy codes</button><button type="button" data-ui-download-codes>Download codes</button></div><p role="status" aria-live="polite"></p><label class="ui-recovery-ack"><input type="checkbox" required> I saved my recovery codes.</label><button type="submit">Finish example</button></form>
 </section>
 </body>
 </html>

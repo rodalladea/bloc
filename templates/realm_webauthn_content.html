@@ -1,0 +1,7 @@
+<p data-webauthn-status role="status" aria-live="polite" hidden>{% if p.state == "mfa-webauthn-authenticate" %}Canceled the prompt? Try again or choose another method.{% endif %}</p>
+<form hidden data-ui-pending-heading="Verifying your proof" data-webauthn-form data-webauthn-kind="{% if p.state == "mfa-webauthn-register" %}register{% else %}authenticate{% endif %}" action="{% if p.state == "mfa-webauthn-register" %}{{ p.base }}/account/security/webauthn/register/finish{% else %}{{ p.base }}/mfa/webauthn/finish{% endif %}" data-webauthn-options="{% if p.state == "mfa-webauthn-register" %}{{ p.base }}/account/security/webauthn/register/options{% else %}{{ p.base }}/mfa/webauthn/options{% endif %}" method="post" hx-boost="false">
+<input type="hidden" name="csrf" value="{{ p.csrf }}">
+{% if p.state == "mfa-webauthn-register" %}<div class="ui-field"><label for="factor-label">Factor name</label><input id="factor-label" name="label" type="text" placeholder="For example, personal laptop" required></div><p>Confirm the browser prompt to create this factor. Private keys stay with your authenticator.</p>{% endif %}
+<button data-webauthn-submit type="submit" hidden>{% if p.state == "mfa-webauthn-register" %}Create passkey{% else %}Use passkey{% endif %}</button>
+</form>
+<p><a data-webauthn-fallback href="{{ p.base }}/mfa/methods" hx-boost="false">Use another method</a></p>

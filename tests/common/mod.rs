@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+mod mfa;
 
 use bloc::storage::Storage;
 use sqlx::{

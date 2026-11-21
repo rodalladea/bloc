@@ -43,6 +43,8 @@ spec:
               value: /run/bloc/runtime-url
             - name: BLOC_DATABASE_CA_FILE
               value: /run/bloc/ca.crt
+            - name: BLOC_MFA_KEYRING_FILE
+              value: /run/bloc-mfa/keyring.json
             - name: BLOC_ABUSE_KEY_FILE
               value: /run/bloc/abuse-key
             - name: BLOC_CANONICAL_ORIGIN
@@ -52,6 +54,9 @@ spec:
             - name: MALLOC_MMAP_THRESHOLD_
               value: "131072"
           volumeMounts:
+            - name: mfa-keyring
+              mountPath: /run/bloc-mfa
+              readOnly: true
             - name: authority
               mountPath: /run/bloc
               readOnly: true
@@ -77,6 +82,12 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
+        - name: mfa-keyring
+          secret:
+            secretName: {{ .Values.mfa.keyringSecretName | quote }}
+            items:
+              - key: {{ .Values.mfa.keyringSecretKey | quote }}
+                path: keyring.json
         - name: authority
           secret:
             secretName: {{ .Values.access.secretName | quote }}
