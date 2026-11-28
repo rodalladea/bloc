@@ -109,13 +109,22 @@ pub(super) async fn setup(
         .clone()
         .ok_or(realm_storage::Error::Storage)?;
     let name = app.storage.realm_name(r).await?.unwrap_or_default();
-    let realm = r.to_owned();
+    let email = app
+        .storage
+        .realm_mfa_totp_account_email(r, bearer, browser)
+        .await?
+        .ok_or_else(|| {
+            Failure::new(
+                StatusCode::CONFLICT,
+                "This setup changed. Sign in again to continue.",
+            )
+        })?;
     let label = name.clone();
     let (key, image) = app
         .worker
         .factor(move || {
             let secret = ring.decrypt(&binding, &material.envelope)?;
-            crate::mfa::totp::presentation(&secret, &label, &realm)
+            crate::mfa::totp::presentation(&secret, &label, &email)
         })
         .await?
         .map_err(|_| realm_storage::Error::Storage)?;

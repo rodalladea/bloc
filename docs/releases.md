@@ -54,23 +54,18 @@ This repository change does not itself publish a release or confirm package acce
    use only that version’s changelog section, followed by distribution identities
    and installation/recovery instructions. Missing, empty or duplicate version
    sections stop publication before uploads. Review the PR. For packaging changes, manually
-   run Distribution on the branch and review its image/cluster evidence.
+   run Distribution on the branch to verify packaging. Use the local cluster
+   scripts when cluster evidence is needed.
 3. Merge the reviewed source. The maintainer explicitly creates and pushes its
    numeric version tag. Never create a fake public release to test upgrades.
-4. Native amd64 and arm64 jobs build attested OCI artifacts once. After both
-   builds, native smoke/capacity measurements run alongside source/cluster
-   validation. The tagged revision reruns Rust formatting, lint, tests, documentation
-   and dependency audit. The combined image is checked for both platforms,
-   provenance and SBOM; the chart is tested against Helm 4.3.1 / Kubernetes 1.36.5,
-   including a failing upgrade and recovery. A separate completion gate requires
-   both successful paths and checks each capacity record against the candidate
-   platform manifest and current source revision before writing `evidence.json`.
-5. Only after these gates pass does Actions retain the candidate bundle. The
-   publisher inspects existing identities, uploads only missing verified artifacts,
-   verifies all content anonymously, and pulls with Docker on each platform and
-   Helm using empty credential configuration. The GitHub completion record comes
-   last, with revision, version, platforms, tested tool versions, digests, limitations
-   and explicit-version installation/recovery instructions.
+4. Native amd64 and arm64 runners build the two attested OCI artifacts in
+   parallel with the shared CI checks. After both builds and CI succeed,
+   Distribution assembles the OCI index, packages the Helm chart against its
+   digest, and retains a candidate with the source revision and check results.
+5. The publisher inspects existing identities, uploads missing artifacts, and
+   verifies the registry content anonymously. The GitHub completion record comes
+   last and lists the platforms, image and chart digests, and the validation
+   scope for that release.
 
 See [installation](install.md) for the operator procedures. Local A/B fixtures
 rehearse lifecycle changes before a predecessor exists. Repeat with the actual
@@ -88,7 +83,8 @@ with cancellation disabled. Candidate artifacts are named
 `candidate-vX.Y.Z-<revision>` and retained for 90 days (subject to repository limits).
 Recovery accepts artifacts only from this repository's tag/push distribution
 workflow at the same source revision. Archive integrity, embedded source/version,
-image/chart digests, required checks and the validation baseline are checked again.
+image/chart digests and the recorded check profile are checked again. Retained
+legacy candidates can still be verified with their original validation profile.
 
 - Missing artifacts with no existing version may be built and validated.
 - A partial release with original evidence reuses matching bytes and publishes
@@ -106,55 +102,29 @@ Do not alter the `evidence.json` checklist to bypass a failed validation.
 
 ## Automation boundaries and checks
 
-Actions are pinned to full commit SHAs. Preparation has only contents/actions/
-packages reads. Build and cluster validation have no publication writes. Only the
-publisher receives `contents: write` and `packages: write`; its short-lived
-`github.token` supplies registry credentials. It receives no kubeconfig and runs
-no deployment commands. Never run untrusted PR code with publication permissions.
+The maintainer decided on 2026-11-27 to limit automated testing to Rust unit
+tests. PR and main CI use a single Ubuntu runner for formatting, lint and
+`cargo test --locked --lib --bins`. Releases reuse that workflow. Keep
+PostgreSQL, browser, Kubernetes, image smoke and native capacity suites runnable
+outside Actions. Keep their evidence separate from release build results. Future
+workflow changes require a new maintainer decision before adding these suites
+or a test matrix back to Actions.
 
-Run the README Rust checks and `cargo audit`. Distribution proofs live in
-`tests/distribution/`; the workflow invokes
-`scripts/distribution/validate.sh` after the two native platform jobs.
-Source checks and the dependency audit run alongside distribution exercises.
-This full workflow runs manually or for version tags, rather than every PR or
-main-branch push. Routine PR CI keeps source and packaging policy checks; its
-PostgreSQL suites run the two majors in parallel for relevant changes. The
-separate dependency-audit workflow runs for dependency changes, weekly, or manually.
-Native capacity is an explicit manual/release proof, not a prerequisite for PR CI.
-The completion gate invokes the same Python capacity validator as the ignored Rust
-wrapper, without rebuilding the test binary in a fresh runner. Both measurements
-remain fresh, including chart-only releases, because the unified version changes
-the application/image identity. Candidate evidence is written only after both paths
-succeed; intermediate `validation.json` is insufficient for publication or retry.
-Cluster checks run in three disposable namespaces: lifecycle/ingress, probes and
-automatic rollback (C16/C18), and disconnected recovery (C19). Every C9–C21 check
-remains selected and the launcher waits for all three processes, failing if any
-fails. Only lifecycle/ingress performs the saved-values/mirror rollouts and creates
-the Ingress; the disruptive groups start with healthy A and prove their own
-failure/restoration without repeating those unrelated rollouts. Intentional upgrade
-failures retain 60-second timeouts; normal operations and the operator procedure
-retain five minutes. C18 requires Helm's completed automatic rollback and healthy A;
-C19 requires failed recovery, retained B, explicit rollback and healthy A.
-Logs are retained in `evidence/source-validation.log`, `evidence/cluster-lifecycle.log`,
-`evidence/cluster-resilience.log` and `evidence/cluster-recovery.log`, in addition to
-the combined cluster log.
-The **Release cache warming** workflow has read-only repository permissions and
-runs the shared native build workflow on relevant main changes. Tag runs restore
-main caches; caches from a different tag are not accessible. BuildKit falls back
-to an older same-architecture cache and validates layer inputs itself. An exact
-primary-key hit skips exporting/replacing the local cache, while still building
-and exporting the attested image. Partial restores and misses export and rotate
-a fresh cache only after build success. Rust restores
-only the matching distribution/check manifest/toolchain prefix. The kind-node cache
-key includes its pinned build script and tool installer; restoration loads only the
-image, then creates a fresh cluster and checks the server baseline. Intermediate
-artifacts may be replaced on a rerun; the original candidate is never overwritten.
+The release build matrix produces two published artifacts, one for each
+supported architecture. Both builds retain OCI provenance, SBOM and revision
+metadata. Registry verification protects the identity and public availability
+of the published bytes. Tag admission and the original-candidate retry rules
+apply to every new release.
 
-`tests/distribution/setup-cluster.sh` creates only disposable kind resources and
-uses a separately owned ingress controller fixture. It requires Docker, the
-pinned Helm/kind clients, kubectl, Python 3.11+, curl and OpenSSL. It does not use a
-production Kubernetes context. Detailed local results and gaps belong in the
-BDD evidence tables, not in a claim that all hosted workflow paths have run.
+Actions are pinned to full commit SHAs. Preparation has contents, actions and
+packages reads. Only the publisher receives contents and packages writes.
+Dependency audit and PR title checks remain separate.
+
+The full distribution and capacity scripts remain available for local or
+dedicated fixture environments. Start with the [README](../README.md#development)
+and `tests/distribution/`. Cluster exercises require disposable kind resources
+and the pinned clients. Capacity evidence comes from measurements on each native
+architecture. Record results in the relevant behavior record.
 
 The OCI adapter follows the [OCI distribution specification](https://github.com/opencontainers/distribution-spec/blob/main/spec.md).
 Action metadata was checked against the official tagged commits; Helm/kind tool

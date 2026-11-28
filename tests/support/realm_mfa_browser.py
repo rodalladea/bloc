@@ -80,7 +80,7 @@ ORDERED_STATE_REGIONS = {
         '#feedback.ui-notice[role=status]',
         'form[action$="/totp/start"] button[type=submit]',
         'a[href$="/webauthn/setup"]',
-        'form.settings-actions[action$="/mfa/cancel"] button[type=submit]',
+        '.settings-actions form[action$="/mfa/cancel"] button[type=submit]',
     ),
     'no-js': (
         '.heading [data-webauthn-intro]',
@@ -112,11 +112,11 @@ ORDERED_STATE_REGIONS = {
     ),
     'no-recovery': (
         '#feedback.ui-notice[role=status]',
-        'form.settings-actions[action$="/mfa/cancel"] button[type=submit]',
+        '.settings-actions form[action$="/mfa/cancel"] button[type=submit]',
     ),
     'disabled': (
         '.ui-notice[role=status]',
-        '.ui-table-scroll tbody a[href*="operation=factor_remove:"]',
+        '.factor-actions summary',
         '.settings-actions a[href$="/account/profile"]',
     ),
     'loading': (
@@ -607,6 +607,7 @@ def account_journey(browser):
     screen(page, 'account', 'Account security', ['.ui-badge', '.ui-table-scroll', '.actions', 'section.form-group'], ['10 unused codes remaining'], 'workspace')
     factor = sql(f"SELECT id::text FROM bloc.realm_user_factor WHERE revoked_at IS NULL AND user_id='{USER}'")
     display_epoch = sql(f"SELECT factor_epoch::text FROM bloc.realm_user_mfa_state WHERE user_id='{USER}'")
+    page.locator('.factor-actions summary').click()
     click(page, 'link', 'Rename')
     screen(page, 'label', 'Rename factor', ['[name=label]', 'button[type=submit]'], ['display name only'], 'workspace')
     page.locator('[name=label]').fill('Travel authenticator')
@@ -990,7 +991,15 @@ def webauthn_journey(browser, secret):
     # Repeated enhanced navigation preserves a single shell and one active content root.
     page.goto(BASE + '/account/security')
     for _ in range(3):
-        page.get_by_role('link', name='Rename', exact=True).first.click()
+        menu = page.locator('.factor-actions summary').first
+        menu.focus()
+        menu.press('Enter')
+        expect(page.get_by_role('link', name='Rename', exact=True)).to_be_visible()
+        menu.press('Escape')
+        expect(menu).to_be_focused()
+        expect(page.get_by_role('link', name='Rename', exact=True)).to_be_hidden()
+        menu.press('Enter')
+        page.get_by_role('link', name='Rename', exact=True).click()
         page.wait_for_url(BASE + '/account/security/factors/**/label')
         click(page, 'link', 'Cancel')
         page.wait_for_url(BASE + '/account/security')

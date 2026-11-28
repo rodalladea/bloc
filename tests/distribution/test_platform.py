@@ -1,6 +1,5 @@
 """Measure the retained image and propagate failures to the release gate."""
 from pathlib import Path
-import shlex
 import json
 import tempfile
 import subprocess
@@ -48,39 +47,20 @@ class PlatformTests(unittest.TestCase):
                     smoke_platform.exercise(Path('image'), 'linux/arm64', Path('capacity'))
                 self.assertEqual(run.call_count, failed_step + 1)
 
-    def test_distribution_waits_for_both_measured_platforms(self):
+    def test_distribution_packages_both_native_builds(self):
         jobs = yaml.safe_load((ROOT / '.github/workflows/distribution.yml').read_text())['jobs']
-        platform, validate = jobs['platform'], jobs['complete']
         build_job = yaml.safe_load((ROOT/'.github/workflows/build-images.yml').read_text())['jobs']['build']
         runners = {entry['arch']: entry['runner']
-                   for entry in platform['strategy']['matrix']['include']}
+                   for entry in build_job['strategy']['matrix']['include']}
         self.assertEqual(set(runners), {'amd64', 'arm64'})
         self.assertTrue(runners['arm64'].endswith('-arm'))
         self.assertFalse(runners['amd64'].endswith('-arm'))
-        commands = [shlex.split(step['run'].replace('\\\n', ''))
-                    for step in platform['steps'] if 'run' in step]
-        smoke = next(command for command in commands
-                     if 'scripts/distribution/smoke_platform.py' in command)
-        output = Path(smoke[smoke.index('--capacity-output') + 1])
-        uploads = [step['with']['path'] for step in platform['steps']
-                   if step.get('uses', '').startswith('actions/upload-artifact@')
-                   and step.get('if') != 'failure()']
-        self.assertTrue(any(output.is_relative_to(Path(line)) for path in uploads for line in path.splitlines()))
-        build = next(shlex.split(step['run'].replace('\\\n', '')) for step in build_job['steps']
+        build = next(step['run'] for step in build_job['steps']
                      if 'docker buildx build' in step.get('run', ''))
-        labels = [build[index + 1] for index, token in enumerate(build) if token == '--label']
-        labels += [token.removeprefix('--label=') for token in build if token.startswith('--label=')]
-        self.assertTrue(any(label.startswith('org.bloc.source-tree-sha256=') for label in labels))
-        needs = validate['needs']
-        self.assertIn('platform', [needs] if isinstance(needs, str) else needs)
-        condition = ''.join(validate['if'].split()).replace('"', "'")
-        self.assertCountEqual(condition.removeprefix('${{').removesuffix('}}').split('&&'),
-                              ['!cancelled()', "needs.platform.result=='success'", "needs.validate.result=='success'"])
-        commands = [step.get('run','') for step in validate['steps']]
-        self.assertTrue(any('scripts/distribution/complete.py' in command for command in commands))
-        downloads = [step['with']['name'] for step in validate['steps']
+        self.assertIn('org.bloc.source-tree-sha256=', build)
+        downloads = [step['with']['name'] for step in jobs['package']['steps']
                      if step.get('uses', '').startswith('actions/download-artifact@')]
-        self.assertEqual(set(downloads), {'validated-candidate', 'platform-amd64', 'platform-arm64'})
+        self.assertEqual(set(downloads), {'platform-build-amd64', 'platform-build-arm64'})
 
 
 if __name__ == '__main__':

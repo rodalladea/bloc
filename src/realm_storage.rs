@@ -543,6 +543,21 @@ impl Storage {
         self.realm_ready().await?;
         sqlx::query_scalar("SELECT bloc.mfa_totp_start($1::text::uuid,$2,$3,$4,$5::text::uuid,$6,$7::text::uuid,$8,$9,$10)").bind(p.realm).bind(p.bearer.as_slice()).bind(p.browser.as_slice()).bind(p.token.as_slice()).bind(p.payload).bind(p.envelope).bind(p.key).bind(p.generation).bind(p.new_bearer.as_slice()).bind(p.new_token.as_slice()).fetch_one(&self.pool).await.map_err(error)
     }
+    pub(crate) async fn realm_mfa_totp_account_email(
+        &self,
+        r: &str,
+        bearer: &[u8; 32],
+        browser: &[u8; 32],
+    ) -> Result<Option<String>, Error> {
+        self.realm_ready().await?;
+        sqlx::query_scalar("SELECT bloc.mfa_totp_account_email($1::text::uuid,$2,$3)")
+            .bind(r)
+            .bind(bearer.as_slice())
+            .bind(browser.as_slice())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(error)
+    }
     pub(crate) async fn realm_mfa_pending_totp(
         &self,
         r: &str,

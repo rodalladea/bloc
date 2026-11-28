@@ -1,0 +1,10 @@
+<div class="ui-field">
+  <label for="{{ code_id }}">{{ code_label }}</label>
+  <div class="ui-otp">
+    <div class="ui-otp-slots" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <input id="{{ code_id }}" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" pattern="[0-9]{6}" maxlength="6" required aria-describedby="{{ code_help_id }}">
+  </div>
+  <p class="ui-help" id="{{ code_help_id }}">{{ code_help }}</p>
+</div>

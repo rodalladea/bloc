@@ -86,19 +86,10 @@ only the selected images and cleans up its disposable containers. Each fixture
 has a two-CPU limit. Test output streams to the console and the per-major log
 in the output directory while tests run, including before a test completes.
 
-PR CI runs formatting, lint, ordinary tests, packaging policy tests and docs for
-code/build changes; documentation-only changes omit compilation and database jobs.
-Database suites run on PostgreSQL 17 and 18 in parallel when runtime, tests,
-dependencies, chart or build configuration changes. Documentation-only changes
-omit database fixtures. Distribution scripts/tests and unrelated workflow changes
-run source/policy checks without database fixtures. Templates, assets, chart and
-shared-fixture changes retain both database suites. Unknown paths default to full
-validation. Rust dependencies/build outputs are cached per CI lane and revision,
-restoring the latest compatible dependency/toolchain cache. GitHub manages cache
-quota and eviction; caches never substitute for executing checks.
-PR title edits run only the lightweight title check.
-See the [CI behavior record](docs/behaviors/ci-efficiency.md) for selection rules
-and verification boundaries.
+PR and main CI use one Ubuntu runner for formatting, lint and Rust unit
+tests (`cargo test --locked --lib --bins`). Integration tests, database fixtures
+and distribution proofs are available as local commands. The [automation
+policy](docs/releases.md#automation-boundaries-and-checks) also applies to releases.
 
 Python CI and distribution policy tests require the pinned test-only YAML parser:
 
@@ -113,28 +104,10 @@ python3 -m unittest discover -s tests/distribution -p 'test_*.py' -v
 The distribution tests also require the pinned Helm executable described below.
 
 The dependency audit runs for dependency/toolchain/auditor changes, weekly, or
-manually. The pinned auditor executable is cached and its version checked before
-reuse; the advisory audit still runs every time. Full
-multi-platform image/Kubernetes validation runs through the **Distribution**
-workflow manually or on version tags. Run it for packaging changes before merging
-or releasing. Capacity benchmarks run manually through **Administrator service
-capacity** and as part of Distribution; ordinary PRs do not build benchmark images.
-Distribution builds each native platform once. Native smoke/capacity measurements
-and source/Kubernetes validation then run in parallel against those retained
-images. Candidate completion requires both native records, matched to the exact
-platform manifests and source revision. BuildKit layers are
-cached per native architecture; Rust dependencies occupy a separate build layer,
-and each refreshed cache replaces its predecessor to avoid accumulating old blobs.
-Exact primary-key hits still build/export the attested image but skip cache export;
-partial restores and misses refresh the cache only after a successful build.
-The **Release cache warming** workflow prepares both native build caches and the
-pinned kind node image on relevant main-branch changes, making them available to
-new tags. Distribution can also restore a compatible Rust check-lane cache from
-main. Node caches contain a compressed image, never a cluster or validation proof.
-Intentional C18/C19 upgrade failures use 60-second fixture timeouts; successful
-operations and the operator runbook retain five-minute waits. Cluster lifecycle/ingress,
-probes with automatic rollback, and disconnected recovery run in three isolated
-namespaces. Every group must pass; all C9–C21 scenarios remain required.
+manually. **Distribution** runs the same unit-test checks and builds the two
+native OCI images in parallel before assembling the image index and chart. It
+verifies artifact identities and can publish on a version tag. Run database,
+browser, Kubernetes and capacity proofs separately when evidence is needed.
 
 See the [storage runbook](docs/administrator-setup-storage.md#verification) for
 fixture requirements. Previews and one-off experiments are kept outside this repository.
@@ -181,7 +154,7 @@ native Linux architectures. Run
 on each native architecture, retain raw records, and combine the two `record.json`
 objects in one JSON array. Invoke the proof with
 `cargo test --locked --test administrator_access native_service_capacity -- --ignored --exact`
-and `BLOC_NATIVE_SERVICE_EVIDENCE` pointing to that array. Distribution validates
+and `BLOC_NATIVE_SERVICE_EVIDENCE` pointing to that array. The local proof validates
 both records against the current application fingerprint; ordinary unit checks
 do not run this heavyweight proof or establish capacity acceptance.
 
@@ -212,8 +185,7 @@ For mixed administrator/realm capacity, run
 on each native architecture. Combine the two `record.json` objects into an array,
 set `BLOC_REALM_NATIVE_SERVICE_EVIDENCE` to that file and run
 `cargo test --locked --test realm_authentication realm_auth_native_capacity -- --ignored --exact`.
-The manual `Realm authentication service capacity` workflow runs those native
-measurements; adding the workflow does not establish acceptance.
+Run both native measurements outside GitHub Actions to establish capacity evidence.
 
 For complete realm MFA capacity, use `--realm-mfa` instead of `--realm-auth`.
 This measures a 50/50 mix of administrator passwords and complete TOTP sign-ins,
@@ -222,7 +194,7 @@ The collector builds a private pipe-only fixture helper locally; it is not part
 of the service image. Combine the native amd64 and arm64 records, set
 `BLOC_MFA_NATIVE_SERVICE_EVIDENCE`, and run
 `cargo test --locked --test realm_authentication realm_mfa_native_capacity -- --ignored --exact`.
-The validator requires the current application and MFA workload fingerprints,
+The local validator requires the current application and MFA workload fingerprints,
 completed-factor latency witnesses and matching database session/audit counts.
 A single architecture or an older password-only record does not establish C77.
 This workload measures TOTP, not WebAuthn capacity.

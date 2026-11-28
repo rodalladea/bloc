@@ -136,7 +136,9 @@ with sync_playwright() as pw:
                 assert sql(f"SELECT count(*) FROM bloc.realm_user_factor WHERE realm_id='{REALM}' AND revoked_at IS NULL")=='2'
                 assert sql(f"SELECT count(*) FROM bloc.realm_user_session WHERE realm_id='{REALM}' AND revoked_at IS NULL")=='1'
                 old_id=sql(f"SELECT id::text FROM bloc.realm_user_factor WHERE realm_id='{REALM}' AND label='Personal laptop'")
-                page.locator('tbody tr').filter(has_text='Personal laptop').get_by_role('link',name='Replace',exact=True).click()
+                row = page.locator('tbody tr').filter(has_text='Personal laptop')
+                row.locator('summary').click()
+                row.get_by_role('link', name='Replace', exact=True).click()
                 page.locator('[name=current_password]').fill('a synthetic password');page.get_by_role('button',name='Verify and continue',exact=True).click();page.wait_for_url(BASE+'/mfa')
                 page.goto(BASE+'/mfa/webauthn');page.get_by_role('button',name='Use passkey',exact=True).click();page.wait_for_url(BASE+'/account/security/continue')
                 page.get_by_role('link',name='Add a passkey or security key',exact=True).click()

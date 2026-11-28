@@ -70,7 +70,7 @@ and approved prerequisites remain part of the contract.
 
 ### TOTP factor
 
-- **realm-mfa-21** — Given Eligible enrollment, when the applicable totp factor action is exercised, then Generate candidate secret and encrypted pending state; the caller observes QR plus manual secret, visible only during authorized enrollment.
+- **realm-mfa-21** — Given Eligible enrollment, when the applicable totp factor action is exercised, then Generate candidate secret and encrypted pending state; the caller observes QR plus manual secret, visible only during authorized enrollment. The QR label uses the realm name as issuer and the enrolling user’s email as the account name (requester refinement). The label contract is checked by `mfa_totp_presentation_uses_realm_and_user_email` in `src/mfa/totp.rs`.
 - **realm-mfa-22** — Given Candidate not yet confirmed, when the applicable totp factor action is exercised, then Never treat as active protection; the caller observes Pending setup; cancel allowed.
 - **realm-mfa-23** — Given Correct confirmation, when the applicable totp factor action is exercised, then Atomically activate factor and consume its step; the caller observes Success; initial flow continues to recovery-code handoff.
 - **realm-mfa-24** — Given Incorrect/expired confirmation, when the applicable totp factor action is exercised, then No active factor and no extended deadline; the caller observes 422 or restart.
