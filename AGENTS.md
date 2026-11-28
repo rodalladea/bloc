@@ -35,6 +35,9 @@ Keep it concise; put detailed guidance in the linked documents.
   with `?file=<file-id>` for files within that share, and verify the current file
   ID through Drive. Never make a private artifact public without explicit
   authorization.
+- Keep GitHub Actions tests unit-only. Use one runner for CI and reuse its
+  checks in releases. Run integration, database, browser, cluster and capacity
+  scripts outside Actions. See the [automation decision](docs/releases.md#automation-boundaries-and-checks).
 - Follow [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
   [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 - Use Context7 MCP for current library, framework, SDK, API, CLI, and cloud-service

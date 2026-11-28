@@ -13,43 +13,19 @@ class EfficiencyTests(unittest.TestCase):
     def workflow(self, name):
         return yaml.safe_load((ROOT/f'.github/workflows/{name}.yml').read_text())
 
-    def test_cluster_validation_and_native_measurements_share_builds_without_waiting_for_each_other(self):
+    def test_release_builds_in_parallel_with_unit_checks(self):
         jobs = self.workflow('distribution')['jobs']
-        self.assertIn('build', jobs['platform']['needs'])
-        self.assertIn('build', jobs['validate']['needs'])
-        self.assertNotIn('platform', jobs['validate']['needs'])
-        self.assertNotIn('validate', jobs['platform']['needs'])
-        self.assertEqual(set(jobs['complete']['needs']), {'prepare', 'platform', 'validate'})
-        self.assertIn('needs.platform.result == \'success\'', jobs['complete']['if'])
-        self.assertIn('needs.validate.result == \'success\'', jobs['complete']['if'])
-        self.assertIn('complete', jobs['publish']['needs'])
-        self.assertIn("needs.complete.result == 'success'", jobs['publish']['if'])
+        self.assertEqual(set(jobs), {'prepare', 'check', 'build', 'package', 'publish'})
+        self.assertEqual(jobs['build']['needs'], 'prepare')
+        self.assertEqual(jobs['check']['needs'], 'prepare')
+        self.assertEqual(jobs['check']['uses'], './.github/workflows/ci.yml')
+        self.assertEqual(set(jobs['package']['needs']), {'prepare', 'build', 'check'})
+        self.assertIn("needs.package.result == 'success'", jobs['publish']['if'])
         self.assertIn("needs.prepare.outputs.reuse == 'true'", jobs['publish']['if'])
-        self.assertNotIn('reuse', jobs['complete']['if'])
-        original = next(s for s in jobs['complete']['steps']
+        original = next(s for s in jobs['package']['steps']
                         if s.get('uses','').startswith('actions/upload-artifact@'))
         self.assertEqual(original['with']['retention-days'],90)
         self.assertFalse(original['with'].get('overwrite',False))
-        for job in ('platform', 'validate'):
-            downloads = [s['with']['name'] for s in jobs[job]['steps']
-                         if s.get('uses', '').startswith('actions/download-artifact@')]
-            self.assertTrue(any('platform-build-' in name for name in downloads))
-
-    def test_main_warms_the_same_native_build_cache_as_releases(self):
-        jobs = self.workflow('distribution')['jobs']
-        warming = self.workflow('release-cache')
-        # PyYAML 1.1 treats the YAML key "on" as boolean true.
-        self.assertEqual(warming[True]['push']['branches'], ['main'])
-        self.assertNotIn('pull_request', warming[True])
-        self.assertEqual(jobs['build']['uses'], warming['jobs']['images']['uses'])
-        build = self.workflow('build-images')['jobs']['build']
-        self.assertEqual({row['arch'] for row in build['strategy']['matrix']['include']}, {'amd64', 'arm64'})
-        cache = next(s['with'] for s in build['steps'] if s.get('uses', '').startswith('actions/cache@'))
-        self.assertIn('runner.arch', cache['key'])
-        self.assertIn('github.sha', cache['key'])
-        self.assertEqual(cache['restore-keys'].splitlines()[-1],
-                         'buildkit-${{ runner.os }}-${{ runner.arch }}-')
-        self.assertNotIn('packages: write', (ROOT/'.github/workflows/release-cache.yml').read_text())
 
     def test_deliberate_failed_upgrades_use_one_minute_without_shortening_normal_operations(self):
         from cluster import failed_upgrade_arguments

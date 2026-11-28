@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble content-addressed release candidates from already tested platform images."""
+"""Assemble content-addressed release candidates from retained platform builds."""
 import argparse
 import json
 import os

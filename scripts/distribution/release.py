@@ -11,6 +11,7 @@ import tomllib
 
 from oci import Layout, Registry, digest, verify_image
 
+UNIT_CHECKS = {'format', 'lint', 'unit-tests'}
 REQUIRED = {'format','lint','test','documentation','audit','linux/amd64','linux/arm64','chart-schema','cluster'}
 
 
@@ -32,11 +33,24 @@ def admit(tag, revision, main='origin/main', root=Path('.')):
     return version
 
 
+def record_unit_candidate(bundle, revision, version):
+    from candidate import verify_chart
+
+    image = verify_image(Layout(bundle/'image'), revision)
+    chart = Layout(bundle/'chart')
+    verify_chart(chart, image, revision, version)
+    record = {'revision': revision, 'version': version, 'image': image,
+              'chart': chart.root()['digest'], 'helm': '4.3.1',
+              'passed': sorted(UNIT_CHECKS)}
+    (bundle/'evidence.json').write_text(json.dumps(record, indent=2)+'\n')
+
+
 def evidence(bundle, revision, version):
     record = json.loads((bundle/'evidence.json').read_text())
     if record['revision'] != revision or record['version'] != version:
         raise ValueError('original evidence source/version conflict; use a new version')
-    if set(record['passed']) != REQUIRED:
+    checks = set(record['passed'])
+    if checks not in (UNIT_CHECKS, REQUIRED):
         raise ValueError('required validation evidence missing; use a new version')
     image = Layout(bundle/'image')
     chart = Layout(bundle/'chart')
@@ -44,7 +58,7 @@ def evidence(bundle, revision, version):
         raise ValueError('original artifact digest conflict; use a new version')
     from candidate import verify_chart
     verify_chart(chart, record['image'], revision, version)
-    if record.get('helm') != '4.3.1' or record.get('kubernetes') != '1.36.5':
+    if record.get('helm') != '4.3.1' or (checks == REQUIRED and record.get('kubernetes') != '1.36.5'):
         raise ValueError('validation baseline disagreement')
     return record, image, chart
 
@@ -128,13 +142,17 @@ def changelog_notes(version, path):
 def notes(record, changelog=Path(__file__).resolve().parents[2]/'CHANGELOG.md'):
     version=record['version']
     changes=changelog_notes(version, changelog)
+    if set(record['passed']) == REQUIRED:
+        validation = f"Tested Helm: {record['helm']}; Kubernetes: {record['kubernetes']}"
+    else:
+        validation = f"Packaged with Helm {record['helm']}. Automated tests: Rust unit tests."
     return f'''{changes}
 
 ## Distribution
 
 Source revision: {record['revision']}
 Platforms: linux/amd64, linux/arm64
-Tested Helm: {record['helm']}; Kubernetes: {record['kubernetes']}
+{validation}
 Image: ghcr.io/rodalladea/bloc@{record['image']}
 Chart OCI digest: {record['chart']}
 
@@ -189,18 +207,21 @@ class GitHubCompletion:
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser()
-    parser.add_argument('action',choices=['admit','publish'])
+    parser.add_argument('action',choices=['admit','record','publish'])
     parser.add_argument('--tag',required=True)
     parser.add_argument('--revision',required=True)
     parser.add_argument('--bundle',type=Path,default=Path('candidate'))
     args=parser.parse_args()
     try:
+        if args.action=='record':
+            record_unit_candidate(args.bundle,args.revision,args.tag.removeprefix('v'))
+            sys.exit(0)
         version=admit(args.tag,args.revision)
         if args.action=='publish':
             record,image,chart=evidence(args.bundle,args.revision,version)
             token=os.environ['GH_TOKEN']
             actor=os.environ['GITHUB_ACTOR']
-            publish(record,image,chart,Registry('ghcr.io/rodalladea/bloc',token,actor),Registry('ghcr.io/rodalladea/charts/bloc',token,actor),Registry('ghcr.io/rodalladea/bloc'),Registry('ghcr.io/rodalladea/charts/bloc'),GitHubCompletion('rodalladea/bloc'),anonymous_consumption)
+            publish(record,image,chart,Registry('ghcr.io/rodalladea/bloc',token,actor),Registry('ghcr.io/rodalladea/charts/bloc',token,actor),Registry('ghcr.io/rodalladea/bloc'),Registry('ghcr.io/rodalladea/charts/bloc'),GitHubCompletion('rodalladea/bloc'))
     except Exception as error:
         print(f'Release incomplete: {error}. Preserve original artifacts and evidence; do not replace published versions.',file=sys.stderr)
         sys.exit(1)
