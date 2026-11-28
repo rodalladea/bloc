@@ -54,7 +54,11 @@ with sync_playwright() as pw:
     page.get_by_label('Current password', exact=True).fill(PASSWORD)
     page.get_by_role('button', name='Verify and continue', exact=True).click()
     page.wait_for_url(BASE + '/account/security/continue')
-    expect(page.get_by_role('button', name='Set up authenticator app', exact=True)).to_be_visible()
+    actions = page.locator('form .settings-actions')
+    expect(actions.get_by_role('button', name='Set up authenticator app', exact=True)).to_be_visible()
+    expect(actions.get_by_role('link', name='Back to account security', exact=True)).to_have_attribute(
+        'href', f'/realms/{REALM}/account/security'
+    )
     assert sql('SELECT count(*) FROM bloc.realm_user_factor') == '0'
     # The established forms also work when enhancement scripts are absent.
     plain = browser.new_context(java_script_enabled=False, viewport={'width': 390, 'height': 960})
@@ -73,6 +77,8 @@ with sync_playwright() as pw:
     nojs.goto(BASE + '/account/security')
     expect(nojs.get_by_text('Existing factors are retained but do not protect sign-in.', exact=False)).to_be_visible()
     assert nojs.get_by_role('link', name='Add passkey or security key', exact=True).count() == 0
+    nojs.locator('.factor-actions summary').click()
+    expect(nojs.get_by_role('link', name='Replace', exact=True)).to_have_count(0)
     nojs.get_by_role('link', name='Rename', exact=True).click()
     nojs.get_by_label('Factor name', exact=True).fill('Renamed laptop')
     nojs.get_by_role('button', name='Save name', exact=True).click()
@@ -85,6 +91,7 @@ with sync_playwright() as pw:
     nojs.get_by_role('button', name='Save preference', exact=True).click()
     nojs.wait_for_url(BASE + '/account/security')
     assert sql('SELECT factor_epoch FROM bloc.realm_user_mfa_state') == before
+    nojs.locator('.factor-actions summary').click()
     nojs.get_by_role('link', name='Remove', exact=True).click()
     nojs.get_by_label('Current password', exact=True).fill(PASSWORD)
     nojs.get_by_role('button', name='Verify and continue', exact=True).click()

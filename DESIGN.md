@@ -254,6 +254,17 @@ with 48px/40px desktop padding. Page headers have no bottom divider; tables stay
 6px vertical separation and workspace dropdowns fit the sidebar width. The workspace dropdown offers Create realm directly. Manage realms lives
 under Settings in the sidebar; the list retains its contextual creation action.
 
+Group secondary form actions with consistent spacing and use the shared secondary
+or ghost controls for standalone action links. For settings flows, use the same
+action footer for the primary action and its return link. Align footer actions
+to the end of the row and stack them at full width on narrow screens. Public
+access form submissions use full-width controls. Center sign-in and registration
+alternatives below the submit button, with explanatory text left-aligned.
+Show authenticator codes in six visual slots backed by one labeled input so
+paste, autofill, and keyboard editing work across the whole code. Keep the primary action next to
+the fields it submits. On the recovery-code handoff, put the replacement action
+and its warning in a separate block after the acknowledgement and primary action.
+
 ## Loading feedback
 
 Enhanced form submissions use a small neutral spinner inside the submitting

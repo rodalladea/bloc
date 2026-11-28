@@ -50,17 +50,13 @@ class ChangesTests(unittest.TestCase):
                                env={**os.environ, 'BASE': base, 'GITHUB_OUTPUT': str(output)}, check=True)
                 self.assertEqual(output.read_text(), 'check=true\nintegration=true\n')
 
-    def test_selection_failure_keeps_source_and_database_jobs_enabled(self):
+    def test_ci_runs_unit_tests_on_one_runner(self):
         jobs = yaml.safe_load((ROOT / '.github/workflows/ci.yml').read_text())['jobs']
-        for job, output in (('check', 'check'), ('setup-storage', 'integration')):
-            with self.subTest(job=job):
-                needs = jobs[job]['needs']
-                self.assertIn('changes', [needs] if isinstance(needs, str) else needs)
-                condition = ''.join(jobs[job]['if'].split()).replace('"', "'")
-                terms = condition.removeprefix('${{').removesuffix('}}').split('&&')
-                self.assertCountEqual(terms, [
-                    '!cancelled()', f"needs.changes.outputs.{output}!='false'"
-                ])
+        self.assertEqual(set(jobs), {'check'})
+        check = jobs['check']
+        self.assertNotIn('strategy', check)
+        tests = [step['run'] for step in check['steps'] if step.get('run', '').startswith('cargo test')]
+        self.assertEqual(tests, ['cargo test --locked --lib --bins'])
 
     def test_renaming_runtime_into_documentation_still_selects_database_checks(self):
         with tempfile.TemporaryDirectory() as temporary:

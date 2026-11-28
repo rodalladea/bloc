@@ -145,3 +145,46 @@
 
 .ui .ui-recovery-handoff .ui-recovery-ack { display:flex; align-items:center; justify-content:flex-start; gap:12px; }
 .ui .ui-recovery-handoff .ui-recovery-ack input { flex:none; }
+
+/* A native input handles editing, paste and autofill across all six slots. */
+.ui .ui-otp {
+  --otp-slot: clamp(34px, 10vw, 44px);
+  --otp-gap: 5px;
+  --otp-step: calc(var(--otp-slot) + var(--otp-gap));
+  position: relative;
+  width: calc(6 * var(--otp-step) - var(--otp-gap));
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: var(--ui-control-radius);
+}
+.ui .ui-otp-slots {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(6, var(--otp-slot));
+  gap: var(--otp-gap);
+  pointer-events: none;
+}
+.ui .ui-otp-slots > span {
+  border: 1px solid var(--ui-control-line);
+  border-radius: var(--ui-control-radius);
+  background: var(--ui-control-surface);
+}
+.ui .ui-otp > input {
+  position: relative;
+  width: calc(100% + var(--otp-step));
+  min-height: max(44px, var(--ui-input-height));
+  border: 0;
+  border-radius: 0;
+  padding: 0 0 0 calc((var(--otp-slot) - 1ch) / 2);
+  background: transparent;
+  font: 500 20px/1 var(--ui-mono);
+  letter-spacing: calc(var(--otp-step) - 1ch);
+}
+.ui .ui-otp:focus-within { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.ui .ui-otp > input:focus { outline: none; box-shadow: none; }
+@media (forced-colors: active) {
+  .ui .ui-otp { width: auto; }
+  .ui .ui-otp-slots { display: none; }
+  .ui .ui-otp > input { width: 100%; border: 1px solid CanvasText; border-radius: var(--ui-control-radius); padding-inline: 10px; letter-spacing: normal; }
+}

@@ -161,6 +161,15 @@ impl Storage {
                     sqlx::SqlStr::from_static(include_str!("../migrations/0009_mfa_recovery.sql")),
                     false,
                 ),
+                Migration::new(
+                    10,
+                    "totp_account_label".into(),
+                    MigrationType::Simple,
+                    sqlx::SqlStr::from_static(include_str!(
+                        "../migrations/0010_totp_account_label.sql"
+                    )),
+                    false,
+                ),
             ]
             .into(),
             ..Migrator::DEFAULT
