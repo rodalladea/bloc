@@ -38,21 +38,24 @@ pub(crate) fn accepted_step(
     }
     Ok(found)
 }
-pub(crate) fn presentation(
-    secret: &[u8],
-    realm: &str,
-    id: &str,
-) -> Result<(String, Vec<u8>), Error> {
-    let totp = Builder::new()
+fn presentation_totp(secret: &[u8], realm: &str, account: &str) -> Result<Totp, Error> {
+    Builder::new()
         .with_algorithm(Algorithm::SHA1)
         .with_digits(6)
         .with_skew(1)
         .with_step_duration(30)
         .with_secret(secret)
-        .with_issuer(Some(format!("bloc {id}")))
-        .with_account_name(realm.replace(':', " — "))
+        .with_issuer(Some(realm.replace(':', " — ")))
+        .with_account_name(account)
         .build()
-        .map_err(|_| Error)?;
+        .map_err(|_| Error)
+}
+pub(crate) fn presentation(
+    secret: &[u8],
+    realm: &str,
+    account: &str,
+) -> Result<(String, Vec<u8>), Error> {
+    let totp = presentation_totp(secret, realm, account)?;
     Ok((
         totp.secret().to_base32(),
         totp.to_qr_png().map_err(|_| Error)?,
@@ -61,6 +64,22 @@ pub(crate) fn presentation(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn mfa_totp_presentation_uses_realm_and_user_email() {
+        let secret = b"12345678901234567890";
+        for (realm, expected_issuer) in [
+            ("Example Realm", "Example Realm"),
+            ("Example:Lab", "Example — Lab"),
+        ] {
+            let email = "user+test@example.test";
+            let totp = presentation_totp(secret, realm, email).unwrap();
+            let parsed = Totp::from_url(totp.to_url().unwrap()).unwrap();
+            assert_eq!(parsed.issuer(), Some(expected_issuer));
+            assert_eq!(parsed.account_name(), email);
+            assert_eq!(parsed.generate(59).to_string(), "287082");
+        }
+    }
+
     #[test]
     fn mfa_totp_fixed_profile() {
         let secret = b"12345678901234567890";

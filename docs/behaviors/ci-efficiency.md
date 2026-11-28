@@ -1,6 +1,10 @@
 # CI build efficiency
 
-Status: agreed
+The [2026-11-27 automation decision](../releases.md#automation-boundaries-and-checks)
+supersedes the automated integration and capacity scheduling described in this
+record. The retained scripts can still be run outside GitHub Actions.
+
+Status: superseded for workflow scheduling
 
 ## Problem and scope
 

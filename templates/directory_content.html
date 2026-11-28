@@ -69,7 +69,7 @@
 {% if p.user && !p.create %}<div class="field ui-field"><label><input type="checkbox" name="email_confirmed" value="true"> Confirm email change: end current sessions and access links. The new address remains unverified.</label></div>{% endif %}
 <div class="actions">
 <button type="submit" data-pending-label="{% if p.create %}{% if p.user %}Creating user…{% else %}Creating realm…{% endif %}{% else %}Saving changes…{% endif %}">{% if p.create %}{% if p.user %}Create user{% else %}Create realm{% endif %}{% else %}Save changes{% endif %}</button>
-<a href="{% if p.create %}{{ p.list_path }}{% else %}{{ p.detail_path }}{% endif %}">Cancel</a>
+<a class="ui-button ui-button--secondary" href="{% if p.create %}{{ p.list_path }}{% else %}{{ p.detail_path }}{% endif %}">Cancel</a>
 </div>
 <p class="working ui-sr-only" role="status" hidden>Saving… Wait for a result before submitting again.</p>
 </form>
@@ -84,7 +84,7 @@
 <input type="hidden" name="status" value="{{ p.status }}">
 <div class="actions">
 <button type="submit" data-pending-label="{% if p.status == "active" %}Reactivating…{% else %}Suspending…{% endif %}">{% if p.status == "active" %}Reactivate{% else %}Suspend{% endif %} {% if p.user %}user{% else %}realm{% endif %}</button>
-<a href="{{ p.detail_path }}?cancel=1" hx-get="{{ p.detail_path }}?cancel=1">Cancel</a>
+<a class="ui-button ui-button--secondary" href="{{ p.detail_path }}?cancel=1" hx-get="{{ p.detail_path }}?cancel=1">Cancel</a>
 </div>
 <p class="working ui-sr-only" role="status" hidden>Saving… Wait for a result before submitting again.</p>
 </form>{% else %}<h2>{% if p.user %}User status{% else %}Realm status{% endif %}</h2>

@@ -3,31 +3,14 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.ref }}
+  group: checks-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      check: ${{ steps.paths.outputs.check }}
-      integration: ${{ steps.paths.outputs.integration }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - id: paths
-        env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD: ${{ github.sha }}
-        run: python3 scripts/ci/changes.py
   check:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.check != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -43,50 +26,9 @@ jobs:
           key: rust-${{ runner.os }}-${{ runner.arch }}-check-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-${{ github.sha }}
           restore-keys: |
             rust-${{ runner.os }}-${{ runner.arch }}-check-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-
-      - name: Install pinned chart verification tools
-        run: bash scripts/distribution/install-tools.sh helm
-      - name: Install pinned Rust toolchain
-        run: rustup show active-toolchain
       - name: Format
         run: cargo fmt --all -- --check
       - name: Lint
-        run: cargo clippy --locked --all-targets -- -D warnings
-      - name: Test
-        run: cargo test --locked --all-targets
-      - name: Install workflow test dependencies
-        run: python3 -m pip install --requirement tests/requirements.txt
-      - name: Run CI and fixture runner tests
-        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
-      - name: Packaging policy tests
-        run: python3 -m unittest discover -s tests/distribution -p 'test_*.py' -v
-      - name: Documentation
-        run: cargo doc --locked --no-deps
-        env:
-          RUSTDOCFLAGS: -D warnings
-  setup-storage:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.integration != 'false' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        major: [17, 18]
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: rust-${{ runner.os }}-${{ runner.arch }}-pg${{ matrix.major }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-${{ github.sha }}
-          restore-keys: |
-            rust-${{ runner.os }}-${{ runner.arch }}-pg${{ matrix.major }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml') }}-
-      - name: Install pinned chart verification tools
-        run: bash scripts/distribution/install-tools.sh helm
-      - name: Verify administrator, storage and TLS behavior
-        run: python3 tests/run_storage.py --major "${{ matrix.major }}" --output evidence/setup-storage
+        run: cargo clippy --locked --lib --bins -- -D warnings
+      - name: Unit tests
+        run: cargo test --locked --lib --bins

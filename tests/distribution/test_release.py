@@ -88,10 +88,11 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotIn('pull_request:', workflow)
         self.assertIn('workflow_dispatch:', workflow)
         self.assertIn("github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')", workflow)
-        validate = workflow.split('  validate:')[1].split('  publish:')[0]
-        self.assertNotIn('packages: write', validate)
-        self.assertNotIn('contents: write', validate)
-        self.assertIn('scripts/distribution/validate.sh', validate)
+        package = workflow.split('  package:')[1].split('  publish:')[0]
+        self.assertNotIn('packages: write', package)
+        self.assertNotIn('contents: write', package)
+        self.assertIn('scripts/distribution/release.py record', package)
+        self.assertNotIn('scripts/distribution/validate.sh', workflow)
 
     def test_c23_admission_rejects_invalid_versions_and_ancestry(self):
         (self.root/'charts/bloc').mkdir(parents=True)
@@ -114,12 +115,25 @@ class ReleaseTests(unittest.TestCase):
     def test_c24_each_required_failure_blocks_evidence(self):
         self.assertEqual(release.REQUIRED, {'format','lint','test','documentation','audit',
             'linux/amd64','linux/arm64','chart-schema','cluster'})
-        for check in release.REQUIRED:
-            record = dict(self.record, passed=sorted(release.REQUIRED-{check}))
-            (self.root/'evidence.json').write_text(json.dumps(record))
-            with self.subTest(check=check), self.assertRaisesRegex(ValueError,'validation evidence'):
-                release.evidence(self.root,'a'*40,'0.0.1')
-        self.assertIn('needs: [prepare, complete]', self.workflow())
+        for checks in (release.REQUIRED, release.UNIT_CHECKS):
+            for check in checks:
+                record = dict(self.record, passed=sorted(checks-{check}))
+                (self.root/'evidence.json').write_text(json.dumps(record))
+                with self.subTest(check=check), self.assertRaisesRegex(ValueError,'validation evidence'):
+                    release.evidence(self.root,'a'*40,'0.0.1')
+        self.assertIn('needs: [prepare, package]', self.workflow())
+
+    def test_unit_candidate_records_only_checks_run_by_the_workflow(self):
+        revision, version = self.record['revision'], self.record['version']
+        with patch('release.Layout', side_effect=[self.image, self.chart] * 2), \
+                patch('release.verify_image', return_value=self.record['image']), \
+                patch('candidate.verify_chart') as verify_chart:
+            release.record_unit_candidate(self.root, revision, version)
+            record, image, chart = release.evidence(self.root, revision, version)
+        self.assertEqual(set(record['passed']), {'format', 'lint', 'unit-tests'})
+        self.assertNotIn('kubernetes', record)
+        self.assertEqual((image, chart), (self.image, self.chart))
+        self.assertEqual(verify_chart.call_count, 2)
 
     def test_c25_unified_version_and_packaged_digest(self):
         import tomllib
