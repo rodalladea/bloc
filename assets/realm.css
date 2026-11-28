@@ -9,7 +9,7 @@
 .check-row input{width:20px;min-height:20px;flex:none;accent-color:var(--ink)}
 .check-row label{font-weight:500}.check-row .ui-help{margin:4px 0 0}
 .two-inputs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
-.setting-control{min-width:0}.settings-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:24px}
+.setting-control{min-width:0}.settings-actions{display:flex;align-items:center;justify-content:flex-end;gap:16px;flex-wrap:wrap;margin-top:24px}
 .inline-confirm{margin:24px 0;padding:24px;border:1px solid var(--hairline);border-radius:var(--ui-radius)}
 .info-grid{padding:20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.info-grid dt,.info-grid dd{margin:0}
 .readonly{padding:12px 0;overflow-wrap:anywhere}.below{margin-top:20px}
@@ -21,10 +21,12 @@
 .readonly { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:5px 0; }
 .inline-confirm h2 { margin-bottom:12px; }
 .inline-confirm form { margin-top:24px; }
-.ui .inline-confirm form > .actions { margin-top:24px; padding:0; justify-content:flex-start; }
+.ui .inline-confirm form > .actions { margin-top:24px; padding:0; justify-content:flex-end; }
 .inline-confirm dl { margin-bottom:20px; }
 .access-link-field { margin-bottom:24px; }
 .settings-actions { border-top:1px solid var(--hairline); padding-top:20px; }
+.settings-actions--plain { border-top:0; padding-top:0; }
+.ui-setup-secret + form { margin-top:24px; }
 .ui .settings-actions > .ui-help { margin:0; }
 @media(min-width:1000px) { .form-group .ui-field--row > .readonly-label { grid-column:1; grid-row:1; margin:0; } }
 @media(max-width:639px) {
@@ -32,3 +34,36 @@
   .settings-actions > button,.settings-actions > .ui-button { width:100%; }
   .inline-confirm { padding:20px; }
 }
+
+.form-alternatives { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px 12px; margin-top:16px; }
+.form-alternatives > p { flex-basis:100%; }
+.access-page :is(.form-alternatives, .settings-actions) > .ui-button { font-size:16px; }
+@media (max-width:639px) {
+  .form-alternatives { flex-direction:column; align-items:stretch; }
+  .settings-actions > form > button { width:100%; }
+}
+
+.form-alternatives--centered { flex-direction:row; align-items:center; justify-content:center; margin-bottom:16px; }
+
+.ui-recovery-handoff > .actions { margin-top:16px; }
+.recovery-replacement { margin-top:24px; padding-top:20px; border-top:1px solid var(--hairline); }
+.ui .recovery-replacement > .ui-help { margin:0 0 12px; }
+.recovery-replacement > .form-alternatives { margin-top:0; }
+
+.factor-table th:last-child, .factor-table .factor-actions { width:7rem; text-align:right; }
+.factor-table .factor-actions { vertical-align:top; }
+.factor-actions summary { list-style:none; min-width:var(--ui-button-height); }
+.factor-actions summary svg { fill:currentColor; }
+.factor-actions summary::-webkit-details-marker { display:none; }
+.factor-actions-options {
+  display:grid; gap:4px; margin-top:8px; padding:4px;
+  border:1px solid var(--hairline); border-radius:var(--ui-radius); background:var(--canvas);
+}
+.factor-actions-options > a { justify-content:flex-start; }
+.factor-table th:nth-child(2) { white-space:normal; }
+.factor-table td:first-child { overflow-wrap:anywhere; }
+@media (max-width:639px) {
+  .factor-table :is(th, td) { padding-inline:10px; }
+}
+
+.security-group-actions { justify-content:flex-end; padding:16px 20px; }

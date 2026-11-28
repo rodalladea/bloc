@@ -138,7 +138,7 @@ def main():
                 assert live["legacy"]["status"] == live["current"]["status"] == 200
                 assert sql("SELECT version||':'||encode(checksum,'hex') FROM public._sqlx_migrations WHERE version<=4 ORDER BY version") == before_checksums
                 assert sql("SELECT count(*) FROM bloc.security_audit_event WHERE action='code_issue' AND realm_id IS NULL AND realm_user_id IS NULL") == "1"
-                assert sql("SELECT string_agg(version::text,',' ORDER BY version) FROM public._sqlx_migrations") == "1,2,3,4,5,6,7,8,9"
+                assert sql("SELECT string_agg(version::text,',' ORDER BY version) FROM public._sqlx_migrations") == "1,2,3,4,5,6,7,8,9,10"
                 assert sql("SELECT row_to_json(r)::text FROM bloc.realm r UNION ALL SELECT row_to_json(u)::text FROM bloc.realm_user u") == directory_before
                 assert sql("SELECT count(*) FROM bloc.realm_user_credential") == "0"
                 assert sql("SELECT count(*) FROM bloc.realm_authentication_settings WHERE NOT registration_enabled AND password_min_length=16 AND NOT require_uppercase AND NOT require_lowercase AND NOT require_number AND NOT require_special AND activation_ttl_seconds=86400 AND reset_ttl_seconds=1800 AND session_idle_seconds=1800 AND session_absolute_seconds=43200 AND session_limit=10") == "1"
