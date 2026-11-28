@@ -5,6 +5,20 @@ Versioning; pre-1.0 APIs and configuration may change between minor releases.
 
 ## Unreleased
 
+## 0.7.1 - 2026-11-27
+
+### Fixed
+
+- Improve the layout of realm sign-in and security settings, including the
+  factor actions menu and six-digit authenticator code entry.
+- Label new authenticator entries with the realm name and account email.
+
+### Changed
+
+- Run Rust unit tests in CI and releases. Run integration and capacity suites
+  separately when needed.
+- Update url to 2.5.9, uuid to 1.29.3, and zeroize to 1.9.2.
+
 ## 0.7.0 - 2026-11-20
 
 ### Added
